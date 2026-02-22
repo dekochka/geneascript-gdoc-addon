@@ -9,13 +9,21 @@ var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 
 /**
+ * Runs when the add-on is installed (e.g. via Test deployment). Creates the menu in FULL auth mode.
+ */
+function onInstall(e) {
+  onOpen(e);
+}
+
+/**
  * Runs when the document is opened. Adds a custom menu.
+ * Uses createMenu() for a top-level menu (Metric Book Transcriber) next to Help for reliable visibility.
  * When run from the script editor (no document UI), getUi() throws; we catch and skip.
  */
-function onOpen() {
+function onOpen(e) {
   try {
     DocumentApp.getUi()
-      .createAddonMenu()
+      .createMenu('Metric Book Transcriber')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addToUi();
     Logger.log('onOpen: menu added.');
@@ -91,11 +99,12 @@ function transcribeSelectedImage() {
   }
   Logger.log('transcribeSelectedImage: transcription length=' + transcription.length);
 
-  var paragraphContainingImage = inlineImage.getParent();
-  if (paragraphContainingImage.getType() !== DocumentApp.ElementType.PARAGRAPH) {
-    paragraphContainingImage = paragraphContainingImage.getParent();
+  var elementContainingImage = inlineImage.getParent();
+  while (elementContainingImage.getType() !== DocumentApp.ElementType.PARAGRAPH &&
+         elementContainingImage.getType() !== DocumentApp.ElementType.LIST_ITEM) {
+    elementContainingImage = elementContainingImage.getParent();
   }
-  insertTranscriptionAfter(doc, paragraphContainingImage, transcription);
+  insertTranscriptionAfter(doc, elementContainingImage, transcription);
   Logger.log('transcribeSelectedImage: done');
   ui.alert('Done', 'Transcription inserted below the image.', ui.ButtonSet.OK);
 }
@@ -214,27 +223,34 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
 }
 
 /**
- * Inserts the transcription text in a new paragraph immediately after the given paragraph.
+ * Inserts the transcription text in a new paragraph immediately after the element that contains the selected image.
+ * The element may be a Paragraph or ListItem; we find the body-level ancestor and insert after it.
  */
-function insertTranscriptionAfter(doc, paragraphAfterWhich, text) {
+function insertTranscriptionAfter(doc, elementContainingImage, text) {
   Logger.log('insertTranscriptionAfter: start, text length=' + (text ? text.length : 0));
   var body = doc.getBody();
+  var child = elementContainingImage;
+  while (child.getParent() && child.getParent() !== body) {
+    child = child.getParent();
+  }
+  if (child.getParent() !== body) {
+    Logger.log('insertTranscriptionAfter: element not under body, appending');
+    body.appendParagraph(text);
+    return;
+  }
   var numChildren = body.getNumChildren();
   var insertIndex = -1;
-
   for (var i = 0; i < numChildren; i++) {
-    if (body.getChild(i) === paragraphAfterWhich) {
+    if (body.getChild(i) === child) {
       insertIndex = i;
       break;
     }
   }
-
   if (insertIndex < 0) {
-    Logger.log('insertTranscriptionAfter: paragraph not found in body, appending');
+    Logger.log('insertTranscriptionAfter: body child not found, appending');
     body.appendParagraph(text);
     return;
   }
-
   Logger.log('insertTranscriptionAfter: insertIndex=' + insertIndex + ', inserting at ' + (insertIndex + 1));
   body.insertParagraph(insertIndex + 1, text);
   Logger.log('insertTranscriptionAfter: done');

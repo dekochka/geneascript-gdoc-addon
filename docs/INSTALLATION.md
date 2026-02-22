@@ -14,18 +14,19 @@ This add-on runs in Google Docs and uses the Google AI (Gemini) API to transcrib
 
 Use this option if your script lives in a **standalone** Apps Script project (e.g. created at [script.google.com](https://script.google.com)). You run it in the context of a document via **Test deployments**.
 
+**Important:** Test deployments must use the **Editor add-on** type and have a **test document** selected. Without this, the add-on menu will not appear in the document.
+
 1. **Open your standalone project** in the Apps Script editor.
-2. Ensure the manifest declares the add-on: **Project Settings** (gear) → enable **Show "appsscript.json" manifest file in editor**, open `appsscript.json`, and confirm it includes an **`addOns`** block with `common.name` and `docs` (see `addon/appsscript.json` in this repo). Save if you change it.
+2. Ensure `appsscript.json` matches the repo (no `addOns` block; includes `script.container.ui` scope). See `addon/appsscript.json`.
 3. **Create a test deployment:**
    - **Deploy** → **Test deployments**.
-   - **Save test** (or **Create new test**).
-   - Under **Test document**, choose the Google Doc you want to use (or create one and select it). Click **Insert**.
-   - In **Config**, set the initial authorization state (e.g. **Installed and enabled**).
-   - Choose **Latest code** (or a specific version).
-   - Next to **Select type**, click **Enable deployment types** and check **Editor add-on**.
-   - **Create new test** or **Add test**.
-4. **Run the test:** Under **Saved Tests**, select the test and click **Execute**. The test document opens with the add-on available.
-5. In the document: **Extensions** (or **Add-ons**) → **Metric Book Transcriber** → **Transcribe Image**. Authorize when prompted.
+   - Under **Select type**, choose **Editor add-on** (not "Google Workspace add-on").
+   - In **Configuration**, click **+ Add test**.
+   - Select your **test document** (the Google Doc you will use; create one if needed).
+   - Set **Version** to **Latest code** (and **Enabled** as needed).
+   - Save. (See `docs/TestDeployments_popup.jpg` for reference if available.)
+4. **Run the test:** In the Test deployments dialog, select your saved test and click **Execute**. The test document opens with the add-on available.
+5. In the document you should see the **Metric Book Transcriber** menu in the menu bar. Use **Metric Book Transcriber** → **Transcribe Image**. Authorize when prompted.
 6. Set the API key in this script project: **Project Settings** → **Script properties** → add `GEMINI_API_KEY` with your key.
 
 The add-on runs in the context of the test document. To test with the latest code, keep **Latest code** in the test and refresh the document after saving changes.
