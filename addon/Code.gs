@@ -120,9 +120,21 @@ function ensureContextBlock(doc) {
 }
 
 /**
- * Appends a paragraph: "Source Image Link" (bold): [file name as link to Drive file].
+ * Returns the file name without extension (e.g. "631-12-33_0003" from "631-12-33_0003.jpg").
  */
-function appendSourceImageLink(body, file) {
+function getFileNameWithoutExtension(file) {
+  var name = file.getName();
+  var lastDot = name.lastIndexOf('.');
+  return lastDot > 0 ? name.substring(0, lastDot) : name;
+}
+
+/**
+ * Appends a paragraph with the image name (no extension), then "Source Image Link" (bold): [file name as link].
+ */
+function appendImageNameAndSourceLink(body, file) {
+  var paragraphName = getFileNameWithoutExtension(file);
+  var namePara = body.appendParagraph(paragraphName);
+  namePara.setHeading(DocumentApp.ParagraphHeading.HEADING2);
   var label = 'Source Image Link';
   var prefix = label + ': ';
   var fileName = file.getName();
@@ -188,7 +200,7 @@ function importFromDriveFolder() {
         Logger.log('importFromDriveFolder: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
       })();
       // #endregion
-      appendSourceImageLink(body, file);
+      appendImageNameAndSourceLink(body, file);
       var inlineImage = body.appendImage(blob);
       var w = inlineImage.getWidth();
       var h = inlineImage.getHeight();
