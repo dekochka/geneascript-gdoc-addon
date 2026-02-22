@@ -1,20 +1,47 @@
 # Metric Book Transcriber Add-On
 
-A Google Docs add-on that transcribes images of metric books (birth, marriage, and death registers) using the **Google AI (Gemini)** API. You add a **Context** section to your document, select an image, and the add-on inserts a structured transcription **directly below the selected image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
+A Google Docs add-on that helps transcribe images of metric books (birth, marriage, and death registers) using the **Google AI (Gemini)** API. You can **import scan images from a Google Drive folder** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts a structured transcription **directly below the selected image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
 
 ## Overview
 
+```mermaid
+flowchart LR
+  subgraph doc [Google Doc]
+    OpenDoc[Open document]
+    ContextImages[Context + images in doc]
+    SelectImage[Select one image]
+    Transcription[Transcription below image]
+  end
+  subgraph addon [Add-on]
+    ImportMenu["Import Book from Drive Folder"]
+    TranscribeMenu["Transcribe Image"]
+  end
+  subgraph external [External]
+    DriveFolder[Drive folder URL]
+    Gemini[Gemini API]
+  end
+  OpenDoc --> ImportMenu
+  ImportMenu --> DriveFolder
+  DriveFolder --> ContextImages
+  ContextImages --> SelectImage
+  SelectImage --> TranscribeMenu
+  TranscribeMenu --> Gemini
+  Gemini --> Transcription
+```
+
 - **Where it runs:** Google Docs (as an Editor add-on via Test deployments, or as a container-bound script).
-- **What it does:** Sends the selected metric book image plus document context to Gemini, then inserts the transcription under that image. Output includes page header metadata, per-record fields (address, name, parents, godparents/witnesses, notes), language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
-- **Requirements:** A Google AI (Gemini) API key stored in the script’s **Script properties** (`GEMINI_API_KEY`).
+- **Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Folder** prompts for a Drive folder URL, then adds a **Context** section (with a sample template), imports images from the folder (JPEG, PNG, WebP) in sorted order with a heading and source link above each image, and inserts page breaks. This prepares the document so you can transcribe images one by one.
+- **Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document’s Context to Gemini and inserts the transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
+- **Requirements:** A Google AI (Gemini) API key in **Script properties** (`GEMINI_API_KEY`). Drive folder import requires access to the folder (you own it or it’s shared with you).
 
 ## Documentation
 
-- **[User Guide](docs/USER_GUIDE.md)** — Document structure (Context + images), how to transcribe step-by-step, output format, tips, and troubleshooting.
+- **[User Guide](docs/USER_GUIDE.md)** — Import from Drive, document structure (Context + images), how to transcribe step-by-step, output format, tips, and troubleshooting.
 - **[Installation](docs/INSTALLATION.md)** — Prerequisites, API key, and installation options (Editor add-on test deployment, container-bound script, or deploy from repo with clasp).
 
 ## Repo layout
 
-- `**addon/`** — Apps Script source: `Code.gs`, `Prompt.gs`, `appsscript.json`.
-- `**docs/**` — User guide, installation, design; screenshots (Step1–Step4) for the guide.
+- **`addon/`** — Apps Script source: `Code.gs`, `ContextTemplate.gs`, `Prompt.gs`, `appsscript.json`.
+- **`docs/`** — User guide, installation, design; screenshots (Step1–Step4) for the guide.
+- **`project/`** — Specs (SPEC.md, SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md).
 

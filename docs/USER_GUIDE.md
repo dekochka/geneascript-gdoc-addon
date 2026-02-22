@@ -1,8 +1,32 @@
 # User Guide — Metric Book Transcriber Add-On
 
-This add-on transcribes images of metric books (birth, marriage, death registers) using Google AI (Gemini). You provide context in the document, select an image, and the add-on inserts the transcription **directly below the selected image** with clear formatting.
+This add-on helps you transcribe images of metric books (birth, marriage, death registers) using Google AI (Gemini). You can **import scan images from a Google Drive folder** into a new document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
 
-## Document structure
+## Workflow
+
+1. **Build the document** — Either use **Import Book from Drive Folder** (recommended) or add Context and images manually.
+2. **Transcribe** — Select one image at a time and run **Transcribe Image**.
+
+---
+
+## Import Book from Drive Folder (recommended)
+
+Use this to create a document with a Context section and all scan images from a folder in one go.
+
+1. Open a **new or existing** Google Doc.
+2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Folder**.
+3. When prompted, paste the **Google Drive folder URL** (or folder ID) that contains your metric book scans. You can copy the URL from the address bar when the folder is open in Drive (e.g. `https://drive.google.com/drive/folders/...`).
+4. Click **OK**. The add-on will:
+   - Add a **Context** section at the top (with a sample template you can edit: archive name, reference, villages, common surnames, etc.).
+   - Import images from the folder (JPEG, PNG, WebP only), in alphabetical order, up to 30 by default.
+   - For each image: insert a **heading** with the image name (no extension), a **Source Image Link** line (clickable link to the file in Drive), then the image, then a page break.
+5. When the import finishes, you'll see how many images were added. You can now run **Transcribe Image** on any of them (see below).
+
+**Notes:** The folder must be one you own or that's shared with you. Very large images may be skipped (the add-on reports how many were skipped). Edit the Context block with your actual archive and locality details before transcribing for best results.
+
+---
+
+## Document structure (if you build the doc manually)
 
 ![Set document context — Context section and sample metric book image](Step1_setDocumentContext.jpg)
 
@@ -61,6 +85,10 @@ Blank lines separate records for readability. You can edit any of this text in t
 | Issue | What to do |
 |-------|------------|
 | **“Please select a single image”** | Click on one metric book image so it is selected, then run **Transcribe Image** again. |
+| **Invalid Drive Folder link** | Paste the full folder URL from the Drive address bar (e.g. `https://drive.google.com/drive/folders/...`) or the folder ID. Use a **folder** link, not a file. |
+| **Cannot access folder** | The folder must be owned by you or shared with you. If you added Drive access recently, re-authorize (revoke the app in Google Account → Third-party apps, then run Import again). |
+| **No images found in this folder** | Only JPEG, PNG, and WebP are imported. Add at least one image in one of these formats. |
+| **Some images skipped** | Very large images may be skipped; the add-on reports how many. Resize or re-export large scans if needed. |
 | **“Please set your Google AI API key”** | In the script editor: **Project Settings** → **Script properties** → add `GEMINI_API_KEY` with your key. See [INSTALLATION.md](INSTALLATION.md). |
 | **Request failed / API error** | Check that your API key is valid and that the Generative Language API is enabled. If you see a quota or billing message, check your Google AI or Cloud project settings. |
 | **Timeout** | The add-on waits up to about 60 seconds. If the request times out, try again or use a smaller/simpler image. |
