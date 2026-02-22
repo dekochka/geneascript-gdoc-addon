@@ -7,6 +7,8 @@ var MODEL_ID = 'gemini-3-flash-preview';
 var API_KEY_PROPERTY = 'GEMINI_API_KEY';
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
+var MAX_IMPORT_IMAGES = 30;
+var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * Runs when the add-on is installed (e.g. via Test deployment). Creates the menu in FULL auth mode.
@@ -25,11 +27,196 @@ function onOpen(e) {
     DocumentApp.getUi()
       .createMenu('Metric Book Transcriber')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
+      .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
       .addToUi();
     Logger.log('onOpen: menu added.');
   } catch (e) {
     Logger.log('onOpen: skipped menu (no UI context, e.g. run from script editor). ' + e.message);
   }
+}
+
+/**
+ * Extracts Google Drive folder ID from a full URL or raw ID. Returns null if invalid.
+ * Handles URLs like https://drive.google.com/drive/folders/ID or ?id=ID.
+ */
+function extractFolderId(urlOrId) {
+  if (!urlOrId || typeof urlOrId !== 'string') return null;
+  var input = urlOrId.trim();
+  if (input.length === 0) return null;
+  var idPattern = /[-\w]{25,}/;
+  var match = input.match(idPattern);
+  return match ? match[0] : null;
+}
+
+/**
+ * Natural sort: splits filenames into digit/non-digit segments and compares numerically for digit parts.
+ * Ensures image_2.jpg comes before image_10.jpg.
+ */
+function naturalSortFiles(filesArray) {
+  function tokenize(name) {
+    var tokens = [];
+    var segment = '';
+    var i = 0;
+    while (i < name.length) {
+      if (/\d/.test(name[i])) {
+        if (segment.length) {
+          tokens.push(segment);
+          segment = '';
+        }
+        var num = '';
+        while (i < name.length && /\d/.test(name[i])) {
+          num += name[i];
+          i++;
+        }
+        tokens.push(parseInt(num, 10));
+      } else {
+        segment += name[i];
+        i++;
+      }
+    }
+    if (segment.length) tokens.push(segment);
+    return tokens;
+  }
+  function compareTokens(a, b) {
+    var len = Math.min(a.length, b.length);
+    for (var k = 0; k < len; k++) {
+      var ta = a[k];
+      var tb = b[k];
+      if (typeof ta === 'number' && typeof tb === 'number') {
+        if (ta !== tb) return ta - tb;
+      } else {
+        var sa = String(ta);
+        var sb = String(tb);
+        if (sa !== sb) return sa < sb ? -1 : 1;
+      }
+    }
+    return a.length - b.length;
+  }
+  return filesArray.slice().sort(function (f1, f2) {
+    return compareTokens(tokenize(f1.getName()), tokenize(f2.getName()));
+  });
+}
+
+/**
+ * Ensures the Context block exists at the top of the document. If not present, inserts
+ * Heading 1 "Context", the full context template (from ContextTemplate.gs) with bold labels,
+ * and a page break.
+ */
+function ensureContextBlock(doc) {
+  var body = doc.getBody();
+  var numChildren = body.getNumChildren();
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() === DocumentApp.ElementType.PARAGRAPH &&
+        child.asParagraph().getText().trim() === CONTEXT_HEADING) {
+      return;
+    }
+  }
+  body.insertParagraph(0, CONTEXT_HEADING).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+  var templateText = getContextTemplateText();
+  insertFormattedText(body, 1, templateText);
+  var numLines = templateText.split('\n').length;
+  body.insertPageBreak(2 + numLines);
+}
+
+/**
+ * Appends a paragraph: "Source Image Link" (bold): [file name as link to Drive file].
+ */
+function appendSourceImageLink(body, file) {
+  var label = 'Source Image Link';
+  var prefix = label + ': ';
+  var fileName = file.getName();
+  var url = file.getUrl();
+  var fullText = prefix + fileName;
+  var para = body.appendParagraph(fullText);
+  var textObj = para.editAsText();
+  textObj.setBold(0, label.length - 1, true);
+  textObj.setLinkUrl(prefix.length, fullText.length - 1, url || '');
+}
+
+/**
+ * Imports metric book images from a Google Drive folder: prompts for folder URL/ID,
+ * fetches images (jpeg, png, webp), natural-sorts them, injects Context block if needed,
+ * then appends up to MAX_IMPORT_IMAGES images scaled to content width with page breaks.
+ */
+function importFromDriveFolder() {
+  var ui = DocumentApp.getUi();
+  var doc = DocumentApp.getActiveDocument();
+  var response = ui.prompt('Drive Folder', 'Enter the Google Drive Folder ID or URL containing the metric book scans.', ui.ButtonSet.OK_CANCEL);
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  var folderId = extractFolderId(response.getResponseText());
+  if (!folderId) {
+    ui.alert('Invalid link', 'Invalid Drive Folder link. Please check the URL.', ui.ButtonSet.OK);
+    return;
+  }
+  var folder;
+  try {
+    folder = DriveApp.getFolderById(folderId);
+  } catch (e) {
+    ui.alert('Access denied', 'Cannot access folder. Please ensure the folder is shared with you or you are the owner.', ui.ButtonSet.OK);
+    return;
+  }
+  var imageFiles = [];
+  var fileIterator = folder.getFiles();
+  while (fileIterator.hasNext()) {
+    var file = fileIterator.next();
+    var mime = file.getMimeType();
+    if (IMAGE_MIME_TYPES.indexOf(mime) !== -1) imageFiles.push(file);
+  }
+  if (imageFiles.length === 0) {
+    ui.alert('No images', 'No images found in this folder.', ui.ButtonSet.OK);
+    return;
+  }
+  imageFiles = naturalSortFiles(imageFiles);
+  if (imageFiles.length > MAX_IMPORT_IMAGES) {
+    imageFiles = imageFiles.slice(0, MAX_IMPORT_IMAGES);
+  }
+  var count = imageFiles.length;
+  ui.alert('Importing', 'Importing ' + count + ' images. Please wait...', ui.ButtonSet.OK);
+  ensureContextBlock(doc);
+  var body = doc.getBody();
+  var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
+  var skipped = 0;
+  for (var i = 0; i < imageFiles.length; i++) {
+    Logger.log('importFromDriveFolder: inserting image ' + (i + 1) + '/' + count);
+    var file = imageFiles[i];
+    try {
+      var blob = file.getBlob();
+      // #region agent log
+      (function () {
+        var bytes = blob.getBytes().length;
+        Logger.log('importFromDriveFolder: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
+      })();
+      // #endregion
+      appendSourceImageLink(body, file);
+      var inlineImage = body.appendImage(blob);
+      var w = inlineImage.getWidth();
+      var h = inlineImage.getHeight();
+      if (w > contentWidthPt) {
+        var newW = contentWidthPt;
+        var newH = h * (contentWidthPt / w);
+        inlineImage.setWidth(newW);
+        inlineImage.setHeight(newH);
+      }
+      body.appendPageBreak();
+    } catch (e) {
+      skipped++;
+      // #region agent log
+      (function () {
+        var blobForLog = file.getBlob();
+        var bytes = blobForLog.getBytes().length;
+        Logger.log('importFromDriveFolder: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
+      })();
+      // #endregion
+      Logger.log('importFromDriveFolder: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
+    }
+  }
+  var added = count - skipped;
+  var doneMsg = 'Import complete. ' + added + ' image(s) added.';
+  if (skipped > 0) {
+    doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
+  }
+  ui.alert('Done', doneMsg, ui.ButtonSet.OK);
 }
 
 /**
