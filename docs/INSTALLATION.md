@@ -26,10 +26,10 @@ Use this option if your script lives in a **standalone** Apps Script project (e.
    - Set **Version** to **Latest code** (and **Enabled** as needed).
    - Save. (See `docs/TestDeployments_popup.jpg` for reference if available.)
 4. **Run the test:** In the Test deployments dialog, select your saved test and click **Execute**. The test document opens with the add-on available.
-5. In the document you should see the **Metric Book Transcriber** menu in the menu bar. Use **Metric Book Transcriber** → **Transcribe Image**. Authorize when prompted.
+5. In the document you should see the **Metric Book Transcriber** menu in the menu bar (e.g. **Extensions** → **Metric Book Transcriber** → **Transcribe Image**). Authorize when prompted.
 6. Set the API key in this script project: **Project Settings** → **Script properties** → add `GEMINI_API_KEY` with your key.
 
-The add-on runs in the context of the test document. To test with the latest code, keep **Latest code** in the test and refresh the document after saving changes.
+The add-on runs in the context of the test document. When you run **Transcribe Image**, a dialog shows “Awaiting response from Gemini API… This may take up to 1 minute.” To test with the latest code, keep **Latest code** in the test and refresh the document after saving changes.
 
 ---
 
@@ -45,7 +45,7 @@ Use this option to attach the add-on directly to one document. The script is **b
    - **Project Settings** (gear) → enable **Show "appsscript.json" manifest file in editor**, then open `appsscript.json` and replace its contents with `addon/appsscript.json` from this repo.
 4. **Save** the project (Ctrl+S / Cmd+S).
 5. **Set the API key:** **Project Settings** → **Script properties** → add property `GEMINI_API_KEY` with your Gemini API key. Save.
-6. Run **onOpen** once from the script editor (authorize if prompted). Reload the document; the menu **Extensions** → **Metric Book Transcriber** → **Transcribe Image** should appear.
+6. Run **onOpen** once from the script editor (authorize if prompted). Reload the document; the menu **Extensions** → **Metric Book Transcriber** → **Transcribe Image** should appear. Running **Transcribe Image** opens a dialog (“Awaiting response from Gemini API… This may take up to 1 minute”) and inserts the result below the selected image.
 
 ---
 
@@ -67,7 +67,7 @@ Use this option if you use [clasp](https://github.com/google/clasp) or want to k
 
 ## Add-on logo
 
-To use your own logo in the Extensions menu: the manifest’s `logoUrl` must be a **public HTTPS URL**. A 1000×1000 px image is suitable (Google scales it). Host the image (e.g. GitHub raw URL, Cloud Storage) and set `addOns.common.logoUrl` in `appsscript.json`. See `addon/img/README.md` for details.
+The current manifest has no `addOns` block (the add-on is used as an Editor add-on via Test deployments). To use a logo in the Extensions menu you would add an `addOns` block; `logoUrl` must be a **public HTTPS URL**. A 1000×1000 px image is suitable (Google scales it). See `addon/img/README.md` for details and optional logo setup.
 
 ## API key and security
 
@@ -81,4 +81,4 @@ To use your own logo in the Extensions menu: the manifest’s `logoUrl` must be 
 - **API errors / 403:** Confirm the API key is valid and the Generative Language API is enabled. Check [Google AI Studio](https://aistudio.google.com/app/apikey) or Cloud Console.
 - **Timeout:** The script uses a 60-second timeout. Try a smaller image or try again.
 
-For usage (document structure, Context section, Transcribe Image), see [USER_GUIDE.md](USER_GUIDE.md).
+For usage (document structure, Context section, step-by-step with screenshots), see [USER_GUIDE.md](USER_GUIDE.md).

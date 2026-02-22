@@ -1,35 +1,32 @@
-# Add-on logo
+# Add-on images
 
-Use your GeneaScript logo here and in the manifest.
+## Logo (optional)
 
-## Size
+Use a GeneaScript logo here and in the manifest if you enable the add-on’s sidebar/`addOns` block.
 
-Your image `GeneaScript_logo_med.png` (1000×1000 px) is **suitable** for the add-on logo. Google displays the toolbar icon small and will scale it. For a crisper look in the Extensions menu, you can optionally use a 48×48 or 128×128 px version.
+- **File:** `GeneaScript_logo_med.png` (1000×1000 px) is suitable; Google scales it. For a crisper Extensions menu icon, you can use 48×48 or 128×128 px.
+- **Current setup:** This project’s `appsscript.json` has **no** `addOns` block so the add-on runs as an **Editor add-on** via Test deployments. The menu appears in the doc, but there is no sidebar and no `logoUrl` in use.
+- **If you add a logo later:** `logoUrl` in `appsscript.json` must be a **public HTTPS URL** (e.g. GitHub raw URL or Cloud Storage). See [INSTALLATION.md](../../docs/INSTALLATION.md) and the example below.
 
-## Using it in the manifest
-
-The `logoUrl` in `appsscript.json` must be a **public HTTPS URL**. A local path or file:// URL will not work.
-
-1. **Host the image** somewhere public, for example:
-   - **GitHub**: Add this image to the repo (e.g. in `addon/img/GeneaScript_logo_med.png`), push, then use the raw URL:  
-     `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/BRANCH/addon/img/GeneaScript_logo_med.png`
-   - **Google Cloud Storage**: Upload to a bucket with public read access and use the object URL.
-   - Any static host or CDN that serves the image over HTTPS.
-
-2. **Set the URL** in `appsscript.json`:
-   - Open `addon/appsscript.json`.
-   - Under `addOns.common`, set `logoUrl` to your public image URL (replace the current placeholder).
-
-Example:
+Example manifest snippet:
 
 ```json
 "addOns": {
   "common": {
     "name": "Metric Book Transcriber",
-    "logoUrl": "https://your-host.com/path/to/GeneaScript_logo_med.png"
+    "logoUrl": "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/addon/img/GeneaScript_logo_med.png"
   },
   "docs": {}
 }
 ```
 
-Copy `GeneaScript_logo_med.png` from your other project (`genea_gcloud_gemini_transcriber/img/`) into this folder if you want to keep the asset in this repo and use a GitHub raw URL.
+## User guide screenshots
+
+Screenshots for the user guide live in the **docs** folder:
+
+- `docs/Step1_setDocumentContext.jpg` — Set document context
+- `docs/Step2_selectImage_HitTranscribe.jpg` — Select image and run Transcribe Image
+- `docs/Step3_TranscriptionFinished.jpg` — Dialog / transcription finished
+- `docs/Step4_ReviewTranscriptionResults.jpg` — Review transcription results
+
+They are referenced from [USER_GUIDE.md](../../docs/USER_GUIDE.md).
