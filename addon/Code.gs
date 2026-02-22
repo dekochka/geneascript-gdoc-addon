@@ -81,32 +81,72 @@ function transcribeSelectedImage() {
   var prompt = buildPrompt(context);
   Logger.log('transcribeSelectedImage: context length=' + (context ? context.length : 0) + ', prompt length=' + (prompt ? prompt.length : 0));
 
-  ui.alert('Transcribing', 'Sending image to Gemini. This may take up to a minute.', ui.ButtonSet.OK);
+  showAwaitingDialog(ui);
+}
 
+/**
+ * Shows a modal dialog with status message and runs the transcription worker.
+ * The native status bar cannot be changed; this dialog provides a clear custom status during the API call.
+ */
+function showAwaitingDialog(ui) {
+  var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family: Arial, sans-serif; padding: 16px;">' +
+    '<p style="margin:0;">Awaiting response from Gemini API… This may take up to 1 minute.</p>' +
+    '<script>google.script.run.withSuccessHandler(function(r){google.script.host.close();if(r&&r.ok){google.script.run.showDoneAlert();}else if(r&&!r.ok){google.script.run.showErrorAlert(r.message||"Unknown error");}})' +
+    '.withFailureHandler(function(err){google.script.run.showErrorAlert(err.message||String(err));google.script.host.close();})' +
+    '.runTranscribeWorker();</script></body></html>';
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(320).setHeight(80), 'Transcribing');
+}
+
+/**
+ * Called from the awaiting dialog. Performs API call and insert; returns { ok: true } or { ok: false, message: string }.
+ */
+function runTranscribeWorker() {
+  Logger.log('runTranscribeWorker: start');
+  var doc = DocumentApp.getActiveDocument();
+  var apiKey = PropertiesService.getScriptProperties().getProperty(API_KEY_PROPERTY);
+  if (!apiKey || apiKey.trim() === '') {
+    return { ok: false, message: 'API key not set. Add ' + API_KEY_PROPERTY + ' in Script properties.' };
+  }
+  var selection = doc.getSelection();
+  if (!selection) return { ok: false, message: 'Please select a single image and run Transcribe Image again.' };
+  var rangeElements = selection.getRangeElements();
+  if (!rangeElements || rangeElements.length !== 1) return { ok: false, message: 'Please select exactly one image.' };
+  var element = rangeElements[0].getElement();
+  if (element.getType() !== DocumentApp.ElementType.INLINE_IMAGE) {
+    return { ok: false, message: 'Please click on the metric book image to select it, then run Transcribe Image.' };
+  }
+  var inlineImage = element.asInlineImage();
+  var blob = inlineImage.getBlob();
+  var mimeType = blob.getContentType() || 'image/png';
+  if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+  var context = getContextFromDocument(doc);
+  var prompt = buildPrompt(context);
   var transcription;
   try {
     transcription = callGemini(apiKey, prompt, blob, mimeType);
   } catch (e) {
-    Logger.log('transcribeSelectedImage: callGemini threw: ' + (e.message || String(e)));
-    ui.alert('Error', 'Request failed: ' + (e.message || String(e)), ui.ButtonSet.OK);
-    return;
+    Logger.log('runTranscribeWorker: callGemini threw ' + (e.message || String(e)));
+    return { ok: false, message: 'Request failed: ' + (e.message || String(e)) };
   }
-
   if (!transcription || transcription.trim() === '') {
-    Logger.log('transcribeSelectedImage: empty transcription');
-    ui.alert('Empty response', 'The API returned no text. Try again or check the image.', ui.ButtonSet.OK);
-    return;
+    return { ok: false, message: 'The API returned no text. Try again or check the image.' };
   }
-  Logger.log('transcribeSelectedImage: transcription length=' + transcription.length);
-
   var elementContainingImage = inlineImage.getParent();
   while (elementContainingImage.getType() !== DocumentApp.ElementType.PARAGRAPH &&
          elementContainingImage.getType() !== DocumentApp.ElementType.LIST_ITEM) {
     elementContainingImage = elementContainingImage.getParent();
   }
   insertTranscriptionAfter(doc, elementContainingImage, transcription);
-  Logger.log('transcribeSelectedImage: done');
-  ui.alert('Done', 'Transcription inserted below the image.', ui.ButtonSet.OK);
+  Logger.log('runTranscribeWorker: done');
+  return { ok: true };
+}
+
+function showDoneAlert() {
+  DocumentApp.getUi().alert('Done', 'Transcription inserted below the image.', DocumentApp.getUi().ButtonSet.OK);
+}
+
+function showErrorAlert(message) {
+  DocumentApp.getUi().alert('Error', message, DocumentApp.getUi().ButtonSet.OK);
 }
 
 /**
@@ -223,35 +263,86 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
 }
 
 /**
- * Inserts the transcription text in a new paragraph immediately after the element that contains the selected image.
- * The element may be a Paragraph or ListItem; we find the body-level ancestor and insert after it.
+ * Inserts the transcription text immediately after the element that contains the selected image.
+ * Uses body.getChildIndex() to get the insertion index; avoids === and getIndex() which are unreliable in GAS.
  */
 function insertTranscriptionAfter(doc, elementContainingImage, text) {
-  Logger.log('insertTranscriptionAfter: start, text length=' + (text ? text.length : 0));
+  Logger.log('insertTranscriptionAfter: start');
   var body = doc.getBody();
-  var child = elementContainingImage;
-  while (child.getParent() && child.getParent() !== body) {
-    child = child.getParent();
+  var currentElement = elementContainingImage;
+  var parentElement = currentElement.getParent();
+  while (parentElement && parentElement.getType() !== DocumentApp.ElementType.BODY_SECTION) {
+    currentElement = parentElement;
+    parentElement = currentElement.getParent();
   }
-  if (child.getParent() !== body) {
-    Logger.log('insertTranscriptionAfter: element not under body, appending');
-    body.appendParagraph(text);
-    return;
+  var insertIndex;
+  try {
+    insertIndex = body.getChildIndex(currentElement);
+    Logger.log('insertTranscriptionAfter: image container at index ' + insertIndex);
+  } catch (e) {
+    Logger.log('insertTranscriptionAfter: getChildIndex failed, appending. Error: ' + e);
+    insertIndex = body.getNumChildren() - 1;
   }
-  var numChildren = body.getNumChildren();
-  var insertIndex = -1;
-  for (var i = 0; i < numChildren; i++) {
-    if (body.getChild(i) === child) {
-      insertIndex = i;
-      break;
-    }
-  }
-  if (insertIndex < 0) {
-    Logger.log('insertTranscriptionAfter: body child not found, appending');
-    body.appendParagraph(text);
-    return;
-  }
-  Logger.log('insertTranscriptionAfter: insertIndex=' + insertIndex + ', inserting at ' + (insertIndex + 1));
-  body.insertParagraph(insertIndex + 1, text);
+  insertFormattedText(body, insertIndex + 1, text);
   Logger.log('insertTranscriptionAfter: done');
+}
+
+/** Hex colors for Quality Metrics and Assessment lines. */
+var COLOR_QUALITY_METRICS = '#1565C0';  // blue
+var COLOR_ASSESSMENT = '#C62828';       // red
+
+/**
+ * Inserts text at the given body index, parsing **bold** and - / * bullet lines into native GDoc formatting.
+ * Preserves blank lines. Colors "Quality Metrics" and "Assessment" lines for visibility.
+ */
+function insertFormattedText(body, startIndex, text) {
+  if (!text || text.length === 0) return;
+  var lines = text.split('\n');
+  var currentIndex = startIndex;
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (line === '') {
+      body.insertParagraph(currentIndex, '');
+      currentIndex++;
+      continue;
+    }
+    var isBullet = line.indexOf('- ') === 0 || line.indexOf('* ') === 0;
+    if (isBullet) line = line.substring(2);
+    var plainText = '';
+    var boldRanges = [];
+    var parts = line.split('**');
+    var isBold = false;
+    var currentPos = 0;
+    for (var p = 0; p < parts.length; p++) {
+      var part = parts[p];
+      plainText += part;
+      if (isBold && part.length > 0) {
+        boldRanges.push({ start: currentPos, end: currentPos + part.length - 1 });
+      }
+      currentPos += part.length;
+      isBold = !isBold;
+    }
+    var element;
+    if (isBullet) {
+      element = body.insertListItem(currentIndex, plainText);
+      element.setGlyphType(DocumentApp.GlyphType.BULLET);
+    } else {
+      element = body.insertParagraph(currentIndex, plainText);
+    }
+    var textObj = element.editAsText();
+    for (var b = 0; b < boldRanges.length; b++) {
+      var r = boldRanges[b];
+      if (r.start <= r.end) textObj.setBold(r.start, r.end, true);
+    }
+    var len = plainText.length;
+    if (len > 0) {
+      if (plainText.indexOf('Quality Metrics:') === 0) {
+        textObj.setForegroundColor(0, len - 1, COLOR_QUALITY_METRICS);
+      } else if (plainText.indexOf('Assessment:') === 0) {
+        textObj.setForegroundColor(0, len - 1, COLOR_ASSESSMENT);
+      }
+    }
+    currentIndex++;
+  }
+  body.insertParagraph(currentIndex, '');
 }
