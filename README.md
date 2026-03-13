@@ -4,7 +4,7 @@ A Google Docs add-on that helps transcribe images of metric books (birth, marria
 
 ## 📸 Sample Output
 
-![Sample transcription output — image with structured transcription below (Quality Metrics in blue, Assessment in red)](docs/Step4_ReviewTranscriptionResults.jpg)
+![Sample transcription output — image with structured transcription below (Quality Metrics in blue, Assessment in red)](docs/TranscribeAddOn-TranscriptionResults.png)
 
 ## 📊 Overview
 
