@@ -3,7 +3,7 @@
  * Adds menu and runs "Transcribe Image" to send selected image + context to Gemini and insert result.
  */
 
-var MODEL_ID = 'gemini-3-flash-preview';
+var MODEL_ID = 'gemini-3.1-pro-preview';
 var API_KEY_PROPERTY = 'GEMINI_API_KEY';
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
