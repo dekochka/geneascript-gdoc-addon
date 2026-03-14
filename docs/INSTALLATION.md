@@ -7,19 +7,23 @@ This add-on runs in Google Docs and uses the **Google AI (Gemini)** API to trans
 ```mermaid
 flowchart LR
   Start([Start]) --> Choose{Which option?}
+  Choose -->|End user<br/>Easiest| O0["Option 0<br/>Marketplace"]
   Choose -->|Standalone script<br/>Test in any doc| O1[Option 1<br/>Test deployment]
   Choose -->|One document only| O2[Option 2<br/>Container-bound]
   Choose -->|clasp / repo sync| O3[Option 3<br/>Deploy from repo]
+  O0 --> Key0["Set API key<br/>(prompted on first Transcribe)"]
   O1 --> Key1["Set API key<br/>(in-app or Script properties)"]
   O2 --> Key2["Set API key<br/>(in-app or Script properties)"]
   O3 --> Key3["Set API key<br/>(in-app or Script properties)"]
-  Key1 --> Done([Use add-on])
+  Key0 --> Done([Use add-on])
+  Key1 --> Done
   Key2 --> Done
   Key3 --> Done
 ```
 
 | Path | Best for |
 |------|----------|
+| **Option 0** | **Recommended.** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) — one click, works in any Google Doc. |
 | **Option 1** | Standalone Apps Script project; run in any doc via **Test deployments** (Editor add-on). |
 | **Option 2** | One Google Doc; script lives inside that document (**Extensions → Apps Script**). |
 | **Option 3** | Using **clasp** or copying from repo; then follow Option 1 or 2 depending on project type. |
@@ -31,6 +35,27 @@ flowchart LR
 - **📧** A Google account (personal or Google Workspace).
 - **📄** A Google Document where you want to transcribe metric book images.
 - **🔑** A **Google AI API key** (Gemini). Get one at [Google AI Studio](https://aistudio.google.com/app/apikey) or [Google Cloud Console](https://console.cloud.google.com/) (enable the Generative Language API and create an API key). You can skip this step — the add-on will prompt you with instructions and a link on first use of **Transcribe Image**.
+
+---
+
+## 🏪 Option 0: Install from Google Workspace Marketplace (recommended)
+
+This is the easiest option for end users. No code, no setup — just install and go.
+
+```mermaid
+flowchart LR
+  A["🏪 Open Marketplace listing"] --> B[📥 Install]
+  B --> C[📄 Open any Google Doc]
+  C --> D["🔑 Set API key<br/>(prompted on first Transcribe)"]
+  D --> E([✅ Ready])
+```
+
+1. **🏪** Open the **Metric Book Transcriber** listing on the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber" or use the direct link once published).
+2. **📥** Click **Install** and grant the requested permissions.
+3. **📄** Open any Google Doc. You should see the menu **Extensions** → **Metric Book Transcriber** with **Transcribe Image** and **Import Book from Drive Folder**.
+4. **🔑** The first time you run **Transcribe Image**, the add-on prompts you to enter a [Google AI (Gemini) API key](https://aistudio.google.com/app/apikey). Get a free key, paste it, and click **Save & Continue**. Your key is stored privately (per user).
+
+That's it — you can now import images from Drive and transcribe them. See the [User Guide](USER_GUIDE.md) for step-by-step usage.
 
 ---
 
@@ -119,9 +144,10 @@ flowchart LR
 1. **📥** Clone this repo and `cd` into it.
 2. **With clasp:**  
    - `npm install -g @google/clasp`  
+   - **Enable the Apps Script API**: go to [script.google.com/home/usersettings](https://script.google.com/home/usersettings) and toggle **Google Apps Script API** to **On** (required for clasp to push code).  
    - `clasp login`  
    - Create a new Apps Script project: `clasp create --type docs --title "Metric Book Transcriber" --rootDir addon` (or clone an existing project and set `rootDir` to `addon`).  
-   - `clasp push --rootDir addon`.
+   - `clasp push`.
 3. **Without clasp:** Copy the contents of `addon/Code.gs`, `addon/Prompt.gs`, and `addon/appsscript.json` into your Apps Script project (create one from a document via **Extensions** → **Apps Script**, or create a standalone at script.google.com).
 4. **🔑** Set the API key: run **Transcribe Image** in the document and the add-on will prompt you, or set it manually in **Project Settings** → **Script properties** (note: the in-app dialog stores the key per user; manual Script properties are shared).
 5. If the script is **bound to a document**, run **onOpen** once and reload the doc. If it is **standalone**, use **Option 1** (Test deployments) to run it in a document.
@@ -130,7 +156,7 @@ flowchart LR
 
 ## 🖼️ Add-on logo
 
-The current manifest has no `addOns` block (the add-on is used as an Editor add-on via Test deployments). To use a logo in the Extensions menu you would add an `addOns` block; `logoUrl` must be a **public HTTPS URL**. A 1000×1000 px image is suitable (Google scales it). See `addon/img/README.md` for details and optional logo setup.
+The manifest (`appsscript.json`) includes an `addOns` block with a `logoUrl` pointing to the icon hosted in this repo. The `logoUrl` must be a **public HTTPS URL** (e.g. a GitHub raw URL or Cloud Storage). Required sizes for the Marketplace listing: **128×128 px** and **32×32 px** (square, color, transparent background). See `addon/img/README.md` for details.
 
 ## 🔑 API key and security
 

@@ -28,6 +28,9 @@ function onOpen(e) {
       .createMenu('Metric Book Transcriber')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
+      .addSeparator()
+      .addItem('Help / User Guide', 'showHelp')
+      .addItem('Report an issue', 'reportIssue')
       .addToUi();
     Logger.log('onOpen: menu added.');
   } catch (e) {
@@ -419,6 +422,31 @@ function showDoneAlert() {
 
 function showErrorAlert(message) {
   DocumentApp.getUi().alert('Error', message, DocumentApp.getUi().ButtonSet.OK);
+}
+
+var HELP_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/USER_GUIDE.md';
+var ISSUE_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/issues';
+
+function showHelp() {
+  var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
+    '<p style="margin:0 0 8px;">Open the User Guide for step-by-step instructions, tips, and troubleshooting:</p>' +
+    '<p style="margin:0;"><a href="' + HELP_URL + '" target="_blank" style="font-size:14px;">User Guide on GitHub</a></p>' +
+    '</body>';
+  DocumentApp.getUi().showModelessDialog(
+    HtmlService.createHtmlOutput(html).setWidth(360).setHeight(100),
+    'Help'
+  );
+}
+
+function reportIssue() {
+  var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
+    '<p style="margin:0 0 8px;">Report a bug or request a feature on GitHub:</p>' +
+    '<p style="margin:0;"><a href="' + ISSUE_URL + '" target="_blank" style="font-size:14px;">Open GitHub Issues</a></p>' +
+    '</body>';
+  DocumentApp.getUi().showModelessDialog(
+    HtmlService.createHtmlOutput(html).setWidth(360).setHeight(100),
+    'Report an issue'
+  );
 }
 
 /**
