@@ -27,6 +27,7 @@ flowchart LR
   subgraph addon [Add-on]
     ImportMenu["Import Book from Drive Folder"]
     TranscribeMenu["Transcribe Image"]
+    SetupMenu["Setup API key & model"]
   end
   subgraph external [External]
     DriveFolder[Drive folder URL]
@@ -45,8 +46,8 @@ flowchart LR
 
 - **📍 Where it runs:** Google Docs (install from the [Marketplace](https://workspace.google.com/marketplace/), or use a Test deployment / container-bound script).
 - **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Folder** prompts for a Drive folder URL or ID, then adds a **Context** section at the top (full sample template from `ContextTemplate.gs` with bold labels), imports up to **30 images** from the folder (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Very large or invalid images are skipped and the final alert reports how many were added or skipped.
-- **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document's Context to **Gemini 3.1 Pro Preview** and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
-- **🔑 Requirements:** A Google AI (Gemini) API key (`GEMINI_API_KEY`). The add-on prompts you to enter the key the first time you run **Transcribe Image** (with a link to [Google AI Studio](https://aistudio.google.com/app/apikey)). Each user's key is stored privately (User Properties) and is not shared with others. Drive folder import requires access to the folder (you own it or it's shared with you).
+- **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document's Context to the **Gemini** API and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
+- **🔑 API key & model:** A Google AI (Gemini) API key is required. The add-on prompts you to enter it the first time you run **Transcribe Image** (with a link to [Google AI Studio](https://aistudio.google.com/app/apikey)). You can choose the model: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). Update key or model anytime via **Extensions → Metric Book Transcriber → Setup API key & model**. See [rate limits](https://aistudio.google.com/rate-limit) for free tier and billing. Each user's key and model choice are stored privately (User Properties). Drive folder import requires access to the folder (you own it or it's shared with you).
 
 ## 📚 Documentation
 
