@@ -89,14 +89,14 @@ Free of charge
 
 ## Graphic Assets Checklist
 
-| Asset | Size | Status |
-|-------|------|--------|
-| Icon (small) | 32 x 32 px | TODO |
-| Icon (large) | 128 x 128 px | TODO |
-| Card banner | 220 x 140 px | TODO |
-| Screenshot 1 — Menu and import flow | 1280 x 800 px | TODO |
-| Screenshot 2 — Transcription in progress | 1280 x 800 px | TODO |
-| Screenshot 3 — Transcription results | 1280 x 800 px | TODO |
+| Asset | Size | Status | File |
+|-------|------|--------|------|
+| Icon (small) | 32 x 32 px | Done | `addon/img/GeneaScript_logo_32.png` |
+| Icon (large) | 128 x 128 px | Done | `addon/img/GeneaScript_logo_128.png` |
+| Card banner | 220 x 140 px | Done | `addon/img/GeneaScript_marketplace_banner.png` |
+| Screenshot 1 — Menu and transcription results | 1280 x 800 px | Done | `docs/TranscribeAddOn-Screenshot-1280x800.png` |
+| Screenshot 2 — Transcription in progress | 1280 x 800 px | Optional | Capture if desired |
+| Screenshot 3 — Import from Drive flow | 1280 x 800 px | Optional | Capture if desired |
 
 All icons must be square, color, with transparent backgrounds.
 Screenshots must show the add-on running inside Google Docs.
