@@ -488,7 +488,10 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
     contents: [{ parts: parts }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 8192
+      maxOutputTokens: 65536,
+      thinkingConfig: {
+        thinkingLevel: 'low'
+      }
     }
   };
 
@@ -524,19 +527,39 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
   }
 
   var candidate = json.candidates[0];
+  var finishReason = candidate.finishReason || 'UNKNOWN';
+  var usage = json.usageMetadata || {};
+  Logger.log('callGemini: finishReason=' + finishReason +
+    ', promptTokens=' + (usage.promptTokenCount || '?') +
+    ', candidatesTokens=' + (usage.candidatesTokenCount || '?') +
+    ', totalTokens=' + (usage.totalTokenCount || '?') +
+    ', thoughtsTokens=' + (usage.thoughtsTokenCount || '?'));
+
   if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
     Logger.log('callGemini: empty content in candidate');
-    throw new Error('Empty content in response');
+    throw new Error('Empty content in response (finishReason=' + finishReason + ')');
   }
 
   var resultParts = [];
+  var thoughtParts = 0;
   for (var i = 0; i < candidate.content.parts.length; i++) {
-    if (candidate.content.parts[i].text) {
-      resultParts.push(candidate.content.parts[i].text);
+    var part = candidate.content.parts[i];
+    if (part.thought) {
+      thoughtParts++;
+      continue;
+    }
+    if (part.text) {
+      resultParts.push(part.text);
     }
   }
   var result = resultParts.join('');
-  Logger.log('callGemini: success, parts=' + candidate.content.parts.length + ', result length=' + result.length);
+  Logger.log('callGemini: success, totalParts=' + candidate.content.parts.length +
+    ', thoughtParts=' + thoughtParts + ', textParts=' + resultParts.length +
+    ', result length=' + result.length);
+
+  if (finishReason === 'MAX_TOKENS') {
+    Logger.log('callGemini: WARNING — response truncated (MAX_TOKENS). Output may be incomplete.');
+  }
   return result;
 }
 

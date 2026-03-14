@@ -4,11 +4,16 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2-gscript-beta](https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.2-gscript-beta) — 2026-03-14
 
 ### ✨ Added
 
 - **🔑 In-flow API key setup** — When the API key is not yet configured, the first run of **Transcribe Image** shows a "Set API Key" dialog with brief instructions and a link to [Google AI Studio](https://aistudio.google.com/app/apikey). The user enters the key, clicks **Save & Continue**, and the transcription proceeds automatically — no need to navigate to Project Settings.
+
+### 🐛 Fixed
+
+- **Truncated transcriptions** — Increased `maxOutputTokens` from 8,192 to 65,536 and set `thinkingLevel: "low"` in the Gemini API request. The default HIGH thinking level consumed most of the token budget on internal reasoning, leaving too few tokens for the actual transcription (pages with many records were cut off). Also filter out model "thought" parts so only real text is inserted.
+- **Diagnostic logging** — `callGemini()` now logs `finishReason`, token usage (prompt / candidates / thoughts), and warns when the response is truncated (`MAX_TOKENS`).
 
 ### 🔧 Changed
 
