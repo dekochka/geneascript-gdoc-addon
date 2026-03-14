@@ -44,8 +44,8 @@ Each transcription includes:
 Context-Aware
 Add a Context section at the top of your document with archive name, reference numbers, date range, village names, and common surnames. The add-on uses this to improve transcription accuracy and name normalization.
 
-Easy API Key Setup
-On first use, the add-on prompts you to enter a Google AI (Gemini) API key with a direct link to Google AI Studio. Your key is stored privately (per user) and is never shared.
+API Key & Model Setup
+On first use, the add-on prompts you to enter a Google AI (Gemini) API key (link to Google AI Studio) and choose a model: Gemini Flash Latest (default, free tier ~20 requests/day), Gemini 3.1 Flash Lite (500 requests/day), or Gemini 3.1 Pro Preview (best quality, billing). Your key and model choice are stored privately (per user). Update them anytime via Extensions > Metric Book Transcriber > Setup API key & model. See aistudio.google.com/rate-limit for free tier and billing.
 
 HOW TO USE
 
@@ -53,7 +53,7 @@ HOW TO USE
 2. Run Extensions > Metric Book Transcriber > Import Book from Drive Folder (or add images manually).
 3. Edit the Context section to match your source archive and locality.
 4. Select an image and run Extensions > Metric Book Transcriber > Transcribe Image.
-5. Review the transcription inserted below the image.
+5. Review the transcription inserted below the image. Use Setup API key & model to change your API key or Gemini model when needed.
 
 REQUIREMENTS
 

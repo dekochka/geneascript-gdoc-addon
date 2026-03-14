@@ -14,11 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Privacy Policy** (`docs/PRIVACY_POLICY.md`) — Describes data access, storage, third-party API usage, and user controls. Required for Marketplace listing.
 - **Terms of Service** (`docs/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
 - **Store listing copy** (`docs/STORE_LISTING.md`) — Drafted application name, short/detailed descriptions, category, support links, and graphic asset checklist for the Marketplace SDK console.
+- **Model selection** — Users can choose the Gemini model in the API key dialog and change it anytime: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). Model choice stored per user. Rate limits link in dialogs and docs.
+- **Setup API key & model menu** — New menu item **Extensions → Metric Book Transcriber → Setup API key & model** opens a dialog to update API key and/or model (key optional — leave blank to keep current). Option to clear stored API key.
+- **Error handling** — Transcription and API errors (e.g. 429 quota) are shown in the dialog with full message and a Close button instead of failing silently. When "Authorisation is required" appears (e.g. collaborators), the add-on shows guidance to install/authorize the add-on for their account.
+- **Import from Drive logging** — Additional `Logger.log` in `importFromDriveFolder` for folder ID, folder name, file counts, and completion stats to aid troubleshooting. Clearer error when Drive API is not enabled in GCP (with link to enable it).
 
 ### 🔧 Changed
 
-- **Installation docs** — Added "Option 0: Install from Marketplace" as the recommended path in `INSTALLATION.md`; updated installation path diagram and logo section.
-- **README** — Added Marketplace install section, links to Privacy Policy and Terms of Service, fixed broken screenshot reference.
+- **Default model** — Switched from `gemini-3.1-pro-preview` to **gemini-flash-latest** for free-tier friendly default (~20 requests/day). Removed `thinkingConfig` and reduced `maxOutputTokens` for Flash compatibility.
+- **API key dialog** — Now includes model dropdown; supports "update" mode when opened from **Setup API key & model** (key optional, Save then close). First-time flow unchanged (key required, Save & Continue starts transcription).
+- **Installation docs** — Added "Option 0: Install from Marketplace" as the recommended path in `INSTALLATION.md`; updated installation path diagram and logo section. Documented Setup API key & model, model options, rate limits link, and troubleshooting (authorisation, 429, Drive API for custom GCP).
+- **README** — Added Marketplace install section, links to Privacy Policy and Terms of Service, fixed broken screenshot reference. Overview updated: model options, Setup API key & model menu, rate limits link.
+- **User Guide** — Workflow and API key step updated for model choice and Setup API key & model. Troubleshooting: authorisation error (collaborators), quota/429, rate limits link.
 
 ### 📚 Documentation
 

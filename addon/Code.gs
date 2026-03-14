@@ -3,8 +3,9 @@
  * Adds menu and runs "Transcribe Image" to send selected image + context to Gemini and insert result.
  */
 
-var MODEL_ID = 'gemini-3.1-pro-preview';
+var MODEL_ID = 'gemini-flash-latest';
 var API_KEY_PROPERTY = 'GEMINI_API_KEY';
+var MODEL_ID_PROPERTY = 'GEMINI_MODEL_ID';
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 30;
@@ -29,6 +30,7 @@ function onOpen(e) {
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
       .addSeparator()
+      .addItem('Setup API key & model', 'showSetupApiKeyAndModelDialog')
       .addItem('Help / User Guide', 'showHelp')
       .addItem('Report an issue', 'reportIssue')
       .addToUi();
@@ -155,38 +157,60 @@ function appendImageNameAndSourceLink(body, file) {
  * then appends up to MAX_IMPORT_IMAGES images scaled to content width with page breaks.
  */
 function importFromDriveFolder() {
+  Logger.log('importFromDriveFolder: start');
   var ui = DocumentApp.getUi();
   var doc = DocumentApp.getActiveDocument();
   var response = ui.prompt('Drive Folder', 'Enter the Google Drive Folder ID or URL containing the metric book scans.', ui.ButtonSet.OK_CANCEL);
-  if (response.getSelectedButton() !== ui.Button.OK) return;
-  var folderId = extractFolderId(response.getResponseText());
+  if (response.getSelectedButton() !== ui.Button.OK) {
+    Logger.log('importFromDriveFolder: user cancelled prompt');
+    return;
+  }
+  var rawInput = response.getResponseText();
+  var folderId = extractFolderId(rawInput);
+  Logger.log('importFromDriveFolder: rawInput length=' + (rawInput ? rawInput.length : 0) + ' extracted folderId=' + (folderId || 'null'));
   if (!folderId) {
+    Logger.log('importFromDriveFolder: invalid link, no folderId extracted');
     ui.alert('Invalid link', 'Invalid Drive Folder link. Please check the URL.', ui.ButtonSet.OK);
     return;
   }
   var folder;
   try {
+    Logger.log('importFromDriveFolder: calling DriveApp.getFolderById(' + folderId + ')');
     folder = DriveApp.getFolderById(folderId);
+    Logger.log('importFromDriveFolder: folder resolved name="' + folder.getName() + '"');
   } catch (e) {
-    ui.alert('Access denied', 'Cannot access folder. Please ensure the folder is shared with you or you are the owner.', ui.ButtonSet.OK);
+    Logger.log('importFromDriveFolder: DriveApp.getFolderById failed for id=' + folderId + ' error=' + (e.message || String(e)));
+    var errMsg = e.message || String(e);
+    if (errMsg.indexOf('not enabled') !== -1 || errMsg.indexOf('Access Not Configured') !== -1) {
+      ui.alert('Drive API not enabled', 'The Google Drive API is not enabled in your GCP project. Please enable it at console.cloud.google.com → APIs & Services → Library → Google Drive API.', ui.ButtonSet.OK);
+    } else {
+      ui.alert('Access denied', 'Cannot access folder (id: ' + folderId + '). ' + errMsg, ui.ButtonSet.OK);
+    }
     return;
   }
   var imageFiles = [];
   var fileIterator = folder.getFiles();
+  var totalFiles = 0;
   while (fileIterator.hasNext()) {
     var file = fileIterator.next();
+    totalFiles++;
     var mime = file.getMimeType();
     if (IMAGE_MIME_TYPES.indexOf(mime) !== -1) imageFiles.push(file);
   }
+  Logger.log('importFromDriveFolder: listed folder totalFiles=' + totalFiles + ' imageFiles=' + imageFiles.length);
   if (imageFiles.length === 0) {
+    Logger.log('importFromDriveFolder: no images in folder, aborting');
     ui.alert('No images', 'No images found in this folder.', ui.ButtonSet.OK);
     return;
   }
   imageFiles = naturalSortFiles(imageFiles);
+  var truncated = false;
   if (imageFiles.length > MAX_IMPORT_IMAGES) {
     imageFiles = imageFiles.slice(0, MAX_IMPORT_IMAGES);
+    truncated = true;
   }
   var count = imageFiles.length;
+  Logger.log('importFromDriveFolder: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
   ui.alert('Importing', 'Ready to import ' + count + ' image(s). Click OK to start — this may take a minute.', ui.ButtonSet.OK);
   ensureContextBlock(doc);
   var body = doc.getBody();
@@ -227,6 +251,7 @@ function importFromDriveFolder() {
     }
   }
   var added = count - skipped;
+  Logger.log('importFromDriveFolder: done added=' + added + ' skipped=' + skipped + ' count=' + count);
   var doneMsg = 'Import complete. ' + added + ' image(s) added.';
   if (skipped > 0) {
     doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
@@ -256,62 +281,165 @@ function transcribeSelectedImage() {
  * On save, persists the key and continues the transcribe flow within the same dialog
  * (morphs into the "awaiting" state and calls runTranscribeWorker directly).
  */
-function showApiKeyDialog() {
+/** Model options for the dropdown (id = API model id). */
+function getModelOptions() {
+  return [
+    { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (default, free tier ~20/day)' },
+    { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (lower quality, 500 requests/day)' },
+    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (best quality, billing)' }
+  ];
+}
+
+/**
+ * Opens the API key & model dialog. When forUpdate is true (Setup from menu), key is optional and Save just closes.
+ * When forUpdate is false (key missing), key is required and Save & Continue starts transcription.
+ */
+function showApiKeyDialog(forUpdate) {
   var ui = DocumentApp.getUi();
+  var currentModel = getStoredModel();
+  var options = getModelOptions();
+  var optionsHtml = options.map(function(o) {
+    var sel = (o.id === currentModel) ? ' selected' : '';
+    return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
+  }).join('');
+  var introHtml = forUpdate
+    ? '<p style="margin:0 0 8px;">Update your <b>API key</b> and/or <b>model</b>. Leave API key blank to keep the current key.</p>'
+    : '<p style="margin:0 0 8px;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
+      '<p style="margin:0 0 8px;">Get a free key at ' +
+      '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> ' +
+      '(sign in, then click <b>Create API key</b>).</p>';
+  var btnLabel = forUpdate ? 'Save' : 'Save &amp; Continue';
+  var dialogTitle = forUpdate ? 'Setup API key & model' : 'Set API Key';
   var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
     '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
-    '<p style="margin:0 0 8px;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
-    '<p style="margin:0 0 12px;">Get a free key at ' +
-    '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> ' +
-    '(sign in with your Google account, then click <b>Create API key</b>).</p>' +
+    introHtml +
+    '<p style="margin:0 0 8px; font-size:12px; color:#555;">' +
+    'See <a href="https://aistudio.google.com/rate-limit" target="_blank">Rate limits</a> for free tier and billing.</p>' +
+    '<label style="display:block; margin-bottom:4px; font-weight:bold;">Model:</label>' +
+    '<select id="model" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
     '<label style="display:block; margin-bottom:4px; font-weight:bold;">API Key:</label>' +
-    '<input id="apiKey" type="text" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" placeholder="Paste your API key here" />' +
+    '<input id="apiKey" type="text" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" placeholder="' + (forUpdate ? 'Leave blank to keep current key' : 'Paste your API key here') + '" />' +
     '<div id="status" style="color:#C62828; margin-top:6px; font-size:12px;"></div>' +
+    (forUpdate ? '<p style="margin:12px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'Clear stored API key? You will be asked for it again on next Transcribe.\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">Clear stored API key</a></p>' : '') +
     '<div style="text-align:right; margin-top:12px;">' +
-    '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Save &amp; Continue</button></div>' +
+    '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer;">' + btnLabel + '</button></div>' +
     '<script>' +
+    'var forUpdate=' + (forUpdate ? 'true' : 'false') + ';' +
     'function save(){' +
       'var key=document.getElementById("apiKey").value;' +
-      'if(!key||!key.trim()){document.getElementById("status").innerText="Please enter an API key.";return;}' +
+      'var modelId=document.getElementById("model").value;' +
+      'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="Please enter an API key.";return;}' +
       'document.getElementById("status").innerText="Saving\\u2026";' +
       'document.getElementById("saveBtn").disabled=true;' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
-          'if(r&&r.ok){startTranscription();}' +
-          'else{document.getElementById("status").innerText=(r&&r.message)||"Failed to save key.";document.getElementById("saveBtn").disabled=false;}' +
+          'if(r&&r.ok){ if(forUpdate){ document.getElementById("status").innerText="Saved."; document.getElementById("status").style.color="green"; setTimeout(function(){ google.script.host.close(); }, 800); } else { startTranscription(); } }' +
+          'else{ document.getElementById("status").innerText=(r&&r.message)||"Failed to save."; document.getElementById("saveBtn").disabled=false; }' +
         '})' +
-        '.withFailureHandler(function(err){' +
-          'document.getElementById("status").innerText=err.message||String(err);document.getElementById("saveBtn").disabled=false;' +
-        '})' +
-        '.saveApiKey(key);' +
+        '.withFailureHandler(function(err){ document.getElementById("status").innerText=err.message||String(err); document.getElementById("saveBtn").disabled=false; })' +
+        '.saveApiKeyAndModel(key, modelId);' +
     '}' +
+    'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
+    'var AUTH_MSG="' + (AUTH_REQUIRED_MSG.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')) + '";' +
+    'function showErr(msg){ var m=(msg&&(msg.indexOf("Authorisation is required")!==-1||msg.indexOf("Authorization is required")!==-1))?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">Close</button>\'; }' +
     'function startTranscription(){' +
       'document.body.innerHTML=\'<p style="font-family:Arial,sans-serif;padding:16px;margin:0;">Awaiting response from Gemini API\\u2026 This may take up to 1 minute. Please wait \\u2014 this dialog will close automatically.</p>\';' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
-          'google.script.host.close();' +
-          'if(r&&r.ok){google.script.run.showDoneAlert();}' +
-          'else if(r&&!r.ok){google.script.run.showErrorAlert(r.message||"Unknown error");}' +
+          'if(r&&r.ok){ google.script.host.close(); google.script.run.showDoneAlert(); }' +
+          'else{ showErr((r&&r.message)||"Unknown error"); }' +
         '})' +
-        '.withFailureHandler(function(err){' +
-          'google.script.run.showErrorAlert(err.message||String(err));google.script.host.close();' +
-        '})' +
+        '.withFailureHandler(function(err){ showErr(err.message||String(err)); })' +
         '.runTranscribeWorker();' +
     '}' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(400).setHeight(220), 'Set API Key');
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(440).setHeight(320), dialogTitle);
+}
+
+/** Opens Setup API key & model dialog from the Extension menu (key optional, save and close). */
+function showSetupApiKeyAndModelDialog() {
+  showApiKeyDialog(true);
 }
 
 /**
  * Saves the API key to User Properties (private per Google account). Called from the API key dialog.
  */
 function saveApiKey(key) {
-  if (!key || typeof key !== 'string' || key.trim() === '') {
-    return { ok: false, message: 'Please enter a valid API key.' };
+  return saveApiKeyAndModel(key, null);
+}
+
+/**
+ * Saves API key and/or model ID. Key or modelId can be null to leave unchanged.
+ */
+function saveApiKeyAndModel(key, modelId) {
+  var props = PropertiesService.getUserProperties();
+  if (key && typeof key === 'string' && key.trim() !== '') {
+    props.setProperty(API_KEY_PROPERTY, key.trim());
+    Logger.log('saveApiKeyAndModel: key saved');
   }
-  PropertiesService.getUserProperties().setProperty(API_KEY_PROPERTY, key.trim());
-  Logger.log('saveApiKey: key saved');
+  if (modelId && typeof modelId === 'string' && modelId.trim() !== '') {
+    props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
+    Logger.log('saveApiKeyAndModel: model saved ' + modelId.trim());
+  }
   return { ok: true };
+}
+
+/**
+ * Saves only the model ID (called from Settings dialog).
+ */
+function saveModel(modelId) {
+  if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+    return { ok: false, message: 'Please select a model.' };
+  }
+  PropertiesService.getUserProperties().setProperty(MODEL_ID_PROPERTY, modelId.trim());
+  Logger.log('saveModel: model saved ' + modelId.trim());
+  return { ok: true };
+}
+
+/**
+ * Clears the stored API key so the user will be prompted again on next Transcribe.
+ */
+function clearApiKey() {
+  PropertiesService.getUserProperties().deleteProperty(API_KEY_PROPERTY);
+  Logger.log('clearApiKey: key cleared');
+  return { ok: true };
+}
+
+/**
+ * Shows Settings dialog: change model or clear API key.
+ */
+function showSettingsDialog() {
+  var ui = DocumentApp.getUi();
+  var currentModel = getStoredModel();
+  var options = getModelOptions();
+  var optionsHtml = options.map(function(o) {
+    var sel = (o.id === currentModel) ? ' selected' : '';
+    return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
+  }).join('');
+  var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
+    '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
+    '<p style="margin:0 0 12px;">Change the Gemini model or clear your API key.</p>' +
+    '<label style="display:block; margin-bottom:4px; font-weight:bold;">Model:</label>' +
+    '<select id="model" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
+    '<div id="status" style="color:#C62828; margin-bottom:8px; font-size:12px;"></div>' +
+    '<div style="display:flex; justify-content:space-between; margin-top:12px;">' +
+    '<button type="button" onclick="clearKey()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Clear API key</button>' +
+    '<button type="button" onclick="saveModel()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Save model</button></div>' +
+    '<script>' +
+    'function saveModel(){' +
+      'var modelId=document.getElementById("model").value;' +
+      'document.getElementById("status").innerText="";' +
+      'google.script.run.withSuccessHandler(function(r){' +
+        'if(r&&r.ok){ document.getElementById("status").style.color="green"; document.getElementById("status").innerText="Model saved."; }' +
+        'else{ document.getElementById("status").style.color="#C62828"; document.getElementById("status").innerText=(r&&r.message)||"Failed."; }' +
+      '}).withFailureHandler(function(err){ document.getElementById("status").style.color="#C62828"; document.getElementById("status").innerText=err.message||String(err); })' +
+      '.saveModel(modelId);' +
+    '}' +
+    'function clearKey(){' +
+      'google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey();' +
+    '}' +
+    '</script></body></html>';
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(420).setHeight(220), 'Settings');
 }
 
 /**
@@ -361,15 +489,27 @@ function doTranscribeFlow() {
 
 /**
  * Shows a modal dialog with status message and runs the transcription worker.
- * The native status bar cannot be changed; this dialog provides a clear custom status during the API call.
+ * On error, shows the error message in the dialog with a Close button (so user always sees it).
  */
+/** User-facing message when Apps Script throws authorisation error (e.g. collaborator has not installed add-on). */
+var AUTH_REQUIRED_MSG = 'The add-on needs your permission to run.\n\n' +
+  'If you are a collaborator on this document (not the person who added the add-on): install the add-on for your account — open Extensions → Metric Book Transcriber and complete the authorization when prompted.\n\n' +
+  'If you already use the add-on: try Extensions → Metric Book Transcriber → Settings, or remove and re-add the add-on to sign in again.';
+
 function showAwaitingDialog(ui) {
+  var authMsgJs = AUTH_REQUIRED_MSG.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
   var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family: Arial, sans-serif; padding: 16px;">' +
     '<p style="margin:0;">Awaiting response from Gemini API… This may take up to 1 minute. Please wait — this dialog will close automatically.</p>' +
-    '<script>google.script.run.withSuccessHandler(function(r){google.script.host.close();if(r&&r.ok){google.script.run.showDoneAlert();}else if(r&&!r.ok){google.script.run.showErrorAlert(r.message||"Unknown error");}})' +
-    '.withFailureHandler(function(err){google.script.run.showErrorAlert(err.message||String(err));google.script.host.close();})' +
+    '<script>' +
+    'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
+    'var AUTH_MSG="' + authMsgJs + '";' +
+    'function showErr(msg){ var m=(msg&&(msg.indexOf("Authorisation is required")!==-1||msg.indexOf("Authorization is required")!==-1))?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">Close</button>\'; }' +
+    'google.script.run.withSuccessHandler(function(r){' +
+    '  if(r&&r.ok){ google.script.host.close(); google.script.run.showDoneAlert(); }' +
+    '  else{ showErr((r&&r.message)||"Unknown error"); }' +
+    '}).withFailureHandler(function(err){ showErr(err.message||String(err)); })' +
     '.runTranscribeWorker();</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(320).setHeight(80), 'Transcribing');
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(480).setHeight(320), 'Transcribing');
 }
 
 /**
@@ -422,6 +562,12 @@ function showDoneAlert() {
 
 function showErrorAlert(message) {
   DocumentApp.getUi().alert('Error', message, DocumentApp.getUi().ButtonSet.OK);
+}
+
+/** Returns the model ID to use (stored or default). */
+function getStoredModel() {
+  var stored = PropertiesService.getUserProperties().getProperty(MODEL_ID_PROPERTY);
+  return (stored && stored.trim()) ? stored.trim() : MODEL_ID;
 }
 
 var HELP_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/USER_GUIDE.md';
@@ -503,8 +649,9 @@ function buildPrompt(context) {
  * Calls the Gemini API with the given prompt and image. Returns the generated text.
  */
 function callGemini(apiKey, prompt, imageBlob, mimeType) {
-  Logger.log('callGemini: start, model=' + MODEL_ID + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + (imageBlob.getBytes && imageBlob.getBytes().length));
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + MODEL_ID + ':generateContent?key=' + encodeURIComponent(apiKey);
+  var modelId = getStoredModel();
+  Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + (imageBlob.getBytes && imageBlob.getBytes().length));
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelId + ':generateContent?key=' + encodeURIComponent(apiKey);
   var base64Data = Utilities.base64Encode(imageBlob.getBytes());
 
   var parts = [
@@ -516,10 +663,7 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
     contents: [{ parts: parts }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 65536,
-      thinkingConfig: {
-        thinkingLevel: 'low'
-      }
+      maxOutputTokens: 8192
     }
   };
 
