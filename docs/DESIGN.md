@@ -101,7 +101,7 @@ All logic runs in the user’s Apps Script project; there is no separate backend
 
 - **URL**: `https://generativelanguage.googleapis.com/v1beta/models/MODEL_ID:generateContent?key=API_KEY`
 - **Model ID**: `gemini-2.0-flash` or the value from the spec (`gemini-3-flash-preview`). At implementation time use the current Gemini image-capable model name (spec may say `gemini-3-flash-preview`; if that ID does not exist, use e.g. `gemini-2.0-flash` or the latest flash model that supports inline image input).
-- **API key**: Stored in Script Properties (see Configuration). Key is not hardcoded.
+- **API key**: Stored in User Properties (see Configuration). Key is not hardcoded.
 
 ### 5.2 Request payload
 
@@ -169,8 +169,10 @@ The prompt is built from the following parts (full text in [SPEC.md](../project/
 
 ### 8.1 API key
 
-- **Storage**: Script Properties. Key name e.g. `GEMINI_API_KEY`. User sets it via File → Project properties → Script properties (or in the script’s “Project Settings” in the Apps Script editor).
-- **Usage**: At runtime, `PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY")`. If missing or empty, show the “Please set your Google AI API key…” message and exit.
+- **Storage**: User Properties (private per Google account). Key name `GEMINI_API_KEY`. Using User Properties ensures each user's key is isolated — other users of the same published add-on cannot see or consume another user's API quota.
+- **In-flow setup**: The first time the user runs **Transcribe Image** without a key, `transcribeSelectedImage()` shows a modal dialog (`showApiKeyDialog()`) with brief instructions and a link to [Google AI Studio](https://aistudio.google.com/app/apikey). The user enters the key and clicks **Save & Continue**; `saveApiKey()` persists the key to User Properties and the transcribe flow continues automatically.
+- **Manual setup**: User can also set the key via `PropertiesService.getUserProperties().setProperty('GEMINI_API_KEY', 'key')` in the script editor console.
+- **Usage**: At runtime, `PropertiesService.getUserProperties().getProperty("GEMINI_API_KEY")`. If missing or empty, `transcribeSelectedImage()` shows the API key dialog instead of proceeding. The worker (`runTranscribeWorker`) also checks as a safeguard.
 
 ### 8.2 Model ID
 
@@ -178,7 +180,7 @@ The prompt is built from the following parts (full text in [SPEC.md](../project/
 
 ### 8.3 No secrets in code
 
-- The script must not contain the API key or any other secrets. All sensitive configuration is in Script Properties.
+- The script must not contain the API key or any other secrets. All sensitive configuration is in User Properties (per-user, private).
 
 ---
 
@@ -208,6 +210,6 @@ After implementation, the repo layout is:
 | Insertion       | One (or more) new paragraph(s) after the image’s paragraph in Body.     |
 | Gemini          | v1beta generateContent, image + text in `contents[0].parts`, 60s timeout.|
 | Prompt          | Role + context + full schema + output format + examples + instructions.  |
-| Configuration   | API key in Script Properties only.                                       |
+| Configuration   | API key in User Properties (per-user, private).                                       |
 
 This design is intended to be implemented in Phase 2 (Apps Script) and refined only if review or testing reveals gaps.

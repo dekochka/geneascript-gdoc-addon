@@ -184,7 +184,7 @@ function importFromDriveFolder() {
     imageFiles = imageFiles.slice(0, MAX_IMPORT_IMAGES);
   }
   var count = imageFiles.length;
-  ui.alert('Importing', 'Importing ' + count + ' images. Please wait...', ui.ButtonSet.OK);
+  ui.alert('Importing', 'Ready to import ' + count + ' image(s). Click OK to start — this may take a minute.', ui.ButtonSet.OK);
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
@@ -228,41 +228,114 @@ function importFromDriveFolder() {
   if (skipped > 0) {
     doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
   }
+  doneMsg += '\n\nNext steps: edit the Context section at the top of the document to match your source (archive, dates, villages, surnames), then select an image and run Transcribe Image.';
   ui.alert('Done', doneMsg, ui.ButtonSet.OK);
 }
 
 /**
  * Main action: transcribe the selected metric book image using Gemini and insert result below it.
+ * If the API key is not set, shows a dialog for the user to enter it first.
  */
 function transcribeSelectedImage() {
   Logger.log('transcribeSelectedImage: start');
-  var ui = DocumentApp.getUi();
-  var doc = DocumentApp.getActiveDocument();
-
-  var apiKey = PropertiesService.getScriptProperties().getProperty(API_KEY_PROPERTY);
+  var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   if (!apiKey || apiKey.trim() === '') {
-    Logger.log('transcribeSelectedImage: missing API key');
-    ui.alert('Configuration', 'Please set your Google AI API key in Script Properties (Project Settings → Script properties). Add a key named ' + API_KEY_PROPERTY + '.', ui.ButtonSet.OK);
+    Logger.log('transcribeSelectedImage: missing API key, showing setup dialog');
+    showApiKeyDialog();
     return;
   }
   Logger.log('transcribeSelectedImage: API key present');
+  doTranscribeFlow();
+}
+
+/**
+ * Shows a modal dialog for the user to enter their Google AI (Gemini) API key.
+ * On save, persists the key and continues the transcribe flow within the same dialog
+ * (morphs into the "awaiting" state and calls runTranscribeWorker directly).
+ */
+function showApiKeyDialog() {
+  var ui = DocumentApp.getUi();
+  var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
+    '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
+    '<p style="margin:0 0 8px;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
+    '<p style="margin:0 0 12px;">Get a free key at ' +
+    '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> ' +
+    '(sign in with your Google account, then click <b>Create API key</b>).</p>' +
+    '<label style="display:block; margin-bottom:4px; font-weight:bold;">API Key:</label>' +
+    '<input id="apiKey" type="text" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" placeholder="Paste your API key here" />' +
+    '<div id="status" style="color:#C62828; margin-top:6px; font-size:12px;"></div>' +
+    '<div style="text-align:right; margin-top:12px;">' +
+    '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Save &amp; Continue</button></div>' +
+    '<script>' +
+    'function save(){' +
+      'var key=document.getElementById("apiKey").value;' +
+      'if(!key||!key.trim()){document.getElementById("status").innerText="Please enter an API key.";return;}' +
+      'document.getElementById("status").innerText="Saving\\u2026";' +
+      'document.getElementById("saveBtn").disabled=true;' +
+      'google.script.run' +
+        '.withSuccessHandler(function(r){' +
+          'if(r&&r.ok){startTranscription();}' +
+          'else{document.getElementById("status").innerText=(r&&r.message)||"Failed to save key.";document.getElementById("saveBtn").disabled=false;}' +
+        '})' +
+        '.withFailureHandler(function(err){' +
+          'document.getElementById("status").innerText=err.message||String(err);document.getElementById("saveBtn").disabled=false;' +
+        '})' +
+        '.saveApiKey(key);' +
+    '}' +
+    'function startTranscription(){' +
+      'document.body.innerHTML=\'<p style="font-family:Arial,sans-serif;padding:16px;margin:0;">Awaiting response from Gemini API\\u2026 This may take up to 1 minute. Please wait \\u2014 this dialog will close automatically.</p>\';' +
+      'google.script.run' +
+        '.withSuccessHandler(function(r){' +
+          'google.script.host.close();' +
+          'if(r&&r.ok){google.script.run.showDoneAlert();}' +
+          'else if(r&&!r.ok){google.script.run.showErrorAlert(r.message||"Unknown error");}' +
+        '})' +
+        '.withFailureHandler(function(err){' +
+          'google.script.run.showErrorAlert(err.message||String(err));google.script.host.close();' +
+        '})' +
+        '.runTranscribeWorker();' +
+    '}' +
+    '</script></body></html>';
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(400).setHeight(220), 'Set API Key');
+}
+
+/**
+ * Saves the API key to User Properties (private per Google account). Called from the API key dialog.
+ */
+function saveApiKey(key) {
+  if (!key || typeof key !== 'string' || key.trim() === '') {
+    return { ok: false, message: 'Please enter a valid API key.' };
+  }
+  PropertiesService.getUserProperties().setProperty(API_KEY_PROPERTY, key.trim());
+  Logger.log('saveApiKey: key saved');
+  return { ok: true };
+}
+
+/**
+ * Continues the transcribe flow: validates image selection and shows the awaiting dialog.
+ * Called directly when the API key is already set, or via google.script.run after saving the key.
+ */
+function doTranscribeFlow() {
+  Logger.log('doTranscribeFlow: start');
+  var ui = DocumentApp.getUi();
+  var doc = DocumentApp.getActiveDocument();
 
   var selection = doc.getSelection();
   if (!selection) {
-    Logger.log('transcribeSelectedImage: no selection');
+    Logger.log('doTranscribeFlow: no selection');
     ui.alert('Selection required', 'Please select a single image (metric book scan) and run Transcribe Image again.', ui.ButtonSet.OK);
     return;
   }
 
   var rangeElements = selection.getRangeElements();
   if (!rangeElements || rangeElements.length !== 1) {
-    Logger.log('transcribeSelectedImage: selection count=' + (rangeElements ? rangeElements.length : 0));
+    Logger.log('doTranscribeFlow: selection count=' + (rangeElements ? rangeElements.length : 0));
     ui.alert('Selection required', 'Please select exactly one image.', ui.ButtonSet.OK);
     return;
   }
 
   var element = rangeElements[0].getElement();
-  Logger.log('transcribeSelectedImage: element type=' + element.getType());
+  Logger.log('doTranscribeFlow: element type=' + element.getType());
   if (element.getType() !== DocumentApp.ElementType.INLINE_IMAGE) {
     ui.alert('Image required', 'Please click on the metric book image to select it, then run Transcribe Image.', ui.ButtonSet.OK);
     return;
@@ -274,11 +347,11 @@ function transcribeSelectedImage() {
   if (mimeType.indexOf('image/') !== 0) {
     mimeType = 'image/png';
   }
-  Logger.log('transcribeSelectedImage: image blob size=' + (blob.getBytes && blob.getBytes().length) + ', mimeType=' + mimeType);
+  Logger.log('doTranscribeFlow: image blob size=' + (blob.getBytes && blob.getBytes().length) + ', mimeType=' + mimeType);
 
   var context = getContextFromDocument(doc);
   var prompt = buildPrompt(context);
-  Logger.log('transcribeSelectedImage: context length=' + (context ? context.length : 0) + ', prompt length=' + (prompt ? prompt.length : 0));
+  Logger.log('doTranscribeFlow: context length=' + (context ? context.length : 0) + ', prompt length=' + (prompt ? prompt.length : 0));
 
   showAwaitingDialog(ui);
 }
@@ -289,7 +362,7 @@ function transcribeSelectedImage() {
  */
 function showAwaitingDialog(ui) {
   var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family: Arial, sans-serif; padding: 16px;">' +
-    '<p style="margin:0;">Awaiting response from Gemini API… This may take up to 1 minute.</p>' +
+    '<p style="margin:0;">Awaiting response from Gemini API… This may take up to 1 minute. Please wait — this dialog will close automatically.</p>' +
     '<script>google.script.run.withSuccessHandler(function(r){google.script.host.close();if(r&&r.ok){google.script.run.showDoneAlert();}else if(r&&!r.ok){google.script.run.showErrorAlert(r.message||"Unknown error");}})' +
     '.withFailureHandler(function(err){google.script.run.showErrorAlert(err.message||String(err));google.script.host.close();})' +
     '.runTranscribeWorker();</script></body></html>';
@@ -302,9 +375,9 @@ function showAwaitingDialog(ui) {
 function runTranscribeWorker() {
   Logger.log('runTranscribeWorker: start');
   var doc = DocumentApp.getActiveDocument();
-  var apiKey = PropertiesService.getScriptProperties().getProperty(API_KEY_PROPERTY);
+  var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   if (!apiKey || apiKey.trim() === '') {
-    return { ok: false, message: 'API key not set. Add ' + API_KEY_PROPERTY + ' in Script properties.' };
+    return { ok: false, message: 'API key not set. Run Transcribe Image to set your key.' };
   }
   var selection = doc.getSelection();
   if (!selection) return { ok: false, message: 'Please select a single image and run Transcribe Image again.' };
@@ -456,8 +529,14 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
     throw new Error('Empty content in response');
   }
 
-  var result = candidate.content.parts[0].text || '';
-  Logger.log('callGemini: success, result length=' + result.length);
+  var resultParts = [];
+  for (var i = 0; i < candidate.content.parts.length; i++) {
+    if (candidate.content.parts[i].text) {
+      resultParts.push(candidate.content.parts[i].text);
+    }
+  }
+  var result = resultParts.join('');
+  Logger.log('callGemini: success, parts=' + candidate.content.parts.length + ', result length=' + result.length);
   return result;
 }
 

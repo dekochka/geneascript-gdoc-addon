@@ -51,10 +51,10 @@ Use this to create a document with a Context section and all scan images from a 
    - Village names
    - Common surnames in the area  
 
-   The add-on sends all text under the heading “Context” to the model. Use plain text or short lines; no special format is required.
+   The add-on sends all text under the heading "Context" to the model. Use plain text or short lines; no special format is required.
 
 2. **🖼️ Images**  
-   Below the Context section, insert your metric book images (scans) as usual in Google Docs (Insert → Image → Upload or paste). One image per “page” of the register is typical. You can have multiple images in one document.
+   Below the Context section, insert your metric book images (scans) as usual in Google Docs (Insert → Image → Upload or paste). One image per "page" of the register is typical. You can have multiple images in one document.
 
 ## ✍️ How to transcribe an image
 
@@ -63,12 +63,14 @@ Use this to create a document with a Context section and all scan images from a 
 
    ![Select image and run Transcribe Image](Step2_selectImage_HitTranscribe.jpg)
 
-3. A dialog appears: **“Awaiting response from Gemini API… This may take up to 1 minute.”** Leave it open until the request finishes (the status bar may show “Working…”).
-4. When the add-on finishes, the dialog closes and you see **“Done — Transcription inserted below the image.”** The transcription is inserted **directly under the selected image** (not at the end of the document).
+3. **🔑 First time only — API key setup:** If no API key is configured yet, a **"Set API Key"** dialog appears. It includes a link to [Google AI Studio](https://aistudio.google.com/app/apikey) where you can get a free key (sign in, click **Create API key**, copy it). Paste the key into the dialog and click **Save & Continue**. The key is saved and the transcription proceeds automatically. On subsequent runs, this step is skipped.
+
+4. A dialog appears: **"Awaiting response from Gemini API… This may take up to 1 minute."** Leave it open until the request finishes (the status bar may show "Working…").
+5. When the add-on finishes, the dialog closes and you see **"Done — Transcription inserted below the image."** The transcription is inserted **directly under the selected image** (not at the end of the document).
 
    ![Transcription finished](Step3_TranscriptionFinished.jpg)
 
-5. **✅ Review and edit** the result in the document. **Quality Metrics** and **Assessment** lines are colored (blue and red) so they stand out from the historical data.
+6. **✅ Review and edit** the result in the document. **Quality Metrics** and **Assessment** lines are colored (blue and red) so they stand out from the historical data.
 
    ![Review transcription results](Step4_ReviewTranscriptionResults.jpg)
 
@@ -91,18 +93,18 @@ Blank lines separate records for readability. You can edit any of this text in t
 
 - **📋 Context:** The more precise the context (archive, dates, villages, surnames), the better the transcription and name normalization.
 - **🖼️ Image quality:** Clear, upright scans work best. Cropping to the relevant table or page helps.
-- **1️⃣ One image at a time:** Select exactly one image before running “Transcribe Image.” For another image, select it and run the add-on again.
+- **1️⃣ One image at a time:** Select exactly one image before running "Transcribe Image." For another image, select it and run the add-on again.
 
 ## 🔧 Troubleshooting
 
 | Issue | What to do |
 |-------|------------|
-| **“Please select a single image”** | Click on one metric book image so it is selected, then run **Transcribe Image** again. |
+| **"Please select a single image"** | Click on one metric book image so it is selected, then run **Transcribe Image** again. |
 | **Invalid Drive Folder link** | Paste the full folder URL from the Drive address bar (e.g. `https://drive.google.com/drive/folders/...`) or the folder ID. Use a **folder** link, not a file. |
 | **Cannot access folder** | The folder must be owned by you or shared with you. If you added Drive access recently, re-authorize (revoke the app in Google Account → Third-party apps, then run Import again). |
 | **No images found in this folder** | Only JPEG, PNG, and WebP are imported. Add at least one image in one of these formats. |
 | **Some images skipped** | Very large or invalid images may be skipped; the add-on reports how many. Resize or re-export large scans if needed. |
-| **“Please set your Google AI API key”** | In the script editor: **Project Settings** → **Script properties** → add `GEMINI_API_KEY` with your key. See [INSTALLATION.md](INSTALLATION.md). |
+| **"Set API Key" dialog / API key prompt** | The add-on prompts for a key on first use of **Transcribe Image**. Get a free key at [Google AI Studio](https://aistudio.google.com/app/apikey), paste it, and click **Save & Continue**. Your key is stored privately (per user) and is not shared with other users of the add-on. See [INSTALLATION.md](INSTALLATION.md). |
 | **Request failed / API error** | Check that your API key is valid and that the Generative Language API is enabled. If you see a quota or billing message, check your Google AI or Cloud project settings. |
 | **Timeout** | The add-on waits up to about 60 seconds. If the request times out, try again or use a smaller/simpler image. |
 | **Empty or odd transcription** | Ensure the selected element is the image (not a drawing or text). Add or improve the Context section and try again. |

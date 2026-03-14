@@ -37,8 +37,8 @@ flowchart LR
 
 - **📍 Where it runs:** Google Docs (as an Editor add-on via Test deployments, or as a container-bound script).
 - **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Folder** prompts for a Drive folder URL or ID, then adds a **Context** section at the top (full sample template from `ContextTemplate.gs` with bold labels), imports up to **30 images** from the folder (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Very large or invalid images are skipped and the final alert reports how many were added or skipped.
-- **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document’s Context to **Gemini 3.1 Pro Preview** and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
-- **🔑 Requirements:** A Google AI (Gemini) API key in **Script properties** (`GEMINI_API_KEY`). Drive folder import requires access to the folder (you own it or it’s shared with you).
+- **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document's Context to **Gemini 3.1 Pro Preview** and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
+- **🔑 Requirements:** A Google AI (Gemini) API key (`GEMINI_API_KEY`). The add-on prompts you to enter the key the first time you run **Transcribe Image** (with a link to [Google AI Studio](https://aistudio.google.com/app/apikey)). Each user's key is stored privately (User Properties) and is not shared with others. Drive folder import requires access to the folder (you own it or it's shared with you).
 
 ## 📚 Documentation
 
@@ -49,5 +49,4 @@ flowchart LR
 
 - **`addon/`** — Apps Script source: `Code.gs`, `ContextTemplate.gs`, `Prompt.gs`, `appsscript.json`.
 - **`docs/`** — User guide, installation, design; screenshots (Step1–Step4) for the guide.
-- **`project/`** — Specs (SPEC.md, SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md).
-
+- **`project/`** — Specs (SPEC.md, SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md, SPEC-3-APIKEY-SETUP.md).
