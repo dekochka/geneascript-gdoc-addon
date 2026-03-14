@@ -4,6 +4,26 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased] — v0.3-marketplace
+
+### ✨ Added
+
+- **🏪 Marketplace publishing preparation** — Manifest, documentation, and code changes to support publishing the add-on to the Google Workspace Marketplace.
+- **`addOns` block in manifest** — Added `addOns.common` (name, logoUrl) and `addOns.docs` sections to `appsscript.json` for proper Editor add-on registration.
+- **Help menu items** — Added "Help / User Guide" and "Report an issue" items to the add-on menu (open GitHub pages).
+- **Privacy Policy** (`docs/PRIVACY_POLICY.md`) — Describes data access, storage, third-party API usage, and user controls. Required for Marketplace listing.
+- **Terms of Service** (`docs/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
+- **Store listing copy** (`docs/STORE_LISTING.md`) — Drafted application name, short/detailed descriptions, category, support links, and graphic asset checklist for the Marketplace SDK console.
+
+### 🔧 Changed
+
+- **Installation docs** — Added "Option 0: Install from Marketplace" as the recommended path in `INSTALLATION.md`; updated installation path diagram and logo section.
+- **README** — Added Marketplace install section, links to Privacy Policy and Terms of Service, fixed broken screenshot reference.
+
+### 📚 Documentation
+
+- Added project spec `SPEC-4-PUBLISH-MARKETPLACE.md` describing the full scope of the publishing project (code changes, docs, manual GCP/Marketplace steps, graphic assets, success criteria, risks).
+
 ## [0.2-gscript-beta](https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.2-gscript-beta) — 2026-03-14
 
 ### ✨ Added
