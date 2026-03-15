@@ -281,11 +281,11 @@ function transcribeSelectedImage() {
  * On save, persists the key and continues the transcribe flow within the same dialog
  * (morphs into the "awaiting" state and calls runTranscribeWorker directly).
  */
-/** Model options for the dropdown (id = API model id). */
+/** Model options for the dropdown (id = API model id). Use exact IDs from https://ai.google.dev/gemini-api/docs/models */
 function getModelOptions() {
   return [
     { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (default, free tier ~20/day)' },
-    { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite (lower quality, 500 requests/day)' },
+    { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite (lower quality, 500 requests/day)' },
     { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (best quality, billing)' }
   ];
 }

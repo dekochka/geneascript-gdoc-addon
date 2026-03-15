@@ -21,6 +21,10 @@ Repeat **Select image** → **Transcribe** for each page you want to transcribe.
 2. **Transcribe** — Select one image at a time and run **Transcribe Image**.
 3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup API key & model**.
 
+**Menu overview**
+
+![Metric Book Transcriber menu items — Transcribe Image, Import Book from Drive Folder, Setup API key & model, Help, Report issue](Step0_Doc_Extension_MenuItems.png)
+
 ---
 
 ## 📁 Import Book from Drive Folder (recommended)
@@ -30,11 +34,19 @@ Use this to create a document with a Context section and all scan images from a 
 1. Open a **new or existing** Google Doc.
 2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Folder**.
 3. When prompted, paste the **Google Drive folder URL or folder ID** that contains your metric book scans. You can copy the URL from the address bar when the folder is open in Drive (e.g. `https://drive.google.com/drive/folders/...`).
+
+   ![Enter Drive folder URL in the Import dialog](Step1_GDriveImport_SetFolderURL.png)
+
 4. Click **OK**. The add-on will:
    - Add a **Context** section at the top (full sample template with bold labels: archive name, reference, villages, common surnames, etc. — you can edit it).
    - Import **up to 30 images** from the folder (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
    - For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (clickable link to the file in Drive), then the image (scaled to content width), then a page break.
+
+   ![Import in progress — images being added to the document](Step1_GDriveImport_Importing_Images.png)
+
 5. When the import finishes, you'll see how many images were added (and how many skipped, if any). You can now run **Transcribe Image** on any of them (see below).
+
+   ![Import complete — Context and imported images in the document](Step1_GDriveImport_Import_Result.png)
 
 **📌 Notes:** The folder must be one you own or that's shared with you. Very large or invalid images may be skipped; the add-on reports how many were skipped. Edit the Context block with your actual archive and locality details before transcribing for best results.
 
@@ -62,18 +74,27 @@ Use this to create a document with a Context section and all scan images from a 
 1. **🖼️ Click on the image** you want to transcribe so it is selected (handles appear around it).
 2. Open **Extensions** → **Metric Book Transcriber** → **Transcribe Image**.
 
-   ![Select image and run Transcribe Image](Step2_selectImage_HitTranscribe.jpg)
+   ![Select image and run Transcribe Image](Step2_selectImage_HitTranscribe.png)
 
 3. **🔑 First time only — API key & model setup:** If no API key is configured yet, a **"Set API Key"** dialog appears. It includes a link to [Google AI Studio](https://aistudio.google.com/app/apikey) where you can get a free key (sign in, click **Create API key**, copy it). In the dialog you can also choose the **model**: default is **Gemini Flash Latest** (free tier ~20 requests/day); other options include **Gemini 3.1 Flash Lite** (500 requests/day) and **Gemini 3.1 Pro Preview** (best quality, billing). Paste the key, pick a model, and click **Save & Continue**. The key and model are saved and the transcription proceeds. To change them later, use **Setup API key & model** from the add-on menu. See [rate limits](https://aistudio.google.com/rate-limit) for free tier and billing.
 
 4. A dialog appears: **"Awaiting response from Gemini API… This may take up to 1 minute."** Leave it open until the request finishes (the status bar may show "Working…").
+
+   ![Transcribing — awaiting response from Gemini API](Step3_Transcribing.png)
+
 5. When the add-on finishes, the dialog closes and you see **"Done — Transcription inserted below the image."** The transcription is inserted **directly under the selected image** (not at the end of the document).
 
-   ![Transcription finished](Step3_TranscriptionFinished.jpg)
+   ![Transcription finished — inserted below the image](Step3_TranscriptionFinished.png)
 
 6. **✅ Review and edit** the result in the document. **Quality Metrics** and **Assessment** lines are colored (blue and red) so they stand out from the historical data.
 
-   ![Review transcription results](Step4_ReviewTranscriptionResults.jpg)
+   ![Review transcription results — Quality Metrics and Assessment highlighted](TranscribeAddOn-TranscriptionResults.png)
+
+### Setup API key & model
+
+To change your API key or Gemini model anytime (for example after hitting free-tier limits or to try a different model), use **Extensions** → **Metric Book Transcriber** → **Setup API key & model**. In the dialog you can pick a model, enter a new API key (or leave it blank to keep the current one), and click **Save**. Use **Clear stored API key** to remove your key so you’ll be prompted again on the next Transcribe.
+
+![Setup API key & model dialog — Model dropdown, API key field, Save, Clear stored API key](Step0_Doc_Extension_SetAPIKey.png)
 
 ## 📝 What the output looks like
 
