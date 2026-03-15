@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 (Nothing yet.)
 
+## [0.3.1] — 2026-03-15
+
+### 🔧 Changed (marketplace prep with fixes)
+
+- **Manifest `urlFetchWhitelist`** — Added explicit `urlFetchWhitelist` in `appsscript.json` for `https://generativelanguage.googleapis.com/`. Required for Google Workspace add-ons using `UrlFetchApp` when creating a versioned deployment; fixes deployment error "An explicit urlFetchWhitelist is required for all Google Workspace add-ons using UrlFetchApp."
+- **Gemini 3.1 Flash Lite model id** — Option now uses `gemini-3.1-flash-lite-preview` (correct API model id) instead of `gemini-3.1-flash-lite` (fixes 404 from generateContent).
+
 ## [0.3.0](https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.3.0-marketplace-prep) — 2026-03-15
 
 ### ✨ Added
@@ -34,6 +41,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### 📚 Documentation
 
 - Added project spec `SPEC-4-PUBLISH-MARKETPLACE.md` describing the full scope of the publishing project (code changes, docs, manual GCP/Marketplace steps, graphic assets, success criteria, risks).
+
+[0.3.1]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.3.1
 
 [0.3.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.3.0-marketplace-prep
 

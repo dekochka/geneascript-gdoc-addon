@@ -9,6 +9,9 @@
     "https://www.googleapis.com/auth/script.external_request",
     "https://www.googleapis.com/auth/script.container.ui"
   ],
+  "urlFetchWhitelist": [
+    "https://generativelanguage.googleapis.com/"
+  ],
   "addOns": {
     "common": {
       "name": "Metric Book Transcriber",
