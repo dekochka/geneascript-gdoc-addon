@@ -2,18 +2,26 @@
 
 This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google AI (Gemini)**. You can **import scan images from a Google Drive folder** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
 
-## 📊 User flow (left → right)
+## 📊 User flow
+
+**Create document & import images**
 
 ```mermaid
 flowchart LR
-  A[📄 Open document] --> B[📁 Import from Drive or add Context + images]
-  B --> C[📋 Doc with Context + images]
-  C --> D[🖼️ Select one image]
-  D --> E[✍️ Run Transcribe Image]
-  E --> F[✅ Review transcription below image]
+  A[📄 Create new Doc] --> B[📁 Import images from Drive]
+  B --> C[✅ Review Context + images in doc]
 ```
 
-Repeat **Select image** → **Transcribe** for each page you want to transcribe.
+**Transcribe flow**
+
+```mermaid
+flowchart LR
+  D[🔑 Setup Key / Model] --> E[🖼️ Select image]
+  E --> F[✍️ Transcribe]
+  F --> G[✅ Review results]
+```
+
+Repeat **Select image** → **Transcribe** → **Review** for each page you want to transcribe.
 
 ## 🔄 Workflow summary
 
