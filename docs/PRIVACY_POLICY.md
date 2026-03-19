@@ -1,4 +1,5 @@
 ---
+layout: default
 ---
 # Privacy Policy — Metric Book Transcriber
 

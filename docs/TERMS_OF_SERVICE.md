@@ -1,4 +1,5 @@
 ---
+layout: default
 ---
 # Terms of Service — Metric Book Transcriber
 

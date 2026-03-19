@@ -1,4 +1,5 @@
 ---
+layout: default
 ---
 # 📖 User Guide — Metric Book Transcriber Add-On
 

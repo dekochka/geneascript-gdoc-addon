@@ -1,4 +1,5 @@
 ---
+layout: default
 ---
 # ⚙️ Installation — Metric Book Transcriber Add-On
 
