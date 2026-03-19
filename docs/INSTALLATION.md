@@ -1,3 +1,5 @@
+---
+---
 # ⚙️ Installation — Metric Book Transcriber Add-On
 
 This add-on runs in Google Docs and uses the **Google AI (Gemini)** API to transcribe metric book images. Choose one of the installation options below. The API key can be entered the first time you run **Transcribe Image** (the add-on will prompt you), or set manually in Script properties.

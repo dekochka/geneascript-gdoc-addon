@@ -1,3 +1,5 @@
+---
+---
 # Privacy Policy — Metric Book Transcriber
 
 **Last updated:** 2026-03-14

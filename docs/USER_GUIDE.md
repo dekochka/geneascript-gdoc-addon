@@ -1,3 +1,5 @@
+---
+---
 # 📖 User Guide — Metric Book Transcriber Add-On
 
 This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google AI (Gemini)**. You can **import scan images from a Google Drive folder** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
