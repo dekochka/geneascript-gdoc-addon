@@ -11,12 +11,12 @@ By installing or using Metric Book Transcriber ("the Add-on"), you agree to thes
 
 ## 2. Description
 
-The Add-on is a free, open-source Google Docs Editor add-on that assists users in transcribing images of metric books (birth, marriage, and death registers) by sending selected images and document context to the Google AI (Gemini) API.
+The Add-on is a free, open-source Google Docs™ Editor add-on that assists users in transcribing images of metric books (birth, marriage, and death registers) by sending selected images and document context to the Google™ AI (Gemini™) API.
 
 ## 3. Requirements
 
 - A Google account.
-- A Google AI (Gemini) API key, which you obtain and manage yourself at [Google AI Studio](https://aistudio.google.com/app/apikey).
+- A Google™ AI (Gemini™) API key, which you obtain and manage yourself at [Google AI Studio™](https://aistudio.google.com/app/apikey).
 - A Google Doc containing metric book images.
 
 ## 4. API Key and Costs

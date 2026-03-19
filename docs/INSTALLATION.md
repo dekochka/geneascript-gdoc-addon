@@ -3,7 +3,7 @@ layout: default
 ---
 # ⚙️ Installation — Metric Book Transcriber Add-On
 
-This add-on runs in Google Docs and uses the **Google AI (Gemini)** API to transcribe metric book images. Choose one of the installation options below. The API key can be entered the first time you run **Transcribe Image** (the add-on will prompt you), or set manually in Script properties.
+This add-on runs in Google Docs™ and uses the **Google™ AI (Gemini™)** API to transcribe metric book images. Choose one of the installation options below. The API key can be entered the first time you run **Transcribe Image** (the add-on will prompt you), or set manually in Script properties.
 
 ## 🗺️ Choose your installation path
 
@@ -26,7 +26,7 @@ flowchart LR
 
 | Path | Best for |
 |------|----------|
-| **Option 0** | **Recommended.** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) — one click, works in any Google Doc. |
+| **Option 0** | **Recommended.** Install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/) — one click, works in any Google Docs™ document. |
 | **Option 1** | Standalone Apps Script project; run in any doc via **Test deployments** (Editor add-on). |
 | **Option 2** | One Google Doc; script lives inside that document (**Extensions → Apps Script**). |
 | **Option 3** | Using **clasp** or copying from repo; then follow Option 1 or 2 depending on project type. |
@@ -37,11 +37,11 @@ flowchart LR
 
 - **📧** A Google account (personal or Google Workspace).
 - **📄** A Google Document where you want to transcribe metric book images.
-- **🔑** A **Google AI API key** (Gemini). Get one at [Google AI Studio](https://aistudio.google.com/app/apikey) or [Google Cloud Console](https://console.cloud.google.com/) (enable the Generative Language API and create an API key). You can skip this step — the add-on will prompt you with instructions and a link on first use of **Transcribe Image**.
+- **🔑** A **Google AI API key** (Gemini). Get one at [Google AI Studio™](https://aistudio.google.com/app/apikey) or [Google Cloud™ Console](https://console.cloud.google.com/) (enable the Generative Language API and create an API key). You can skip this step — the add-on will prompt you with instructions and a link on first use of **Transcribe Image**.
 
 ---
 
-## 🏪 Option 0: Install from Google Workspace Marketplace (recommended)
+## 🏪 Option 0: Install from Google Workspace™ Marketplace (recommended)
 
 This is the easiest option for end users. No code, no setup — just install and go.
 
