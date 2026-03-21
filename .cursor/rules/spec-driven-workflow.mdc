@@ -1,0 +1,67 @@
+---
+description: Spec-driven development (SDD) for geneascript-gdoc-addon — phases, gates, project specs, Marketplace-aware
+alwaysApply: true
+---
+
+# Spec-driven development (SDD)
+
+## When this applies
+
+- **Full SDD (phases below):** New features, non-trivial behavior changes, or work explicitly tied to a spec under `project/`.
+- **Lightweight:** Tiny fixes (copy, single obvious bug), changelog-only, or edits that do not alter product behavior — still read any related spec section if one exists; skip formal phases unless the user asks for SDD.
+
+## Authority order
+
+1. **Active spec** — The `project/SPEC-*.md` the user names or that clearly matches the task. If unclear, ask which spec is in scope before large changes.
+2. **`project/SPEC.md`** — Product goals, transcription/prompt behavior, output format; requirements for `addon/Prompt.gs`, context handling, and user-visible transcription behavior.
+3. **Implementation** — `addon/*.gs`, `addon/appsscript.json` unless the spec points elsewhere.
+4. **User-facing & compliance** — `docs/` (e.g. USER_GUIDE, INSTALLATION, PRIVACY_POLICY, TERMS_OF_SERVICE, STORE_LISTING). Update when behavior, data access, install paths, or listing copy changes.
+
+New work without a spec: propose a new `project/SPEC-N-SHORT-NAME.md` from `project/TEMPLATE-SPEC.md` (or a short delta to an existing spec) and confirm before substantial implementation.
+
+## SDD pipeline (do not skip phases for full SDD)
+
+### Phase 1 — Ingestion & analysis
+
+- Read the active spec (and `SPEC.md` sections it depends on).
+- Extract user story, UI entry points (menus, modals, sidebar), server functions, Document/Drive/Gemini usage, and **OAuth scopes** if `appsscript.json` may change.
+- List edge cases (empty doc, no selection, API/network failure, missing key, permission errors).
+
+**PAUSE:** Summarize understanding and ask whether requirements were captured correctly.
+
+### Phase 2 — Implementation plan
+
+- Step-by-step plan mapped to this repo’s paths (`addon/`, `docs/`, not `src/` or `.ts` unless the project uses them).
+- Exact files to create or change.
+- **Data contracts:** `google.script.run` targets, argument/return shapes (e.g. JSON `{ ok, message }`), and client handlers (`.withSuccessHandler` / `.withFailureHandler`) where relevant.
+
+**PAUSE:** Present the plan and ask for approval.
+
+### Phase 3 — UI first (conditional)
+
+- Use when the spec adds **non-trivial UI** (multi-step flows, sidebars, rich error states).
+- Prefer patterns already in the add-on (e.g. inline `HtmlService` in `Code.gs` when that is the norm). Separate `.html` files only if the codebase already uses them or the spec requires it.
+- Optional: mock server responses in the client for local iteration; then **`clasp push`** for the user to try in Docs.
+- **Skip or shorten Phase 3** for menu-only actions, small modals, or backend-only changes.
+
+**PAUSE (when Phase 3 applies):** Ask the user to push/test the UI before wiring full server logic, if mocks were used.
+
+### Phase 4 — Server-side & wiring
+
+- Implement Apps Script logic, error handling (`try/catch`), consistent error payloads to the client where applicable.
+- Update `addon/appsscript.json` when scopes or add-on manifest fields change.
+- Remove mocks; wire `google.script.run` to real functions.
+
+### Phase 5 — Verification
+
+- Walk the spec against the code; use the spec’s acceptance criteria (or draft checkboxes if missing).
+- If scopes, data access, or distribution changed, cross-check `project/SPEC-4-PUBLISH-MARKETPLACE.md`-style concerns (privacy, terms, store listing, OAuth verification) and flag manual GCP/Marketplace steps.
+- No hardcoded API keys or secrets in source.
+
+## Triggering SDD in chat
+
+Example: *“Run SDD Phases 1–2 for `project/SPEC-3-APIKEY-SETUP.md` and pause for approval.”*
+
+## Release discipline
+
+Follow `.cursor/rules/release-change-management.mdc`: do not create Git tags, GitHub releases, or `clasp version` without explicit user confirmation after a push or when cutting a release.

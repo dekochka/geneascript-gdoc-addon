@@ -60,4 +60,4 @@ flowchart LR
 
 - **`addon/`** — Apps Script source: `Code.gs`, `ContextTemplate.gs`, `Prompt.gs`, `appsscript.json`.
 - **`docs/`** — User guide, installation, design, privacy policy, terms of service, store listing copy.
-- **`project/`** — Specs (SPEC.md, SPEC-1-POC, SPEC-2-GDRIVE-to-GDOC, SPEC-3-APIKEY-SETUP, SPEC-4-PUBLISH-MARKETPLACE).
+- **`project/`** — Specs (SPEC.md, SPEC-1–4) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.
