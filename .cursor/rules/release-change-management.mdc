@@ -1,0 +1,39 @@
+---
+description: Release tags, CHANGELOG, GitHub releases, and clasp versioning for geneascript-gdoc-addon
+alwaysApply: true
+---
+
+# Release & change management (geneascript-gdoc-addon)
+
+## Versioning context
+
+- **Git / GitHub:** Immutable releases use **Git tags** on `main`. Tag names use a `v` prefix (e.g. `v0.3.1`, `v0.2-gscript-beta`, `v0.3.0-marketplace-prep`). This repo does **not** use `package.json` for version; treat **CHANGELOG.md** and tags as source of truth.
+- **Google Apps Script:** Integer **Versions** are created with **`clasp version "…"`** after a Git release when the Script project should match that snapshot.
+
+## After commits or pushes — always ask
+
+When the user has **committed**, **pushed**, or explicitly says they pushed to `main`:
+
+1. **Do not** create tags, GitHub releases, or `clasp version` unless they agree.
+2. Ask clearly: whether this push should get a **new Git tag**, a **GitHub Release**, and whether to run **`clasp version`** (and if so, which message aligns with the tag).
+3. If they say **no** or **not yet**, stop; do not tag or release.
+
+## When the user asks to "prepare a release", "cut a release", or agrees to tag after a push
+
+Execute in order:
+
+1. **Analyze** — Review changes since the latest tag: `git log $(git describe --tags --abbrev=0 2>/dev/null)..HEAD` (or compare to the chosen baseline if no tags). Summarize what shipped.
+2. **Changelog** — Update `CHANGELOG.md` per [Keep a Changelog](https://keepachangelog.com/). Match this project's style: `## [version] — YYYY-MM-DD`, link footer `[version]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v…`, sections like **✨ Added**, **🐛 Fixed**, **🔧 Changed**, **📚 Documentation** (and **Security** if needed). Move items out of `[Unreleased]` into the new version section.
+3. **Approval** — Show the drafted changelog (and proposed **exact tag name**, e.g. `v0.4.0` or `v0.4.0-suffix`) **before** committing, tagging, or publishing.
+4. **Execution** (after approval) — Commit changelog only (or with any remaining release-prep files), then tag and push:
+   - `git add CHANGELOG.md` (plus other agreed files)
+   - `git commit -m "chore: release vX.Y.Z"` (use the real tag string; align with past commit style in this repo)
+   - `git tag <full-tag>` (e.g. `git tag v0.4.0`)
+   - `git push origin main --tags`
+5. **GitHub Release** — Create the release for that tag (e.g. `gh release create <tag> --title "…" --notes-file <file>`). Prefer **release notes = the new version's section** (or an edited excerpt), not the entire `CHANGELOG.md` unless the user wants the full file.
+6. **Apps Script** — If requested: `clasp version "Release <tag or short description>"` from the project root so Google has an immutable Script version aligned with the release.
+
+## Constraints
+
+- Never tag or `clasp version` on behalf of the user without **explicit** confirmation after a push (step above) or a direct "cut release" request plus changelog approval.
+- Keep tag naming consistent with existing tags (semver with optional suffix for milestones).
