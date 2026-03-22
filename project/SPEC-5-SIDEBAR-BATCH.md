@@ -1,7 +1,7 @@
 # Feature specification: Side Panel and Batch Transcribe
 
-**Status:** Draft  
-**Target version:** v0.5.0 (Unreleased)  
+**Status:** Implemented — release **v0.4.0** (pending tag & merge)  
+**Target version:** v0.4.0  
 **Related:** `SPEC.md` (prompt/output contract), `SPEC-3-APIKEY-SETUP.md` (key dialog), `SPEC-4-PUBLISH-MARKETPLACE.md` (listing/privacy)
 
 ---

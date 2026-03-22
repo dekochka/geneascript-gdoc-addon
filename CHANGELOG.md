@@ -8,6 +8,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 (Nothing yet.)
 
+## [0.4.0] — 2026-03-22
+
+### ✨ Added
+
+- **Sidebar panel** — **Extensions → Metric Book Transcriber → Open Sidebar** opens a persistent HTML sidebar with the document’s inline images (labels from Heading 2 or “Image N”), **Select All**, **Refresh**, and **Transcribe Selected** for one or many images.
+- **Batch transcription** — Processes selected images in **ascending document order**; each successful run returns `insertedCount` so the client can shift body indices and keep insertions under the correct images. Live progress: counter, current label, elapsed time, ETA (after first image), **Stop** to halt after the current image.
+- **Per-image status** in the list: success (✓), `MAX_TOKENS` warning (⚠), failure (✗ with hover tooltip). Failed images do not stop the batch; summary shows succeeded/failed counts and total time.
+- **Overwrite confirmation** — Custom in-sidebar modal when re-transcribing images that already have text below them (lists affected labels; Cancel / Continue).
+- **AI disclaimer** — Short notice at the top of the sidebar that output is a best guess and must be reviewed.
+- **Card Service homepage** — `homepageTrigger` in `appsscript.json` with `buildHomepageCard()` so the right-side add-on icon shows a card with **Open Transcriber Sidebar** instead of “No homepage card…”.
+- **Project spec** — `project/SPEC-5-SIDEBAR-BATCH.md` (UX flows, limits, contracts, acceptance criteria).
+
+### 🔧 Changed
+
+- **`callGemini`** — Returns `{ text, finishReason }` for truncation handling and sidebar status. **`maxOutputTokens`** set to **32768**; **`thinkingConfig.thinkingBudget`** set to **2048** (thinking-required models reject 0; avoids huge internal “thinking” token use).
+- **Help URL** — User Guide link in menu and sidebar points to **https://geneascript.com/USER_GUIDE.html**.
+- **Sidebar footer** — Shows version **v0.4.0**.
+
+### 📚 Documentation
+
+- **USER_GUIDE** — Sidebar and batch workflow, Mermaid flows, new screenshots (`GeneaScriptAddOn-Extensions-Menu-OpenPanel.jpg`, `GeneaScript-SidePanel-BatchTranscription-InProgress.jpg`, `GeneaScript-SidePanel-BatchTranscription-Completed.jpg`), troubleshooting for sidebar and right-panel icon.
+- **INSTALLATION**, **STORE_LISTING**, **PRIVACY_POLICY** — Updated for sidebar, batch (explicit user action), and marketplace copy.
+
+[0.4.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0
+
 ## [0.3.1] — 2026-03-15
 
 ### 🔧 Changed (marketplace prep with fixes)
