@@ -1,6 +1,6 @@
 # Feature specification: Side Panel and Batch Transcribe
 
-**Status:** Implemented — release **v0.4.0** (pending tag & merge)  
+**Status:** Implemented — released as **v0.4.0** ([tag](https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0))  
 **Target version:** v0.4.0  
 **Related:** `SPEC.md` (prompt/output contract), `SPEC-3-APIKEY-SETUP.md` (key dialog), `SPEC-4-PUBLISH-MARKETPLACE.md` (listing/privacy)
 
