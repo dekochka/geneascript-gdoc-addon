@@ -46,7 +46,7 @@ The add-on does **not** share, sell, or transfer user data to any third party ex
 
 - Users can delete their stored API key at any time by running `PropertiesService.getUserProperties().deleteProperty('GEMINI_API_KEY')` in the Apps Script editor console, or by entering a new key through the add-on's "Set API Key" dialog.
 - Users can uninstall the add-on at any time, which removes all User Properties associated with it.
-- The add-on only processes data when the user explicitly triggers a menu action (Transcribe Image or Import Book from Drive Folder). It never runs in the background.
+- The add-on only processes data when the user explicitly triggers an action (Transcribe Image, batch transcription via the Sidebar, or Import Book from Drive Folder). It never runs in the background.
 
 ## Children's Privacy
 

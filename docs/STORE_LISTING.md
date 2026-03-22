@@ -15,7 +15,7 @@ Metric Book Transcriber
 ## Short Description
 
 ```
-Transcribe metric book images (birth, marriage, death registers) using Google™ AI (Gemini™). Import scans from Google Drive™, get structured output with names, dates, and quality metrics.
+Transcribe metric book images (birth, marriage, death registers) using Google™ AI (Gemini™). Batch-transcribe from the sidebar, import scans from Google Drive™, get structured output with names, dates, and quality metrics.
 ```
 
 (187 characters; limit 200)
@@ -33,7 +33,7 @@ Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealo
 Open a Google Docs™ document, run "Import Book from Drive Folder," and paste a Drive folder URL. The add-on inserts a Context template and up to 30 images (JPEG, PNG, WebP), natural-sorted by filename, each with a heading and source link.
 
 🤖 AI-Powered Transcription
-Select any metric book image in your document and run "Transcribe Image." The add-on sends the image and your document's Context section to Gemini™ and inserts the transcription below the image — no copy-pasting required.
+Open the Sidebar, select one or more images, and click "Transcribe Selected." The add-on sends each image and your document's Context section to Gemini™ and inserts the transcription below the image — no copy-pasting required. Batch transcription processes multiple images with live progress, elapsed time, and estimated time remaining. You can also transcribe a single image via the menu.
 
 📋 Structured Output
 Each transcription includes:
@@ -54,8 +54,9 @@ On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key
 1. Open a Google Docs™ document.
 2. Run Extensions > Metric Book Transcriber > Import Book from Drive Folder (or add images manually).
 3. Edit the Context section to match your source archive and locality.
-4. Select an image and run Extensions > Metric Book Transcriber > Transcribe Image.
-5. Review the transcription inserted below the image. Use Setup API key & model to change your API key or Gemini model when needed.
+4. Open the Sidebar (Extensions > Metric Book Transcriber > Open Sidebar, or click the add-on icon in the right panel).
+5. Select images and click "Transcribe Selected" to batch-transcribe, or select a single image and use "Transcribe Image" from the menu.
+6. Review the transcriptions inserted below each image. Use Setup API key & model to change your API key or Gemini model when needed.
 
 ✅ REQUIREMENTS
 

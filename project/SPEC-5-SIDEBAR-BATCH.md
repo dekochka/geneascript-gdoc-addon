@@ -491,7 +491,7 @@ sequenceDiagram
 - **`MAX_TOKENS` truncation:** `finishReason: "MAX_TOKENS"` returned; sidebar shows warning indicator on row.
 - **Batch with 30 images:** At ~40 s/image, total wall time ~20 min. Each image is its own `google.script.run` (own 6-min budget). User can stop anytime.
 - **Concurrent sidebar + menu transcribe:** User could run Transcribe Image from menu while sidebar batch runs; both would try to insert into the doc. Not actively prevented but documented as "use one path at a time."
-- **Index stale between operations:** After each `transcribeImageByIndex`, indices shift. Client processes in reverse order so unprocessed image indices remain stable. After batch completion, `getImageList()` refresh re-scans and returns fresh indices.
+- **Index stale between operations:** After each `transcribeImageByIndex`, indices shift. Client processes in ascending document order and accumulates an `insertedCount` shift offset returned by each successful call. After batch completion, `getImageList()` refresh re-scans and returns fresh indices.
 - **User closes sidebar mid-batch:** Client-side JS stops; current server call completes and inserts; remaining images are skipped. Not an error.
 - **API rate limit (429):** Gemini returns HTTP 429; `callGemini` throws; surfaced as error on that row; batch continues (next image may also hit 429).
 - **UrlFetch 60s timeout:** Single image that takes >60s fails; error shown on row; batch continues.
@@ -500,25 +500,25 @@ sequenceDiagram
 
 ## 6. Acceptance criteria (Phase 5)
 
-- [ ] **Open Sidebar** menu item opens sidebar; sidebar stays open while user interacts with doc.
-- [ ] Sidebar image list matches inline images in document body, in document order, with correct labels.
-- [ ] **Refresh** button re-scans and updates image list (picks up newly added or deleted images).
-- [ ] **Select All** / **Deselect** toggles all checkboxes.
-- [ ] Single-image transcribe from sidebar produces identical output to existing menu-based Transcribe Image.
-- [ ] Batch transcribe processes images in **reverse document order**; transcriptions inserted under correct images.
-- [ ] Batch progress updates live (counter, current image label).
-- [ ] **Stop** button halts batch after current image completes; shows partial summary.
-- [ ] Errors on individual images do not stop the batch; failed rows marked; summary shows counts.
-- [ ] `MAX_TOKENS` warning surfaced on affected rows.
-- [ ] No API key → Transcribe disabled; setup prompt shown.
-- [ ] No images → empty state message.
-- [ ] Existing menu Transcribe Image / Import / Setup / Help / Report unchanged and functional.
-- [ ] `google.script.run` wiring uses `.withSuccessHandler` / `.withFailureHandler` on every call.
-- [ ] `appsscript.json` scopes unchanged.
-- [ ] No secrets or API keys in source.
-- [ ] `docs/USER_GUIDE.md` updated with sidebar and batch instructions.
-- [ ] `docs/PRIVACY_POLICY.md` confirms batch is explicit user action.
-- [ ] `docs/STORE_LISTING.md` updated if feature claims change.
+- [x] **Open Sidebar** menu item opens sidebar; sidebar stays open while user interacts with doc.
+- [x] Sidebar image list matches inline images in document body, in document order, with correct labels.
+- [x] **Refresh** button re-scans and updates image list (picks up newly added or deleted images).
+- [x] **Select All** / **Deselect** toggles all checkboxes.
+- [x] Single-image transcribe from sidebar produces identical output to existing menu-based Transcribe Image.
+- [x] Batch transcribe processes images in **ascending document order** with index-shift tracking; transcriptions inserted under correct images.
+- [x] Batch progress updates live (counter, current image label, elapsed time, ETA).
+- [x] **Stop** button halts batch after current image completes; shows partial summary.
+- [x] Errors on individual images do not stop the batch; failed rows marked; summary shows counts.
+- [x] `MAX_TOKENS` warning surfaced on affected rows.
+- [x] No API key → Transcribe disabled; setup prompt shown.
+- [x] No images → empty state message.
+- [x] Existing menu Transcribe Image / Import / Setup / Help / Report unchanged and functional.
+- [x] `google.script.run` wiring uses `.withSuccessHandler` / `.withFailureHandler` on every call.
+- [x] `appsscript.json` scopes unchanged (homepageTrigger added, no new OAuth scopes).
+- [x] No secrets or API keys in source.
+- [x] `docs/USER_GUIDE.md` updated with sidebar and batch instructions.
+- [x] `docs/PRIVACY_POLICY.md` confirms batch is explicit user action.
+- [x] `docs/STORE_LISTING.md` updated if feature claims change.
 
 ---
 
@@ -538,7 +538,7 @@ sequenceDiagram
 | `UrlFetchApp` timeout | 60 s (hardcoded) | Per-Gemini-call ceiling; `fetchTimeoutSeconds: 60` in `callGemini` |
 | `UrlFetchApp` POST size | 50 MB | Well above typical scan + prompt |
 | Gemini inline request | ~20 MB total (image + prompt + base64 overhead) | Large scans may need downsizing; out of scope for this spec |
-| Gemini `maxOutputTokens` | 8192 (configured) | Dense pages may truncate; `finishReason: MAX_TOKENS` |
+| Gemini `maxOutputTokens` | 32768 (configured), `thinkingBudget: 2048` | Dense pages may truncate; `finishReason: MAX_TOKENS` |
 | `UrlFetchApp` daily calls | 20,000 (consumer) / 100,000 (Workspace) | Batch of 30 images = 30 calls; negligible |
 | `PropertiesService` value size | 9 KB | Only used for API key + model ID; fine |
 | Sidebar width | 300 px (Google-fixed) | All controls must fit; no horizontal scroll |

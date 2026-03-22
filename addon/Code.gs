@@ -1096,7 +1096,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v0.5.0-dev</div>',
+    '<div class="footer">v0.4.0</div>',
 
     '<script>',
     'var imgs=[],stopReq=false,running=false;',

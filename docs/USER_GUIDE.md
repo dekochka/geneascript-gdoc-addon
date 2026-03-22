@@ -15,26 +15,36 @@ flowchart LR
   B --> C[✅ Review Context + images in doc]
 ```
 
-**Transcribe flow**
+**Transcribe flow (sidebar — recommended)**
 
 ```mermaid
 flowchart LR
-  D[🔑 Setup Key / Model] --> E[🖼️ Select image]
-  E --> F[✍️ Transcribe]
-  F --> G[✅ Review results]
+  D[🔑 Setup Key / Model] --> E[📂 Open Sidebar]
+  E --> F[☑️ Select images]
+  F --> G[✍️ Transcribe Selected]
+  G --> H[✅ Review results]
 ```
 
-Repeat **Select image** → **Transcribe** → **Review** for each page you want to transcribe.
+**Transcribe flow (single image — menu)**
+
+```mermaid
+flowchart LR
+  D2[🔑 Setup Key / Model] --> E2[🖼️ Select image]
+  E2 --> F2[✍️ Transcribe Image]
+  F2 --> G2[✅ Review results]
+```
 
 ## 🔄 Workflow summary
 
 1. **Build the document** — Use **Import Book from Drive Folder** (recommended) or add Context and images manually.
-2. **Transcribe** — Select one image at a time and run **Transcribe Image**.
-3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup API key & model**.
+2. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
+3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup API key & model**, or click **Setup API key & model** in the sidebar.
 
 **Menu overview**
 
-![Metric Book Transcriber menu items — Transcribe Image, Import Book from Drive Folder, Setup API key & model, Help, Report issue](Step0_Doc_Extension_MenuItems.png)
+The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup API key & model**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
+
+![Extensions menu with Open Sidebar highlighted](GeneaScriptAddOn-Extensions-Menu-OpenPanel.jpg)
 
 ---
 
@@ -80,7 +90,37 @@ Use this to create a document with a Context section and all scan images from a 
 2. **🖼️ Images**  
    Below the Context section, insert your metric book images (scans) as usual in Google Docs (Insert → Image → Upload or paste). One image per "page" of the register is typical. You can have multiple images in one document.
 
-## ✍️ How to transcribe an image
+## 📂 Transcribe with the Sidebar (recommended)
+
+The sidebar is the easiest way to transcribe one or many images at once.
+
+1. Open **Extensions** → **Metric Book Transcriber** → **Open Sidebar**, or click the add-on icon in the right-side panel and then **Open Transcriber Sidebar**.
+2. The sidebar shows a list of all inline images in the document, labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark.
+3. **Select images** — check the images you want to transcribe, or use **Select All**. You can select a single image or multiple.
+4. Click **Transcribe Selected**. If any selected images already have transcription text below them, a confirmation dialog asks whether to replace it.
+5. The sidebar processes images in document order. For each image it shows:
+   - A progress counter ("Transcribing 2 of 7…")
+   - The current image label
+   - Elapsed time and estimated time remaining
+   - A progress bar
+6. When an image completes, it gets a status icon:
+   - **Green checkmark** — transcription inserted successfully.
+   - **Orange warning** — output may be truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete.
+   - **Red X** — failed (hover for error details). The batch continues with the next image.
+7. You can click **Stop** at any time to halt the batch after the current image finishes.
+8. When the batch completes, the sidebar shows a summary (e.g. "Done: 7 succeeded in 4m 32s") and auto-refreshes the image list.
+
+![Sidebar batch transcription in progress — progress bar, elapsed time, status icons](GeneaScript-SidePanel-BatchTranscription-InProgress.jpg)
+
+![Batch transcription completed — summary with succeeded count and total time](GeneaScript-SidePanel-BatchTranscription-Completed.jpg)
+
+**Note:** Each image is transcribed in its own server call (~30–60 seconds per image depending on the model). The sidebar stays responsive during processing, and you can scroll through the document while it runs.
+
+---
+
+## ✍️ How to transcribe a single image (menu)
+
+You can also transcribe one image at a time using the classic menu flow:
 
 1. **🖼️ Click on the image** you want to transcribe so it is selected (handles appear around it).
 2. Open **Extensions** → **Metric Book Transcriber** → **Transcribe Image**.
@@ -126,7 +166,7 @@ Blank lines separate records for readability. You can edit any of this text in t
 
 - **📋 Context:** The more precise the context (archive, dates, villages, surnames), the better the transcription and name normalization.
 - **🖼️ Image quality:** Clear, upright scans work best. Cropping to the relevant table or page helps.
-- **1️⃣ One image at a time:** Select exactly one image before running "Transcribe Image." For another image, select it and run the add-on again.
+- **📂 Use the Sidebar for batch:** Open the Sidebar to transcribe multiple images at once. For single images, you can also select one and run "Transcribe Image" from the menu.
 
 ## 🔧 Troubleshooting
 
@@ -144,5 +184,9 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Timeout** | The add-on waits up to about 60 seconds. If the request times out, try again or use a smaller/simpler image. |
 | **Empty or odd transcription** | Ensure the selected element is the image (not a drawing or text). Add or improve the Context section and try again. |
 | **Transcription at bottom of doc** | Ensure you have the latest script; insertion uses the body-level block containing the selected image. Select the image and run again. |
+| **Sidebar shows "No images found"** | The document has no inline images. Import scans via **Import Book from Drive Folder** or paste images directly into the document, then click **Refresh**. |
+| **Sidebar image failed (red X)** | Hover over the red X to see the error. Common causes: API rate limit (429), image too large, network timeout. The batch continues with the remaining images. You can retry the failed image afterward. |
+| **Orange warning on sidebar image** | The model's output was truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete. Try a smaller or clearer image, or switch to a model with higher output limits. |
+| **"No homepage card" on right panel icon** | Ensure the latest code is deployed. The right-side icon shows a Card with an "Open Transcriber Sidebar" button. If you see this error, redeploy via `clasp push --force` or update the test deployment. |
 
 For installation and API key setup, see [INSTALLATION.md](INSTALLATION.md).
