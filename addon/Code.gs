@@ -27,6 +27,7 @@ function onOpen(e) {
   try {
     DocumentApp.getUi()
       .createMenu('Metric Book Transcriber')
+      .addItem('Open Sidebar', 'showTranscribeSidebar')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
       .addSeparator()
@@ -536,13 +537,14 @@ function runTranscribeWorker() {
   if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
   var context = getContextFromDocument(doc);
   var prompt = buildPrompt(context);
-  var transcription;
+  var geminiResult;
   try {
-    transcription = callGemini(apiKey, prompt, blob, mimeType);
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType);
   } catch (e) {
     Logger.log('runTranscribeWorker: callGemini threw ' + (e.message || String(e)));
     return { ok: false, message: 'Request failed: ' + (e.message || String(e)) };
   }
+  var transcription = geminiResult.text;
   if (!transcription || transcription.trim() === '') {
     return { ok: false, message: 'The API returned no text. Try again or check the image.' };
   }
@@ -570,7 +572,7 @@ function getStoredModel() {
   return (stored && stored.trim()) ? stored.trim() : MODEL_ID;
 }
 
-var HELP_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/USER_GUIDE.md';
+var HELP_URL = 'https://geneascript.com/USER_GUIDE.html';
 var ISSUE_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/issues';
 
 function showHelp() {
@@ -646,7 +648,8 @@ function buildPrompt(context) {
 }
 
 /**
- * Calls the Gemini API with the given prompt and image. Returns the generated text.
+ * Calls the Gemini API with the given prompt and image.
+ * Returns { text: string, finishReason: string }.
  */
 function callGemini(apiKey, prompt, imageBlob, mimeType) {
   var modelId = getStoredModel();
@@ -663,7 +666,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
     contents: [{ parts: parts }],
     generationConfig: {
       temperature: 0.2,
-      maxOutputTokens: 8192
+      maxOutputTokens: 32768,
+      thinkingConfig: { thinkingBudget: 2048 }
     }
   };
 
@@ -732,7 +736,7 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
   if (finishReason === 'MAX_TOKENS') {
     Logger.log('callGemini: WARNING — response truncated (MAX_TOKENS). Output may be incomplete.');
   }
-  return result;
+  return { text: result, finishReason: finishReason };
 }
 
 /**
@@ -756,8 +760,9 @@ function insertTranscriptionAfter(doc, elementContainingImage, text) {
     Logger.log('insertTranscriptionAfter: getChildIndex failed, appending. Error: ' + e);
     insertIndex = body.getNumChildren() - 1;
   }
-  insertFormattedText(body, insertIndex + 1, text);
-  Logger.log('insertTranscriptionAfter: done');
+  var count = insertFormattedText(body, insertIndex + 1, text);
+  Logger.log('insertTranscriptionAfter: done, insertedCount=' + count);
+  return count;
 }
 
 /** Hex colors for Quality Metrics and Assessment lines. */
@@ -818,4 +823,440 @@ function insertFormattedText(body, startIndex, text) {
     currentIndex++;
   }
   body.insertParagraph(currentIndex, '');
+  currentIndex++;
+  return currentIndex - startIndex;
+}
+
+// ---------------------------------------------------------------------------
+// Sidebar — image list, batch transcribe support
+// ---------------------------------------------------------------------------
+
+/** Returns true if the user has stored a Gemini API key. Called from sidebar on load. */
+function hasApiKey() {
+  var key = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
+  return !!(key && key.trim());
+}
+
+/**
+ * Finds the INLINE_IMAGE element inside a body-level paragraph at the given index.
+ * Returns { inlineImage, container } or null if the index is stale or has no image.
+ */
+function findInlineImageAtBodyIndex(doc, bodyIndex) {
+  var body = doc.getBody();
+  if (bodyIndex < 0 || bodyIndex >= body.getNumChildren()) return null;
+  var child = body.getChild(bodyIndex);
+  if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) return null;
+  var para = child.asParagraph();
+  for (var j = 0; j < para.getNumChildren(); j++) {
+    if (para.getChild(j).getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+      return { inlineImage: para.getChild(j).asInlineImage(), container: para };
+    }
+  }
+  return null;
+}
+
+/**
+ * Heuristic: checks whether a transcription block has already been inserted below
+ * the image at bodyIndex. Looks at the next non-empty paragraph for known output markers.
+ */
+function hasTranscriptionBelow(doc, bodyIndex) {
+  var body = doc.getBody();
+  for (var offset = 1; offset <= 3; offset++) {
+    var idx = bodyIndex + offset;
+    if (idx >= body.getNumChildren()) break;
+    var el = body.getChild(idx);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var text = el.asParagraph().getText().trim();
+    if (text.length === 0) continue;
+    return text.indexOf('Page Header') !== -1 ||
+           text.indexOf('Address:') !== -1 ||
+           text.indexOf('Quality Metrics:') !== -1 ||
+           text.indexOf('Year:') !== -1;
+  }
+  return false;
+}
+
+/**
+ * Scans the document body for inline images and returns metadata for the sidebar.
+ * Label is the nearest preceding HEADING2, or "Image N" fallback.
+ */
+function getImageList() {
+  Logger.log('getImageList: start');
+  var doc = DocumentApp.getActiveDocument();
+  var body = doc.getBody();
+  var numChildren = body.getNumChildren();
+  var images = [];
+  var imageCounter = 0;
+  var lastHeading2 = '';
+
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var para = child.asParagraph();
+    if (para.getHeading() === DocumentApp.ParagraphHeading.HEADING2) {
+      lastHeading2 = para.getText().trim();
+    }
+    for (var j = 0; j < para.getNumChildren(); j++) {
+      if (para.getChild(j).getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+        imageCounter++;
+        images.push({
+          index: i,
+          label: lastHeading2 || ('Image ' + imageCounter),
+          hasTranscription: hasTranscriptionBelow(doc, i)
+        });
+        break;
+      }
+    }
+  }
+
+  Logger.log('getImageList: found ' + images.length + ' images');
+  return { ok: true, images: images };
+}
+
+/**
+ * Transcribes one inline image identified by its body child index.
+ * Phase 3 stub — returns mock success after a short delay.
+ * Real implementation will be wired in Phase 4.
+ */
+function transcribeImageByIndex(bodyIndex) {
+  Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex);
+  var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
+  if (!apiKey || apiKey.trim() === '') {
+    return { ok: false, message: 'API key not set. Use Setup API key & model first.' };
+  }
+
+  var doc = DocumentApp.getActiveDocument();
+  var hit = findInlineImageAtBodyIndex(doc, bodyIndex);
+  if (!hit) {
+    return { ok: false, message: 'No image found at body index ' + bodyIndex + '. Refresh the image list and try again.' };
+  }
+
+  var blob = hit.inlineImage.getBlob();
+  var mimeType = blob.getContentType() || 'image/png';
+  if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+
+  var context = getContextFromDocument(doc);
+  var prompt = buildPrompt(context);
+
+  var geminiResult;
+  try {
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType);
+  } catch (e) {
+    Logger.log('transcribeImageByIndex: callGemini threw ' + (e.message || String(e)));
+    return { ok: false, message: 'API error: ' + (e.message || String(e)) };
+  }
+
+  var transcription = geminiResult.text;
+  if (!transcription || transcription.trim() === '') {
+    return { ok: false, message: 'The API returned no text (finishReason=' + geminiResult.finishReason + ').' };
+  }
+
+  var insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+  Logger.log('transcribeImageByIndex: done, finishReason=' + geminiResult.finishReason + ', insertedCount=' + insertedCount);
+  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0 };
+}
+
+/** Opens the sidebar panel. */
+function showTranscribeSidebar() {
+  var html = HtmlService.createHtmlOutput(getSidebarHtml())
+    .setTitle('Metric Book Transcriber');
+  DocumentApp.getUi().showSidebar(html);
+}
+
+/** Builds the full sidebar HTML string. */
+function getSidebarHtml() {
+  var helpUrl = HELP_URL;
+  var issueUrl = ISSUE_URL;
+  return [
+    '<!DOCTYPE html>',
+    '<html><head><base target="_top">',
+    '<style>',
+    '*{box-sizing:border-box;margin:0;padding:0}',
+    'body{font-family:Arial,sans-serif;font-size:13px;color:#333;padding:12px;display:flex;flex-direction:column;min-height:100vh}',
+    '.section{margin-bottom:14px}',
+    '.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}',
+    '.section-title{font-weight:bold;font-size:13px}',
+    '.btn{padding:6px 12px;font-size:12px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer}',
+    '.btn:hover{background:#f5f5f5}',
+    '.btn-primary{background:#1a73e8;color:#fff;border-color:#1a73e8}',
+    '.btn-primary:hover{background:#1557b0}',
+    '.btn-primary:disabled{background:#94c2f8;border-color:#94c2f8;cursor:default}',
+    '.btn-danger{color:#c62828;border-color:#c62828}',
+    '.btn-danger:hover{background:#fbe9e7}',
+    '.btn-sm{padding:3px 8px;font-size:11px}',
+    '.image-list{max-height:40vh;overflow-y:auto;border:1px solid #e0e0e0;border-radius:4px}',
+    '.image-row{display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid #f0f0f0}',
+    '.image-row:last-child{border-bottom:none}',
+    '.image-row label{flex:1;font-size:12px;margin-left:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.image-row .status{font-size:11px;margin-left:4px;flex-shrink:0}',
+    '.st-done{color:#2e7d32}.st-fail{color:#c62828}.st-warn{color:#e65100}.st-active{color:#1a73e8}',
+    '.select-all{display:flex;align-items:center;padding:4px 0;margin-bottom:4px;font-size:12px}',
+    '.select-all label{margin-left:6px;cursor:pointer}',
+    '.progress{background:#e3f2fd;border-radius:4px;padding:8px;font-size:12px;display:none}',
+    '.bar{height:4px;background:#e0e0e0;border-radius:2px;margin:6px 0}',
+    '.bar-fill{height:100%;background:#1a73e8;border-radius:2px;transition:width 0.3s}',
+    '.banner{padding:8px;border-radius:4px;font-size:12px;margin-bottom:12px}',
+    '.banner-warn{background:#fff8e1;border:1px solid #ffecb3;color:#f57f17}',
+    '.banner-error{background:#fbe9e7;border:1px solid #ffccbc;color:#c62828}',
+    '.actions{border-top:1px solid #e0e0e0;padding-top:10px}',
+    '.action-link{display:block;padding:4px 0;font-size:12px;color:#1a73e8;text-decoration:none;cursor:pointer}',
+    '.action-link:hover{text-decoration:underline}',
+    '.footer{margin-top:auto;padding-top:10px;font-size:11px;color:#999;text-align:center}',
+    '.empty-state{padding:20px;text-align:center;color:#999;font-size:12px}',
+    '.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:100}',
+    '.modal{background:#fff;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,0.18);padding:20px;max-width:280px;width:90%;font-size:13px}',
+    '.modal-title{font-weight:bold;font-size:13px;margin-bottom:10px}',
+    '.modal-list{margin:8px 0 12px;padding-left:18px;font-size:12px;color:#555}',
+    '.modal-list li{margin-bottom:2px}',
+    '.modal-note{font-size:11px;color:#888;margin-bottom:14px}',
+    '.modal-actions{display:flex;gap:8px;justify-content:flex-end}',
+    '</style>',
+    '</head><body>',
+
+    '<div class="banner" style="background:#fffde7;border:1px solid #fff9c4;color:#6d4c00;font-size:11px;line-height:1.4">',
+    '  AI transcription provides a best-guess result and may not be accurate. Always review and cross-check output against the original image.',
+    '</div>',
+
+    '<div id="keyBanner" class="banner banner-warn" style="display:none">',
+    '  Set up your API key to start transcribing.',
+    '  <a href="#" onclick="setupKey();return false" style="display:block;margin-top:4px">Setup API key &amp; model</a>',
+    '</div>',
+
+    '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
+
+    '<div class="section">',
+    '  <div class="section-header">',
+    '    <span class="section-title">Images (<span id="imgCount">0</span>)</span>',
+    '    <button class="btn btn-sm" onclick="refreshImages()" title="Refresh image list">&#8635; Refresh</button>',
+    '  </div>',
+    '  <div class="select-all">',
+    '    <input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">',
+    '    <label for="selAll">Select All</label>',
+    '  </div>',
+    '  <div id="imgList" class="image-list">',
+    '    <div class="empty-state">Loading\u2026</div>',
+    '  </div>',
+    '</div>',
+
+    '<div class="section">',
+    '  <button id="goBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; Transcribe Selected</button>',
+    '  <button id="stopBtn" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; Stop</button>',
+    '</div>',
+
+    '<div id="progress" class="progress section">',
+    '  <div id="progText">Transcribing\u2026</div>',
+    '  <div class="bar"><div class="bar-fill" id="progBar" style="width:0%"></div></div>',
+    '  <div id="progDetail"></div>',
+    '  <div id="progTime" style="font-size:11px;color:#666;margin-top:2px"></div>',
+    '</div>',
+
+    '<div class="actions section">',
+    '  <a class="action-link" href="#" onclick="doImport();return false">Import from Drive Folder</a>',
+    '  <a class="action-link" href="#" onclick="setupKey();return false">Setup API key &amp; model</a>',
+    '</div>',
+
+    '<div class="section" style="font-size:12px">',
+    '  <a class="action-link" href="' + helpUrl + '" target="_blank">Help / User Guide &#8599;</a>',
+    '  <a class="action-link" href="' + issueUrl + '" target="_blank">Report an issue &#8599;</a>',
+    '</div>',
+
+    '<div id="confirmModal" class="modal-overlay" style="display:none">',
+    '  <div class="modal">',
+    '    <div class="modal-title">Replace existing transcriptions?</div>',
+    '    <div id="confirmBody"></div>',
+    '    <div class="modal-note">Previous text below these images will be replaced.</div>',
+    '    <div class="modal-actions">',
+    '      <button class="btn" id="confirmNo">Cancel</button>',
+    '      <button class="btn btn-primary" id="confirmYes">Continue</button>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+
+    '<div class="footer">v0.5.0-dev</div>',
+
+    '<script>',
+    'var imgs=[],stopReq=false,running=false;',
+
+    'function init(){',
+    '  google.script.run.withSuccessHandler(function(k){',
+    '    if(!k)document.getElementById("keyBanner").style.display="block";',
+    '  }).withFailureHandler(function(){}).hasApiKey();',
+    '  refreshImages();',
+    '}',
+
+    'function refreshImages(){',
+    '  var prev={};',
+    '  for(var i=0;i<imgs.length;i++){if(imgs[i]._s)prev[imgs[i].index]={s:imgs[i]._s,e:imgs[i]._e};}',
+    '  document.getElementById("imgList").innerHTML=\'<div class="empty-state">Loading\\u2026</div>\';',
+    '  document.getElementById("imgCount").textContent="0";',
+    '  el("goBtn").disabled=true;',
+    '  google.script.run',
+    '    .withSuccessHandler(function(r){',
+    '      if(r&&r.ok){',
+    '        imgs=r.images||[];',
+    '        for(var j=0;j<imgs.length;j++){var p=prev[imgs[j].index];if(p){imgs[j]._s=p.s;imgs[j]._e=p.e;}}',
+    '        renderList();',
+    '      }else el("imgList").innerHTML=\'<div class="empty-state">Failed to load images.</div>\';',
+    '    })',
+    '    .withFailureHandler(function(e){',
+    '      el("imgList").innerHTML=\'<div class="empty-state">Error: \'+esc(e.message||String(e))+\'</div>\';',
+    '    })',
+    '    .getImageList();',
+    '}',
+
+    'function renderList(){',
+    '  var c=el("imgList");',
+    '  el("imgCount").textContent=imgs.length;',
+    '  if(!imgs.length){c.innerHTML=\'<div class="empty-state">No images found. Import scans or paste images first.</div>\';el("goBtn").disabled=true;return;}',
+    '  var h="";',
+    '  for(var i=0;i<imgs.length;i++){',
+    '    var m=imgs[i],st="";',
+    '    if(m._s==="done")st=\'<span class="status st-done">\\u2713</span>\';',
+    '    else if(m._s==="fail")st=\'<span class="status st-fail" title="\'+esc(m._e||"Failed")+\'">\\u2717</span>\';',
+    '    else if(m._s==="warn")st=\'<span class="status st-warn" title="Output may be truncated">\\u26A0</span>\';',
+    '    else if(m._s==="active")st=\'<span class="status st-active">\\u231B</span>\';',
+    '    else if(m.hasTranscription)st=\'<span class="status st-done" title="Already transcribed">\\u2713</span>\';',
+    '    h+=\'<div class="image-row"><input type="checkbox" class="ic" data-i="\'+i+\'" onchange="updBtn()"\'+',
+    '      (running?" disabled":"")+\'><label>\'+esc(m.label)+\'</label>\'+st+\'</div>\';',
+    '  }',
+    '  c.innerHTML=h;',
+    '  updBtn();',
+    '}',
+
+    'function checked(){',
+    '  var cx=document.querySelectorAll(".ic:checked"),a=[];',
+    '  for(var i=0;i<cx.length;i++)a.push(parseInt(cx[i].getAttribute("data-i"),10));',
+    '  return a;',
+    '}',
+
+    'function updBtn(){',
+    '  var n=checked().length,hasKey=el("keyBanner").style.display==="none";',
+    '  var b=el("goBtn");',
+    '  b.disabled=n===0||!hasKey||running;',
+    '  b.textContent=n>1?"\\u25B6 Transcribe Selected ("+n+")":"\\u25B6 Transcribe Selected";',
+    '}',
+
+    'function toggleAll(v){',
+    '  var bx=document.querySelectorAll(".ic");',
+    '  for(var i=0;i<bx.length;i++)bx[i].checked=v;',
+    '  updBtn();',
+    '}',
+
+    'var _timer=null,_start=0;',
+    'function fmtSec(s){var m=Math.floor(s/60);s=Math.floor(s%60);return m>0?(m+"m "+s+"s"):(s+"s");}',
+
+    'function showConfirmModal(names,onYes){',
+    '  var list="<ul class=\\"modal-list\\">"+names.map(function(n){return"<li>"+esc(n)+"</li>";}).join("")+"</ul>";',
+    '  el("confirmBody").innerHTML=list;',
+    '  el("confirmModal").style.display="flex";',
+    '  el("confirmYes").onclick=function(){el("confirmModal").style.display="none";onYes();};',
+    '  el("confirmNo").onclick=function(){el("confirmModal").style.display="none";};',
+    '}',
+
+    'function transcribeSelected(){',
+    '  var ci=checked();if(!ci.length)return;',
+    '  var existing=ci.filter(function(di){return imgs[di].hasTranscription;});',
+    '  if(existing.length>0){',
+    '    var names=existing.map(function(di){return imgs[di].label;});',
+    '    showConfirmModal(names,function(){startBatch(ci);});',
+    '    return;',
+    '  }',
+    '  startBatch(ci);',
+    '}',
+
+    'function startBatch(ci){',
+    '  var tasks=ci.map(function(di){return{di:di,bi:imgs[di].index};});',
+    '  tasks.sort(function(a,b){return a.bi-b.bi;});',
+    '  running=true;stopReq=false;',
+    '  var total=tasks.length,done=0,fail=0,shift=0;',
+    '  var avgSec=0;',
+    '  _start=Date.now();',
+    '  el("goBtn").disabled=true;',
+    '  el("stopBtn").style.display="block";',
+    '  el("progress").style.display="block";',
+    '  el("errorBanner").style.display="none";',
+    '  freeze(true);',
+
+    '  function tickTime(num,total){',
+    '    var elapsed=(Date.now()-_start)/1000;',
+    '    var eta="";',
+    '    if(avgSec>0){var rem=avgSec*(total-num+1);eta=" \\u00B7 ~"+fmtSec(rem)+" left";}',
+    '    else{eta=" \\u00B7 ~30s per image";}',
+    '    el("progTime").textContent="Elapsed: "+fmtSec(elapsed)+eta;',
+    '  }',
+
+    '  function startTick(num,total){',
+    '    tickTime(num,total);',
+    '    clearInterval(_timer);',
+    '    _timer=setInterval(function(){tickTime(num,total);},1000);',
+    '  }',
+
+    '  function next(ti){',
+    '    if(stopReq||ti>=tasks.length){clearInterval(_timer);finish(done,fail,stopReq);return;}',
+    '    var t=tasks[ti],m=imgs[t.di];',
+    '    m._s="active";renderList();',
+    '    var num=ti+1;',
+    '    el("progText").textContent="Transcribing "+num+" of "+total+"\\u2026";',
+    '    el("progDetail").textContent=m.label;',
+    '    el("progBar").style.width=((num-1)/total*100)+"%";',
+    '    startTick(num,total);',
+    '    var imgStart=Date.now();',
+    '    google.script.run',
+    '      .withSuccessHandler(function(r){',
+    '        var dur=(Date.now()-imgStart)/1000;',
+    '        avgSec=avgSec>0?(avgSec+dur)/2:dur;',
+    '        if(r&&r.ok){',
+    '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
+    '          shift+=(r.insertedCount||0);',
+    '        }else{m._s="fail";m._e=(r&&r.message)||"Unknown error";fail++;}',
+    '        renderList();next(ti+1);',
+    '      })',
+    '      .withFailureHandler(function(e){',
+    '        m._s="fail";m._e=e.message||String(e);fail++;',
+    '        renderList();next(ti+1);',
+    '      })',
+    '      .transcribeImageByIndex(t.bi+shift);',
+    '  }',
+    '  next(0);',
+    '}',
+
+    'function stopBatch(){',
+    '  stopReq=true;',
+    '  el("stopBtn").disabled=true;',
+    '  el("stopBtn").textContent="\\u25A0 Stopping\\u2026";',
+    '}',
+
+    'function finish(done,fail,stopped){',
+    '  running=false;',
+    '  el("stopBtn").style.display="none";',
+    '  el("stopBtn").disabled=false;',
+    '  el("stopBtn").textContent="\\u25A0 Stop";',
+    '  var elapsed=fmtSec((Date.now()-_start)/1000);',
+    '  var s="Done: "+done+" succeeded";',
+    '  if(fail>0)s+=", "+fail+" failed";',
+    '  if(stopped)s+=" (stopped)";',
+    '  s+=" in "+elapsed;',
+    '  el("progText").textContent=s;',
+    '  el("progDetail").textContent="";',
+    '  el("progTime").textContent="";',
+    '  el("progBar").style.width="100%";',
+    '  freeze(false);',
+    '  setTimeout(refreshImages,1500);',
+    '}',
+
+    'function freeze(v){',
+    '  var bx=document.querySelectorAll(".ic");',
+    '  for(var i=0;i<bx.length;i++)bx[i].disabled=v;',
+    '  el("selAll").disabled=v;',
+    '}',
+
+    'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
+    'function doImport(){google.script.run.importFromDriveFolder();}',
+    'function el(id){return document.getElementById(id);}',
+    'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
+
+    'init();',
+    '</script>',
+    '</body></html>'
+  ].join('\n');
 }
