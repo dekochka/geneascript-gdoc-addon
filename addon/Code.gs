@@ -828,6 +828,30 @@ function insertFormattedText(body, startIndex, text) {
 }
 
 // ---------------------------------------------------------------------------
+// Card Service — homepage card for the right-side panel icon
+// ---------------------------------------------------------------------------
+
+function buildHomepageCard() {
+  var action = CardService.newAction().setFunctionName('openSidebarFromCard');
+  var button = CardService.newTextButton()
+    .setText('Open Transcriber Sidebar')
+    .setOnClickAction(action);
+  var section = CardService.newCardSection()
+    .addWidget(CardService.newTextParagraph().setText(
+      'Use the sidebar for batch transcription, import, and setup.'))
+    .addWidget(button);
+  return CardService.newCardBuilder()
+    .setHeader(CardService.newCardHeader().setTitle('Metric Book Transcriber'))
+    .addSection(section)
+    .build();
+}
+
+function openSidebarFromCard() {
+  showTranscribeSidebar();
+  return CardService.newActionResponseBuilder().build();
+}
+
+// ---------------------------------------------------------------------------
 // Sidebar — image list, batch transcribe support
 // ---------------------------------------------------------------------------
 
