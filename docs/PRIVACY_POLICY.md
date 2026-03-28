@@ -1,19 +1,19 @@
 ---
 layout: default
 ---
-# Privacy Policy — Metric Book Transcriber
+# Privacy Policy — Geneascript Metric Book Transcriber
 
-**Last updated:** 2026-03-14
+**Last updated:** 2026-03-22
 
-Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
+Geneascript Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
 
 ## Data the Add-on Accesses
 
 | Data | Why | Where it goes |
 |------|-----|---------------|
-| **Google AI (Gemini) API key** | Required to call the Gemini API on the user's behalf. | Stored in Google Apps Script **User Properties** (private per Google account). Never sent anywhere other than Google's Generative Language API endpoint. |
-| **Document content (Context section)** | The text under the "Context" heading in the active Google Doc is read to build the transcription prompt. | Sent to the Google AI (Gemini) API as part of the prompt. Not stored elsewhere. |
-| **Selected image** | The image the user selects for transcription is read from the document. | Sent (base64-encoded) to the Google AI (Gemini) API. Not stored elsewhere. |
+| **Google™ AI (Gemini™) API key** | Required to call the Gemini™ API on the user's behalf. | Stored in Google Apps Script **User Properties** (private per Google account). Never sent anywhere other than Google's Generative Language API endpoint. |
+| **Document content (Context section)** | The text under the "Context" heading in the active Google Doc is read to build the transcription prompt. | Sent to the Google™ AI (Gemini™) API as part of the prompt. Not stored elsewhere. |
+| **Selected image** | The image the user selects for transcription is read from the document. | Sent (base64-encoded) to the Google™ AI (Gemini™) API. Not stored elsewhere. |
 | **Google Drive™ folder contents (file names and images)** | When using "Import Book from Drive Folder," the add-on reads image files from the specified folder. | Images are inserted into the user's Google Doc. File metadata and blobs are processed in memory only. |
 
 ## Data Storage
@@ -26,9 +26,17 @@ Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor a
 
 The add-on sends data to a single third-party service:
 
-- **Google AI (Gemini) API** (`generativelanguage.googleapis.com`) — to perform image transcription. The data sent consists of the document Context text and the selected image. Google's own privacy terms govern how Google processes this data. See [Google's AI Privacy Policy](https://ai.google.dev/terms).
+- **Google™ AI (Gemini™) API** (`generativelanguage.googleapis.com`) — to perform image transcription. The data sent consists of the document Context text and the selected image. Google's own privacy terms govern how Google processes this data. See [Google's AI Privacy Policy](https://ai.google.dev/terms).
 
 The add-on does **not** send data to any other third-party service.
+
+## Gemini Data Usage
+
+- The add-on sends only the minimum data needed for transcription (context text and selected image) and does not use that data to train any model itself.
+- How data submitted through the Gemini™ API is handled by Google (including whether it may be used for model improvement) depends on your Gemini product tier and the terms that apply to your account/project.
+- Review the applicable Google terms for your setup before use:
+  - [Google AI for Developers terms](https://ai.google.dev/terms)
+  - [Google Cloud terms](https://cloud.google.com/terms)
 
 ## Analytics and Tracking
 
@@ -59,3 +67,5 @@ If this policy changes, the updated version will be posted in this repository wi
 ## Contact
 
 For questions about this privacy policy, open an issue at [github.com/dekochka/geneascript-gdoc-addon/issues](https://github.com/dekochka/geneascript-gdoc-addon/issues).
+
+Google, Google Docs, Google Drive, Google AI, Google Cloud, Google Apps Script, and Gemini are trademarks of Google LLC.
