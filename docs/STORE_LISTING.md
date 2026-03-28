@@ -22,7 +22,7 @@ Transcribe metric book images (birth, marriage, death registers) using Google™
 
 ## Detailed Description
 
-Emojis are used for scannability; the Google Workspace Marketplace accepts Unicode. If a field strips or rejects them, remove the emoji prefixes (✨ 📁 🤖 📋 🎯 🔑 📖 ✅) and keep the rest.
+Emojis are used for scannability; the Google Workspace Marketplace™ accepts Unicode. If a field strips or rejects them, remove the emoji prefixes (✨ 📁 🤖 📋 🎯 🔑 📖 ✅) and keep the rest.
 
 ```
 Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealogists and archivists working with 19th and early 20th-century vital records (metric books). It uses the Google™ AI (Gemini™) API to read handwritten text from scanned images and insert a structured transcription directly into your document.
