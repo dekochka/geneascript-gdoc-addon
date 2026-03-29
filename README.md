@@ -55,9 +55,11 @@ flowchart LR
 - **[⚙️ Installation](docs/INSTALLATION.md)** — Marketplace install (recommended), test deployment, container-bound, or clasp.
 - **[🔒 Privacy Policy](docs/PRIVACY_POLICY.md)** — What data the add-on accesses and how it is handled.
 - **[📄 Terms of Service](docs/TERMS_OF_SERVICE.md)**
+- **[📈 Observability Setup](observability/README.md)** — Complete metrics catalog, dashboard architecture, provisioning flow, and Google Cloud apply/verify steps.
 
 ## 📂 Repo layout
 
 - **`addon/`** — Apps Script source: `Code.gs`, `ContextTemplate.gs`, `Prompt.gs`, `appsscript.json`.
 - **`docs/`** — User guide, installation, design, privacy policy, terms of service, store listing copy.
-- **`project/`** — Specs (SPEC.md, SPEC-1–4) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.
+- **`observability/`** — Dashboard config, metric apply script, and setup guide for Google Cloud Monitoring/Logging.
+- **`project/`** — Specs (SPEC.md, SPEC-1–6) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.

@@ -1,0 +1,158 @@
+{
+  "displayName": "GeneaScript Observability",
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
+      {
+        "xPos": 0,
+        "yPos": 0,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Images Transcribed (rate)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_images_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 0,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Imports Completed (rate)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_import_runs_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_RATE",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 4,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Total Tokens / Image",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_total_tokens\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 4,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Transcription Latency (ms)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_latency_ms\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_95",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 8,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Image Size (bytes)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_image_bytes\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_MEAN",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 8,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Errors (count)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_errors_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "STACKED_BAR"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
