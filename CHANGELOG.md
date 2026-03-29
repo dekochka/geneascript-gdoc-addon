@@ -8,6 +8,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 (Nothing yet.)
 
+## [0.5.0-observability] — 2026-03-29
+
+### ✨ Added
+
+- **Observability spec** — Added `project/SPEC-6-OBSERVABILITY.md` with canonical telemetry event schema, metric contracts, dashboard requirements, and rollout/verification guidance for Google Cloud Observability.
+- **Structured observability telemetry** — Added `OBS:{...}` JSON event logging for import, transcribe (single/sidebar worker), Gemini API calls, setup actions, and error paths with correlated `runId` and hashed document identifiers.
+- **Cost telemetry** — Added per-image cost estimation fields (`estimatedCostUsd`, `pricingVersion`) derived from Gemini prompt/output token usage for priced model variants.
+- **User-level telemetry labels** — Added privacy-safe anonymized user key (`userKey`) on observability events to support per-user usage, cost, and token monitoring.
+- **Observability-as-code assets** — Added versioned Google Cloud assets under `observability/` including dashboard JSON and provisioning script to upsert log-based metrics and dashboards via `gcloud`.
+
+### 🐛 Fixed
+
+- **Metric extraction source** — Updated log-based metric filters/extractors to parse Apps Script logs from `jsonPayload.message` (instead of `textPayload`) so metrics ingest consistently.
+- **Dashboard empty panels for sparse runs** — Reduced chart alignment windows on key transcribe/user widgets so manually triggered test runs appear promptly instead of showing “No data”.
+- **Provisioning reliability** — Hardened dashboard upsert workflow in `observability/scripts/apply.sh` with update-then-recreate fallback when dashboard etags drift.
+
+### 🔧 Changed
+
+- **Transcribe telemetry units** — Added second-based latency fields (`apiLatencySec`, `latencySec`) and kilobyte image size field (`imageKBytes`) while retaining millisecond/byte source fields for compatibility.
+- **Dashboard metrics and charts** — Updated dashboard widgets to use count-friendly aligners for event counters, new second/kilobyte metrics, total estimated cost aggregation, model-grouped views, and user-based charts (DAU/MAU approximation, per-user images/tokens/cost).
+- **Metric labels** — Extended selected log-based metrics with `model` and/or `user` labels for grouped analysis in Monitoring.
+
+### 📚 Documentation
+
+- **Docs restructuring** — Added `observability/README.md` with setup/apply/verify flow and moved detailed observability guidance from the root `README.md` to this focused document.
+- **Repo metadata** — Added `.python-version` for local environment consistency.
+
 ## [0.4.0] — 2026-03-22
 
 ### ✨ Added
@@ -32,6 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **INSTALLATION**, **STORE_LISTING**, **PRIVACY_POLICY** — Updated for sidebar, batch (explicit user action), and marketplace copy.
 
 [0.4.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0
+[0.5.0-observability]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.5.0-observability
 
 ## [0.3.1] — 2026-03-15
 
