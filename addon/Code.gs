@@ -10,6 +10,7 @@ var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 30;
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+// Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
  * Runs when the add-on is installed (e.g. via Test deployment). Creates the menu in FULL auth mode.
@@ -159,11 +160,28 @@ function appendImageNameAndSourceLink(body, file) {
  */
 function importFromDriveFolder() {
   Logger.log('importFromDriveFolder: start');
+  var runId = createRunId('import');
+  var operationStartMs = Date.now();
   var ui = DocumentApp.getUi();
   var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  logObsEvent('import_drive_start', {
+    operation: 'import_drive',
+    entrypoint: 'menu_or_sidebar',
+    status: 'start',
+    runId: runId,
+    docIdHash: docIdHash
+  });
   var response = ui.prompt('Drive Folder', 'Enter the Google Drive Folder ID or URL containing the metric book scans.', ui.ButtonSet.OK_CANCEL);
   if (response.getSelectedButton() !== ui.Button.OK) {
     Logger.log('importFromDriveFolder: user cancelled prompt');
+    logObsEvent('import_drive_done', {
+      operation: 'import_drive',
+      status: 'stop',
+      runId: runId,
+      docIdHash: docIdHash,
+      importLatencyMs: Date.now() - operationStartMs
+    });
     return;
   }
   var rawInput = response.getResponseText();
@@ -171,6 +189,14 @@ function importFromDriveFolder() {
   Logger.log('importFromDriveFolder: rawInput length=' + (rawInput ? rawInput.length : 0) + ' extracted folderId=' + (folderId || 'null'));
   if (!folderId) {
     Logger.log('importFromDriveFolder: invalid link, no folderId extracted');
+    logObsEvent('import_drive_error', {
+      operation: 'import_drive',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'UNKNOWN',
+      errorMessage: 'invalid folder link'
+    });
     ui.alert('Invalid link', 'Invalid Drive Folder link. Please check the URL.', ui.ButtonSet.OK);
     return;
   }
@@ -182,6 +208,15 @@ function importFromDriveFolder() {
   } catch (e) {
     Logger.log('importFromDriveFolder: DriveApp.getFolderById failed for id=' + folderId + ' error=' + (e.message || String(e)));
     var errMsg = e.message || String(e);
+    logObsEvent('import_drive_error', {
+      operation: 'import_drive',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      folderIdHash: hashId(folderId),
+      errorCode: classifyErrorCode(errMsg),
+      errorMessage: sanitizeErrorMessage(errMsg)
+    });
     if (errMsg.indexOf('not enabled') !== -1 || errMsg.indexOf('Access Not Configured') !== -1) {
       ui.alert('Drive API not enabled', 'The Google Drive API is not enabled in your GCP project. Please enable it at console.cloud.google.com → APIs & Services → Library → Google Drive API.', ui.ButtonSet.OK);
     } else {
@@ -201,6 +236,19 @@ function importFromDriveFolder() {
   Logger.log('importFromDriveFolder: listed folder totalFiles=' + totalFiles + ' imageFiles=' + imageFiles.length);
   if (imageFiles.length === 0) {
     Logger.log('importFromDriveFolder: no images in folder, aborting');
+    logObsEvent('import_drive_done', {
+      operation: 'import_drive',
+      status: 'success',
+      runId: runId,
+      docIdHash: docIdHash,
+      folderIdHash: hashId(folderId),
+      totalFiles: totalFiles,
+      imageFiles: 0,
+      addedCount: 0,
+      skippedCount: 0,
+      count: 0,
+      importLatencyMs: Date.now() - operationStartMs
+    });
     ui.alert('No images', 'No images found in this folder.', ui.ButtonSet.OK);
     return;
   }
@@ -220,14 +268,11 @@ function importFromDriveFolder() {
   for (var i = 0; i < imageFiles.length; i++) {
     Logger.log('importFromDriveFolder: inserting image ' + (i + 1) + '/' + count);
     var file = imageFiles[i];
+    var imageStartMs = Date.now();
     try {
       var blob = file.getBlob();
-      // #region agent log
-      (function () {
-        var bytes = blob.getBytes().length;
-        Logger.log('importFromDriveFolder: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
-      })();
-      // #endregion
+      var bytes = blob.getBytes().length;
+      Logger.log('importFromDriveFolder: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
       appendImageNameAndSourceLink(body, file);
       var inlineImage = body.appendImage(blob);
       var w = inlineImage.getWidth();
@@ -239,20 +284,57 @@ function importFromDriveFolder() {
         inlineImage.setHeight(newH);
       }
       body.appendPageBreak();
+      logObsEvent('import_drive_image_processed', {
+        operation: 'import_drive',
+        status: 'success',
+        runId: runId,
+        docIdHash: docIdHash,
+        folderIdHash: hashId(folderId),
+        imageOrdinal: i + 1,
+        fileName: file.getName(),
+        blobSizeBytes: bytes,
+        imageImportLatencyMs: Date.now() - imageStartMs
+      });
     } catch (e) {
       skipped++;
-      // #region agent log
-      (function () {
-        var blobForLog = file.getBlob();
-        var bytes = blobForLog.getBytes().length;
-        Logger.log('importFromDriveFolder: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
-      })();
-      // #endregion
+      var bytesForError = 0;
+      try {
+        bytesForError = file.getBlob().getBytes().length;
+      } catch (_ignored) {}
+      Logger.log('importFromDriveFolder: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + (bytesForError / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
       Logger.log('importFromDriveFolder: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
+      logObsEvent('import_drive_image_processed', {
+        operation: 'import_drive',
+        status: 'error',
+        runId: runId,
+        docIdHash: docIdHash,
+        folderIdHash: hashId(folderId),
+        imageOrdinal: i + 1,
+        fileName: file.getName(),
+        blobSizeBytes: bytesForError,
+        imageImportLatencyMs: Date.now() - imageStartMs,
+        errorCode: classifyErrorCode(e.message || String(e)),
+        errorMessage: sanitizeErrorMessage(e.message || String(e))
+      });
     }
   }
   var added = count - skipped;
   Logger.log('importFromDriveFolder: done added=' + added + ' skipped=' + skipped + ' count=' + count);
+  logObsEvent('import_drive_done', {
+    operation: 'import_drive',
+    status: 'success',
+    runId: runId,
+    docIdHash: docIdHash,
+    folderIdHash: hashId(folderId),
+    totalFiles: totalFiles,
+    imageFiles: imageFiles.length,
+    addedCount: added,
+    skippedCount: skipped,
+    count: count,
+    truncated: truncated,
+    maxImportImages: MAX_IMPORT_IMAGES,
+    importLatencyMs: Date.now() - operationStartMs
+  });
   var doneMsg = 'Import complete. ' + added + ' image(s) added.';
   if (skipped > 0) {
     doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
@@ -373,6 +455,7 @@ function saveApiKey(key) {
  * Saves API key and/or model ID. Key or modelId can be null to leave unchanged.
  */
 function saveApiKeyAndModel(key, modelId) {
+  var modelSelected = (modelId && typeof modelId === 'string' && modelId.trim() !== '') ? modelId.trim() : null;
   var props = PropertiesService.getUserProperties();
   if (key && typeof key === 'string' && key.trim() !== '') {
     props.setProperty(API_KEY_PROPERTY, key.trim());
@@ -382,6 +465,13 @@ function saveApiKeyAndModel(key, modelId) {
     props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
     Logger.log('saveApiKeyAndModel: model saved ' + modelId.trim());
   }
+  logObsEvent('setup_action', {
+    operation: 'setup',
+    status: 'success',
+    action: 'save_key_model',
+    modelSelected: modelSelected,
+    keyUpdated: !!(key && typeof key === 'string' && key.trim() !== '')
+  });
   return { ok: true };
 }
 
@@ -390,10 +480,23 @@ function saveApiKeyAndModel(key, modelId) {
  */
 function saveModel(modelId) {
   if (!modelId || typeof modelId !== 'string' || modelId.trim() === '') {
+    logObsEvent('setup_action', {
+      operation: 'setup',
+      status: 'error',
+      action: 'save_model',
+      errorCode: 'UNKNOWN',
+      errorMessage: 'model missing'
+    });
     return { ok: false, message: 'Please select a model.' };
   }
   PropertiesService.getUserProperties().setProperty(MODEL_ID_PROPERTY, modelId.trim());
   Logger.log('saveModel: model saved ' + modelId.trim());
+  logObsEvent('setup_action', {
+    operation: 'setup',
+    status: 'success',
+    action: 'save_model',
+    modelSelected: modelId.trim()
+  });
   return { ok: true };
 }
 
@@ -403,6 +506,11 @@ function saveModel(modelId) {
 function clearApiKey() {
   PropertiesService.getUserProperties().deleteProperty(API_KEY_PROPERTY);
   Logger.log('clearApiKey: key cleared');
+  logObsEvent('setup_action', {
+    operation: 'setup',
+    status: 'success',
+    action: 'clear_key'
+  });
   return { ok: true };
 }
 
@@ -518,17 +626,69 @@ function showAwaitingDialog(ui) {
  */
 function runTranscribeWorker() {
   Logger.log('runTranscribeWorker: start');
+  var runId = createRunId('tx');
+  var operationStartMs = Date.now();
+  var operation = 'transcribe_single';
+  var entrypoint = 'menu_dialog';
   var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   if (!apiKey || apiKey.trim() === '') {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'UNKNOWN',
+      errorMessage: 'API key not set'
+    });
     return { ok: false, message: 'API key not set. Run Transcribe Image to set your key.' };
   }
+  logObsEvent('transcribe_image_start', {
+    operation: operation,
+    entrypoint: entrypoint,
+    status: 'start',
+    runId: runId,
+    docIdHash: docIdHash
+  });
   var selection = doc.getSelection();
-  if (!selection) return { ok: false, message: 'Please select a single image and run Transcribe Image again.' };
+  if (!selection) {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'DOC_SELECTION_INVALID',
+      errorMessage: 'no selection'
+    });
+    return { ok: false, message: 'Please select a single image and run Transcribe Image again.' };
+  }
   var rangeElements = selection.getRangeElements();
-  if (!rangeElements || rangeElements.length !== 1) return { ok: false, message: 'Please select exactly one image.' };
+  if (!rangeElements || rangeElements.length !== 1) {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'DOC_SELECTION_INVALID',
+      errorMessage: 'selection must contain exactly one range element'
+    });
+    return { ok: false, message: 'Please select exactly one image.' };
+  }
   var element = rangeElements[0].getElement();
   if (element.getType() !== DocumentApp.ElementType.INLINE_IMAGE) {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'DOC_SELECTION_INVALID',
+      errorMessage: 'selected element is not inline image'
+    });
     return { ok: false, message: 'Please click on the metric book image to select it, then run Transcribe Image.' };
   }
   var inlineImage = element.asInlineImage();
@@ -539,13 +699,36 @@ function runTranscribeWorker() {
   var prompt = buildPrompt(context);
   var geminiResult;
   try {
-    geminiResult = callGemini(apiKey, prompt, blob, mimeType);
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType, {
+      runId: runId,
+      operation: operation,
+      entrypoint: entrypoint,
+      docIdHash: docIdHash
+    });
   } catch (e) {
     Logger.log('runTranscribeWorker: callGemini threw ' + (e.message || String(e)));
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: classifyErrorCode(e.message || String(e)),
+      errorMessage: sanitizeErrorMessage(e.message || String(e))
+    });
     return { ok: false, message: 'Request failed: ' + (e.message || String(e)) };
   }
   var transcription = geminiResult.text;
   if (!transcription || transcription.trim() === '') {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'API_EMPTY_CANDIDATES',
+      errorMessage: 'API returned no text'
+    });
     return { ok: false, message: 'The API returned no text. Try again or check the image.' };
   }
   var elementContainingImage = inlineImage.getParent();
@@ -553,8 +736,30 @@ function runTranscribeWorker() {
          elementContainingImage.getType() !== DocumentApp.ElementType.LIST_ITEM) {
     elementContainingImage = elementContainingImage.getParent();
   }
-  insertTranscriptionAfter(doc, elementContainingImage, transcription);
+  var insertedCount = insertTranscriptionAfter(doc, elementContainingImage, transcription);
   Logger.log('runTranscribeWorker: done');
+  logObsEvent('transcribe_image_done', {
+    operation: operation,
+    entrypoint: entrypoint,
+    status: 'success',
+    runId: runId,
+    docIdHash: docIdHash,
+    model: geminiResult.model,
+    imageBytes: geminiResult.imageBytes,
+    promptTokens: geminiResult.promptTokens,
+    outputTokens: geminiResult.outputTokens,
+    totalTokens: geminiResult.totalTokens,
+    thoughtTokens: geminiResult.thoughtTokens,
+    estimatedCostUsd: geminiResult.estimatedCostUsd,
+    pricingVersion: geminiResult.pricingVersion,
+    finishReason: geminiResult.finishReason,
+    insertedCount: insertedCount || 0,
+    apiLatencyMs: geminiResult.apiLatencyMs,
+    apiLatencySec: geminiResult.apiLatencyMs ? Number((geminiResult.apiLatencyMs / 1000).toFixed(3)) : null,
+    latencyMs: Date.now() - operationStartMs
+    ,
+    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
+  });
   return { ok: true };
 }
 
@@ -651,11 +856,25 @@ function buildPrompt(context) {
  * Calls the Gemini API with the given prompt and image.
  * Returns { text: string, finishReason: string }.
  */
-function callGemini(apiKey, prompt, imageBlob, mimeType) {
+function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
+  telemetry = telemetry || {};
+  var apiStartMs = Date.now();
   var modelId = getStoredModel();
-  Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + (imageBlob.getBytes && imageBlob.getBytes().length));
+  var imageBytesArr = imageBlob.getBytes();
+  var imageBytes = imageBytesArr.length;
+  Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + imageBytes);
+  logObsEvent('transcribe_image_api_start', {
+    operation: telemetry.operation || 'transcribe_single',
+    entrypoint: telemetry.entrypoint || 'unknown',
+    status: 'start',
+    runId: telemetry.runId || null,
+    docIdHash: telemetry.docIdHash || null,
+    model: modelId,
+    promptLength: prompt ? prompt.length : 0,
+    imageBytes: imageBytes
+  });
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelId + ':generateContent?key=' + encodeURIComponent(apiKey);
-  var base64Data = Utilities.base64Encode(imageBlob.getBytes());
+  var base64Data = Utilities.base64Encode(imageBytesArr);
 
   var parts = [
     { inline_data: { mime_type: mimeType, data: base64Data } },
@@ -692,6 +911,18 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
       if (err.error && err.error.message) msg = err.error.message;
     } catch (e) {}
     Logger.log('callGemini: error ' + code + ' ' + msg);
+    logObsEvent('transcribe_image_api_error', {
+      operation: telemetry.operation || 'transcribe_single',
+      entrypoint: telemetry.entrypoint || 'unknown',
+      status: 'error',
+      runId: telemetry.runId || null,
+      docIdHash: telemetry.docIdHash || null,
+      model: modelId,
+      httpCode: code,
+      apiLatencyMs: Date.now() - apiStartMs,
+      errorCode: classifyErrorCode(msg, code),
+      errorMessage: sanitizeErrorMessage(msg)
+    });
     throw new Error(msg + ' (HTTP ' + code + ')');
   }
 
@@ -699,6 +930,18 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
   if (!json.candidates || json.candidates.length === 0) {
     var feedback = (json.promptFeedback && json.promptFeedback.blockReason) ? json.promptFeedback.blockReason : 'No candidates returned';
     Logger.log('callGemini: no candidates, feedback=' + feedback);
+    logObsEvent('transcribe_image_api_error', {
+      operation: telemetry.operation || 'transcribe_single',
+      entrypoint: telemetry.entrypoint || 'unknown',
+      status: 'error',
+      runId: telemetry.runId || null,
+      docIdHash: telemetry.docIdHash || null,
+      model: modelId,
+      httpCode: code,
+      apiLatencyMs: Date.now() - apiStartMs,
+      errorCode: 'API_EMPTY_CANDIDATES',
+      errorMessage: sanitizeErrorMessage(feedback)
+    });
     throw new Error(feedback);
   }
 
@@ -736,7 +979,48 @@ function callGemini(apiKey, prompt, imageBlob, mimeType) {
   if (finishReason === 'MAX_TOKENS') {
     Logger.log('callGemini: WARNING — response truncated (MAX_TOKENS). Output may be incomplete.');
   }
-  return { text: result, finishReason: finishReason };
+  var promptTokens = usage.promptTokenCount || null;
+  var outputTokens = usage.candidatesTokenCount || null;
+  var totalTokens = usage.totalTokenCount || null;
+  var thoughtTokens = usage.thoughtsTokenCount || null;
+  var estimatedCostUsd = estimateGeminiCostUsd(modelId, promptTokens, outputTokens);
+  var imageKBytes = Number((imageBytes / 1024).toFixed(3));
+  logObsEvent('transcribe_image_api_done', {
+    operation: telemetry.operation || 'transcribe_single',
+    entrypoint: telemetry.entrypoint || 'unknown',
+    status: 'success',
+    runId: telemetry.runId || null,
+    docIdHash: telemetry.docIdHash || null,
+    model: modelId,
+    finishReason: finishReason,
+    promptTokens: promptTokens,
+    outputTokens: outputTokens,
+    totalTokens: totalTokens,
+    thoughtTokens: thoughtTokens,
+    estimatedCostUsd: estimatedCostUsd,
+    pricingVersion: GEMINI_PRICING_VERSION,
+    imageBytes: imageBytes,
+    imageKBytes: imageKBytes,
+    apiLatencyMs: Date.now() - apiStartMs
+    ,
+    apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
+  });
+  return {
+    text: result,
+    finishReason: finishReason,
+    model: modelId,
+    promptTokens: promptTokens,
+    outputTokens: outputTokens,
+    totalTokens: totalTokens,
+    thoughtTokens: thoughtTokens,
+    estimatedCostUsd: estimatedCostUsd,
+    pricingVersion: GEMINI_PRICING_VERSION,
+    imageBytes: imageBytes,
+    imageKBytes: imageKBytes,
+    apiLatencyMs: Date.now() - apiStartMs
+    ,
+    apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
+  };
 }
 
 /**
@@ -944,14 +1228,45 @@ function getImageList() {
  */
 function transcribeImageByIndex(bodyIndex) {
   Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex);
+  var runId = createRunId('tx');
+  var operationStartMs = Date.now();
+  var operation = 'transcribe_single';
+  var entrypoint = 'sidebar';
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
+  var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
   if (!apiKey || apiKey.trim() === '') {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: 'UNKNOWN',
+      errorMessage: 'API key not set'
+    });
     return { ok: false, message: 'API key not set. Use Setup API key & model first.' };
   }
-
-  var doc = DocumentApp.getActiveDocument();
+  logObsEvent('transcribe_image_start', {
+    operation: operation,
+    entrypoint: entrypoint,
+    status: 'start',
+    runId: runId,
+    docIdHash: docIdHash,
+    bodyIndex: bodyIndex
+  });
   var hit = findInlineImageAtBodyIndex(doc, bodyIndex);
   if (!hit) {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: bodyIndex,
+      errorCode: 'DOC_IMAGE_NOT_FOUND',
+      errorMessage: 'No image found at provided body index'
+    });
     return { ok: false, message: 'No image found at body index ' + bodyIndex + '. Refresh the image list and try again.' };
   }
 
@@ -964,19 +1279,66 @@ function transcribeImageByIndex(bodyIndex) {
 
   var geminiResult;
   try {
-    geminiResult = callGemini(apiKey, prompt, blob, mimeType);
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType, {
+      runId: runId,
+      operation: operation,
+      entrypoint: entrypoint,
+      docIdHash: docIdHash
+    });
   } catch (e) {
     Logger.log('transcribeImageByIndex: callGemini threw ' + (e.message || String(e)));
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: bodyIndex,
+      errorCode: classifyErrorCode(e.message || String(e)),
+      errorMessage: sanitizeErrorMessage(e.message || String(e))
+    });
     return { ok: false, message: 'API error: ' + (e.message || String(e)) };
   }
 
   var transcription = geminiResult.text;
   if (!transcription || transcription.trim() === '') {
+    logObsEvent('transcribe_image_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: bodyIndex,
+      errorCode: 'API_EMPTY_CANDIDATES',
+      errorMessage: 'The API returned no text'
+    });
     return { ok: false, message: 'The API returned no text (finishReason=' + geminiResult.finishReason + ').' };
   }
 
   var insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
   Logger.log('transcribeImageByIndex: done, finishReason=' + geminiResult.finishReason + ', insertedCount=' + insertedCount);
+  logObsEvent('transcribe_image_done', {
+    operation: operation,
+    entrypoint: entrypoint,
+    status: 'success',
+    runId: runId,
+    docIdHash: docIdHash,
+    bodyIndex: bodyIndex,
+    model: geminiResult.model,
+    imageBytes: geminiResult.imageBytes,
+    promptTokens: geminiResult.promptTokens,
+    outputTokens: geminiResult.outputTokens,
+    totalTokens: geminiResult.totalTokens,
+    thoughtTokens: geminiResult.thoughtTokens,
+    estimatedCostUsd: geminiResult.estimatedCostUsd,
+    pricingVersion: geminiResult.pricingVersion,
+    finishReason: geminiResult.finishReason,
+    insertedCount: insertedCount || 0,
+    apiLatencyMs: geminiResult.apiLatencyMs,
+    apiLatencySec: geminiResult.apiLatencyMs ? Number((geminiResult.apiLatencyMs / 1000).toFixed(3)) : null,
+    latencyMs: Date.now() - operationStartMs,
+    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
+  });
   return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0 };
 }
 
