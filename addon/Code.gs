@@ -750,10 +750,15 @@ function runTranscribeWorker() {
     outputTokens: geminiResult.outputTokens,
     totalTokens: geminiResult.totalTokens,
     thoughtTokens: geminiResult.thoughtTokens,
+    estimatedCostUsd: geminiResult.estimatedCostUsd,
+    pricingVersion: geminiResult.pricingVersion,
     finishReason: geminiResult.finishReason,
     insertedCount: insertedCount || 0,
     apiLatencyMs: geminiResult.apiLatencyMs,
+    apiLatencySec: geminiResult.apiLatencyMs ? Number((geminiResult.apiLatencyMs / 1000).toFixed(3)) : null,
     latencyMs: Date.now() - operationStartMs
+    ,
+    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
   });
   return { ok: true };
 }
@@ -974,6 +979,12 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   if (finishReason === 'MAX_TOKENS') {
     Logger.log('callGemini: WARNING — response truncated (MAX_TOKENS). Output may be incomplete.');
   }
+  var promptTokens = usage.promptTokenCount || null;
+  var outputTokens = usage.candidatesTokenCount || null;
+  var totalTokens = usage.totalTokenCount || null;
+  var thoughtTokens = usage.thoughtsTokenCount || null;
+  var estimatedCostUsd = estimateGeminiCostUsd(modelId, promptTokens, outputTokens);
+  var imageKBytes = Number((imageBytes / 1024).toFixed(3));
   logObsEvent('transcribe_image_api_done', {
     operation: telemetry.operation || 'transcribe_single',
     entrypoint: telemetry.entrypoint || 'unknown',
@@ -982,23 +993,33 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     docIdHash: telemetry.docIdHash || null,
     model: modelId,
     finishReason: finishReason,
-    promptTokens: usage.promptTokenCount || null,
-    outputTokens: usage.candidatesTokenCount || null,
-    totalTokens: usage.totalTokenCount || null,
-    thoughtTokens: usage.thoughtsTokenCount || null,
+    promptTokens: promptTokens,
+    outputTokens: outputTokens,
+    totalTokens: totalTokens,
+    thoughtTokens: thoughtTokens,
+    estimatedCostUsd: estimatedCostUsd,
+    pricingVersion: GEMINI_PRICING_VERSION,
     imageBytes: imageBytes,
+    imageKBytes: imageKBytes,
     apiLatencyMs: Date.now() - apiStartMs
+    ,
+    apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
   });
   return {
     text: result,
     finishReason: finishReason,
     model: modelId,
-    promptTokens: usage.promptTokenCount || null,
-    outputTokens: usage.candidatesTokenCount || null,
-    totalTokens: usage.totalTokenCount || null,
-    thoughtTokens: usage.thoughtsTokenCount || null,
+    promptTokens: promptTokens,
+    outputTokens: outputTokens,
+    totalTokens: totalTokens,
+    thoughtTokens: thoughtTokens,
+    estimatedCostUsd: estimatedCostUsd,
+    pricingVersion: GEMINI_PRICING_VERSION,
     imageBytes: imageBytes,
+    imageKBytes: imageKBytes,
     apiLatencyMs: Date.now() - apiStartMs
+    ,
+    apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
   };
 }
 
@@ -1309,10 +1330,14 @@ function transcribeImageByIndex(bodyIndex) {
     outputTokens: geminiResult.outputTokens,
     totalTokens: geminiResult.totalTokens,
     thoughtTokens: geminiResult.thoughtTokens,
+    estimatedCostUsd: geminiResult.estimatedCostUsd,
+    pricingVersion: geminiResult.pricingVersion,
     finishReason: geminiResult.finishReason,
     insertedCount: insertedCount || 0,
     apiLatencyMs: geminiResult.apiLatencyMs,
-    latencyMs: Date.now() - operationStartMs
+    apiLatencySec: geminiResult.apiLatencyMs ? Number((geminiResult.apiLatencyMs / 1000).toFixed(3)) : null,
+    latencyMs: Date.now() - operationStartMs,
+    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
   });
   return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0 };
 }

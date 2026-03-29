@@ -9,7 +9,7 @@
         "width": 6,
         "height": 4,
         "widget": {
-          "title": "Images Transcribed (rate)",
+          "title": "Images Transcribed (count)",
           "xyChart": {
             "dataSets": [
               {
@@ -17,8 +17,8 @@
                   "timeSeriesFilter": {
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_images_count\"",
                     "aggregation": {
-                      "perSeriesAligner": "ALIGN_RATE",
-                      "alignmentPeriod": "3600s"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -34,7 +34,7 @@
         "width": 6,
         "height": 4,
         "widget": {
-          "title": "Imports Completed (rate)",
+          "title": "Imports Completed (count)",
           "xyChart": {
             "dataSets": [
               {
@@ -42,8 +42,8 @@
                   "timeSeriesFilter": {
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_import_runs_count\"",
                     "aggregation": {
-                      "perSeriesAligner": "ALIGN_RATE",
-                      "alignmentPeriod": "3600s"
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -84,13 +84,13 @@
         "width": 6,
         "height": 4,
         "widget": {
-          "title": "Transcription Latency (ms)",
+          "title": "Transcription Latency (sec)",
           "xyChart": {
             "dataSets": [
               {
                 "timeSeriesQuery": {
                   "timeSeriesFilter": {
-                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_latency_ms\"",
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_latency_s\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_95",
                       "alignmentPeriod": "3600s"
@@ -109,13 +109,13 @@
         "width": 6,
         "height": 4,
         "widget": {
-          "title": "Image Size (bytes, p50)",
+          "title": "Image Size (kbytes, p50)",
           "xyChart": {
             "dataSets": [
               {
                 "timeSeriesQuery": {
                   "timeSeriesFilter": {
-                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_image_bytes\"",
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_image_kbytes\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
                       "alignmentPeriod": "3600s"
@@ -168,7 +168,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_images_count\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_DELTA",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.model"
                       ]
@@ -199,6 +199,250 @@
                       "alignmentPeriod": "3600s",
                       "groupByFields": [
                         "metric.label.model"
+                      ]
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 16,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Estimated Cost / Image (USD, p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 16,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Estimated Cost by Model (USD, p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                      "alignmentPeriod": "3600s",
+                      "groupByFields": [
+                        "metric.label.model"
+                      ]
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 20,
+        "width": 12,
+        "height": 4,
+        "widget": {
+          "title": "Total Estimated Cost (USD, sum)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd_total\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_SUM",
+                      "alignmentPeriod": "3600s"
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 24,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Unique Active Users (daily)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_user_activity_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "86400s",
+                      "crossSeriesReducer": "REDUCE_COUNT",
+                      "groupByFields": []
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 24,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Monthly Active Users",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_user_activity_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "2592000s",
+                      "crossSeriesReducer": "REDUCE_COUNT",
+                      "groupByFields": []
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 28,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Images Transcribed per User (count)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_images_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_DELTA",
+                      "alignmentPeriod": "3600s",
+                      "groupByFields": [
+                        "metric.label.user"
+                      ]
+                    }
+                  }
+                },
+                "plotType": "STACKED_BAR"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 28,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Images Imported per User",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_images_imported_count\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                      "alignmentPeriod": "3600s",
+                      "groupByFields": [
+                        "metric.label.user"
+                      ]
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 0,
+        "yPos": 32,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Tokens per User (p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_total_tokens\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                      "alignmentPeriod": "3600s",
+                      "groupByFields": [
+                        "metric.label.user"
+                      ]
+                    }
+                  }
+                },
+                "plotType": "LINE"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "xPos": 6,
+        "yPos": 32,
+        "width": 6,
+        "height": 4,
+        "widget": {
+          "title": "Estimated Cost per User (USD, p50)",
+          "xyChart": {
+            "dataSets": [
+              {
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
+                    "aggregation": {
+                      "perSeriesAligner": "ALIGN_PERCENTILE_50",
+                      "alignmentPeriod": "3600s",
+                      "groupByFields": [
+                        "metric.label.user"
                       ]
                     }
                   }

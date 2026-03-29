@@ -27,23 +27,54 @@ upsert_counter_metric() {
   local description="$2"
   local filter="$3"
   local with_model="${4:-false}"
-  if [[ "$with_model" == "true" ]]; then
+  local with_user="${5:-false}"
+  if [[ "$with_model" == "true" || "$with_user" == "true" ]]; then
     local tmp_config
     tmp_config="$(mktemp)"
-    cat > "$tmp_config" <<EOF
+    {
+      cat <<EOF
 description: "$description"
 filter: '$filter'
 metricDescriptor:
   metricKind: DELTA
   valueType: INT64
   unit: "1"
+EOF
+      if [[ "$with_model" == "true" || "$with_user" == "true" ]]; then
+        cat <<'EOF'
   labels:
+EOF
+      fi
+      if [[ "$with_model" == "true" ]]; then
+        cat <<'EOF'
     - key: model
       valueType: STRING
       description: "Gemini model id"
+EOF
+      fi
+      if [[ "$with_user" == "true" ]]; then
+        cat <<'EOF'
+    - key: user
+      valueType: STRING
+      description: "Anonymized user key"
+EOF
+      fi
+      if [[ "$with_model" == "true" || "$with_user" == "true" ]]; then
+        cat <<'EOF'
 labelExtractors:
+EOF
+      fi
+      if [[ "$with_model" == "true" ]]; then
+        cat <<'EOF'
   model: 'REGEXP_EXTRACT(jsonPayload.message, ".*\"model\":\"([^\"]+)\".*")'
 EOF
+      fi
+      if [[ "$with_user" == "true" ]]; then
+        cat <<'EOF'
+  user: 'REGEXP_EXTRACT(jsonPayload.message, ".*\"userKey\":\"([^\"]+)\".*")'
+EOF
+      fi
+    } > "$tmp_config"
     if gcloud logging metrics describe "$name" >/dev/null 2>&1; then
       echo "Updating metric: $name"
       gcloud logging metrics update "$name" --config-from-file="$tmp_config" >/dev/null
@@ -73,6 +104,7 @@ upsert_distribution_metric() {
   local filter="$3"
   local extractor="$4"
   local with_model="${5:-false}"
+  local with_user="${6:-false}"
   debug_log "H3" "apply.sh:upsert_distribution_metric" "distribution metric branch entered" "{\"metric\":\"$name\"}"
   local tmp_config
   tmp_config="$(mktemp)"
@@ -86,14 +118,38 @@ metricDescriptor:
   valueType: DISTRIBUTION
   unit: "1"
 EOF
-    if [[ "$with_model" == "true" ]]; then
+    if [[ "$with_model" == "true" || "$with_user" == "true" ]]; then
       cat <<'EOF'
   labels:
+EOF
+    fi
+    if [[ "$with_model" == "true" ]]; then
+      cat <<'EOF'
     - key: model
       valueType: STRING
       description: "Gemini model id"
+EOF
+    fi
+    if [[ "$with_user" == "true" ]]; then
+      cat <<'EOF'
+    - key: user
+      valueType: STRING
+      description: "Anonymized user key"
+EOF
+    fi
+    if [[ "$with_model" == "true" || "$with_user" == "true" ]]; then
+      cat <<'EOF'
 labelExtractors:
+EOF
+    fi
+    if [[ "$with_model" == "true" ]]; then
+      cat <<'EOF'
   model: 'REGEXP_EXTRACT(jsonPayload.message, ".*\"model\":\"([^\"]+)\".*")'
+EOF
+    fi
+    if [[ "$with_user" == "true" ]]; then
+      cat <<'EOF'
+  user: 'REGEXP_EXTRACT(jsonPayload.message, ".*\"userKey\":\"([^\"]+)\".*")'
 EOF
     fi
     cat <<EOF
@@ -122,6 +178,7 @@ upsert_counter_metric \
   "geneascript_transcribe_images_count" \
   "Count successful image transcriptions" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\".*\"status\":\"success\""' \
+  "true" \
   "true"
 
 upsert_counter_metric \
@@ -139,6 +196,7 @@ upsert_distribution_metric \
   "Prompt tokens per image" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"promptTokens\\\":([0-9]+).*")' \
+  "true" \
   "true"
 
 upsert_distribution_metric \
@@ -146,6 +204,7 @@ upsert_distribution_metric \
   "Output tokens per image" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"outputTokens\\\":([0-9]+).*")' \
+  "true" \
   "true"
 
 upsert_distribution_metric \
@@ -153,6 +212,15 @@ upsert_distribution_metric \
   "Total tokens per image" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"totalTokens\\\":([0-9]+).*")' \
+  "true" \
+  "true"
+
+upsert_distribution_metric \
+  "geneascript_estimated_cost_usd" \
+  "Estimated USD cost per image from prompt/output tokens" \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
+  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"estimatedCostUsd\\\":([0-9]+(?:\\.[0-9]+)?).*")' \
+  "true" \
   "true"
 
 upsert_distribution_metric \
@@ -160,6 +228,15 @@ upsert_distribution_metric \
   "End-to-end transcription latency in milliseconds" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"latencyMs\\\":([0-9]+).*")' \
+  "true" \
+  "true"
+
+upsert_distribution_metric \
+  "geneascript_transcribe_latency_s" \
+  "End-to-end transcription latency in seconds" \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\""' \
+  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"latencySec\\\":([0-9]+(?:\\.[0-9]+)?).*")' \
+  "true" \
   "true"
 
 upsert_distribution_metric \
@@ -167,19 +244,45 @@ upsert_distribution_metric \
   "Input image size in bytes for transcriptions" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"imageBytes\\\":([0-9]+).*")' \
+  "true" \
+  "true"
+
+upsert_distribution_metric \
+  "geneascript_image_kbytes" \
+  "Input image size in kilobytes for transcriptions" \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_api_done\""' \
+  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"imageKBytes\\\":([0-9]+(?:\\.[0-9]+)?).*")' \
+  "true" \
   "true"
 
 upsert_distribution_metric \
   "geneascript_images_imported_count" \
   "Images imported per completed import run" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_done\""' \
-  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"addedCount\\\":([0-9]+).*")'
+  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"addedCount\\\":([0-9]+).*")' \
+  "false" \
+  "true"
 
 upsert_distribution_metric \
   "geneascript_import_image_latency_ms" \
   "Per-image import latency in milliseconds" \
   'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_image_processed\".*\"status\":\"success\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"imageImportLatencyMs\\\":([0-9]+).*")'
+
+upsert_distribution_metric \
+  "geneascript_estimated_cost_usd_total" \
+  "Estimated USD cost per image for total cost visualization" \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\".*\"status\":\"success\""' \
+  'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"estimatedCostUsd\\\":([0-9]+(?:\\.[0-9]+)?).*")' \
+  "true" \
+  "true"
+
+upsert_counter_metric \
+  "geneascript_user_activity_count" \
+  "Activity counter for unique-user approximation" \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"(transcribe_image_done|import_drive_done)\".*\"status\":\"success\""' \
+  "false" \
+  "true"
 
 echo "Upserting dashboard..."
 dashboard_name="$(gcloud monitoring dashboards list --filter='displayName="GeneaScript Observability"' --format='value(name)' | head -n 1)"

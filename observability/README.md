@@ -23,6 +23,8 @@ This folder stores Google Cloud observability configuration so dashboards/metric
 | Transcribe | `geneascript_prompt_tokens` | Distribution of prompt token usage per transcription request. |
 | Transcribe | `geneascript_output_tokens` | Distribution of output token usage per transcription response. |
 | Transcribe | `geneascript_total_tokens` | Distribution of total token usage per transcription response. |
+| Transcribe | `geneascript_estimated_cost_usd` | Distribution of estimated USD cost per image from prompt/output tokens (groupable by model). |
+| User activity | `geneascript_user_activity_count` | Counter metric used for daily/monthly active user approximations (anonymized user key label). |
 | Transcribe | `geneascript_transcribe_latency_ms` | Distribution of end-to-end transcription latency in milliseconds. |
 | Transcribe | `geneascript_image_bytes` | Distribution of input image sizes for transcription requests. |
 | Import | `geneascript_images_imported_count` | Distribution of images imported per completed import run (`addedCount`). |
@@ -71,7 +73,7 @@ bash observability/scripts/apply.sh
 
 The script will:
 
-1. Upsert log-based metrics (usage, tokens, latency, image size, import counts)
+1. Upsert log-based metrics (usage, tokens, latency, image size, import counts, user-level labels)
 2. Upsert dashboard config
 
 ## Verify in Google Cloud
@@ -82,7 +84,7 @@ The script will:
 
 ## Notes for current logging format
 
-Current app logs use `textPayload` with prefix `OBS:` and JSON content.
-Metrics in this folder extract values with regex from `textPayload`.
+Current app logs are emitted as `OBS:{...}` in `jsonPayload.message` for Apps Script console logs.
+Metrics in this folder extract values with regex from `jsonPayload.message`.
 
 If/when logging moves to native `jsonPayload`, update metric extractors in `apply.sh` to use direct field extraction.
