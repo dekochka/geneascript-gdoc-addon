@@ -68,7 +68,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_total_tokens\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s"
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -93,7 +93,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_latency_s\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_95",
-                      "alignmentPeriod": "3600s"
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -118,7 +118,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_image_kbytes\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s"
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -196,7 +196,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_total_tokens\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.model"
                       ]
@@ -224,7 +224,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s"
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -249,7 +249,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.model"
                       ]
@@ -277,7 +277,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd_total\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_SUM",
-                      "alignmentPeriod": "3600s"
+                      "alignmentPeriod": "60s"
                     }
                   }
                 },
@@ -356,7 +356,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_transcribe_images_count\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_DELTA",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.user"
                       ]
@@ -384,7 +384,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_images_imported_count\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.user"
                       ]
@@ -412,7 +412,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_total_tokens\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.user"
                       ]
@@ -440,7 +440,7 @@
                     "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd\"",
                     "aggregation": {
                       "perSeriesAligner": "ALIGN_PERCENTILE_50",
-                      "alignmentPeriod": "3600s",
+                      "alignmentPeriod": "60s",
                       "groupByFields": [
                         "metric.label.user"
                       ]
