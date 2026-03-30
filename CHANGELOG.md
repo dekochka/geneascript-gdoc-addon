@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+(Nothing yet.)
+
+## [0.6.0-ai-config-params] — 2026-03-30
+
 ### ✨ Added
 
 - **Request parameter controls in setup** — Extended **Setup API key & model** with per-user Gemini request tuning: `temperature` (default `0.1`), `maxOutputTokens`, and model-aware thinking controls (`thinking mode`, optional `thinking budget` when supported).
@@ -76,6 +80,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 [0.4.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0
 [0.5.0-observability]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.5.0-observability
+[0.6.0-ai-config-params]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.0-ai-config-params
 
 ## [0.3.1] — 2026-03-15
 
