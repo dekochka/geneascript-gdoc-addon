@@ -6,6 +6,17 @@
 var MODEL_ID = 'gemini-flash-latest';
 var API_KEY_PROPERTY = 'GEMINI_API_KEY';
 var MODEL_ID_PROPERTY = 'GEMINI_MODEL_ID';
+var REQUEST_TEMPERATURE_PROPERTY = 'GEMINI_REQUEST_TEMPERATURE';
+var REQUEST_MAX_OUTPUT_TOKENS_PROPERTY = 'GEMINI_REQUEST_MAX_OUTPUT_TOKENS';
+var REQUEST_THINKING_MODE_PROPERTY = 'GEMINI_REQUEST_THINKING_MODE';
+var REQUEST_THINKING_BUDGET_PROPERTY = 'GEMINI_REQUEST_THINKING_BUDGET';
+var REQUEST_DEFAULT_TEMPERATURE = 0.1;
+var REQUEST_DEFAULT_MAX_OUTPUT_TOKENS = 32768;
+var REQUEST_DEFAULT_THINKING_MODE = 'auto';
+var REQUEST_MIN_TEMPERATURE = 0;
+var REQUEST_MAX_TEMPERATURE = 2;
+var REQUEST_MIN_MAX_OUTPUT_TOKENS = 1;
+var REQUEST_MAX_MAX_OUTPUT_TOKENS = 65536;
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 30;
@@ -373,6 +384,157 @@ function getModelOptions() {
   ];
 }
 
+function getDefaultRequestConfig() {
+  return {
+    temperature: REQUEST_DEFAULT_TEMPERATURE,
+    maxOutputTokens: REQUEST_DEFAULT_MAX_OUTPUT_TOKENS,
+    thinkingMode: REQUEST_DEFAULT_THINKING_MODE,
+    thinkingBudget: null
+  };
+}
+
+function getThinkingCapabilityByModel(modelId) {
+  var id = (modelId || '').trim().toLowerCase();
+  if (id.indexOf('gemini-3') === 0 || id === 'gemini-flash-latest') {
+    return {
+      configType: 'level',
+      supportsThinkingBudget: false,
+      supportsThinkingOff: false,
+      thinkingModes: ['auto', 'minimal', 'standard', 'high']
+    };
+  }
+  return {
+    configType: 'budget',
+    supportsThinkingBudget: true,
+    supportsThinkingOff: true,
+    thinkingModes: ['auto', 'off', 'minimal', 'standard', 'high'],
+    minBudget: -1,
+    maxBudget: 32768
+  };
+}
+
+function parseOptionalInteger(value) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') {
+    return isFinite(value) ? Math.trunc(value) : null;
+  }
+  if (typeof value !== 'string') return null;
+  var t = value.trim();
+  if (!/^-?\d+$/.test(t)) return null;
+  return parseInt(t, 10);
+}
+
+function validateRequestConfig(input, modelId) {
+  input = input || {};
+  var defaults = getDefaultRequestConfig();
+  var capability = getThinkingCapabilityByModel(modelId || getStoredModel());
+  var result = {
+    temperature: defaults.temperature,
+    maxOutputTokens: defaults.maxOutputTokens,
+    thinkingMode: defaults.thinkingMode,
+    thinkingBudget: null
+  };
+
+  var tempRaw = (input.temperature !== undefined && input.temperature !== null && input.temperature !== '') ? input.temperature : defaults.temperature;
+  var tempNum = Number(tempRaw);
+  if (!isFinite(tempNum)) {
+    return { ok: false, message: 'Temperature must be a number.' };
+  }
+  if (tempNum < REQUEST_MIN_TEMPERATURE || tempNum > REQUEST_MAX_TEMPERATURE) {
+    return { ok: false, message: 'Temperature must be between ' + REQUEST_MIN_TEMPERATURE + ' and ' + REQUEST_MAX_TEMPERATURE + '.' };
+  }
+  result.temperature = Number(tempNum.toFixed(2));
+
+  var maxTokensRaw = (input.maxOutputTokens !== undefined && input.maxOutputTokens !== null && input.maxOutputTokens !== '') ? input.maxOutputTokens : defaults.maxOutputTokens;
+  var maxTokens = parseOptionalInteger(maxTokensRaw);
+  if (maxTokens === null) {
+    return { ok: false, message: 'Max output tokens must be an integer.' };
+  }
+  if (maxTokens < REQUEST_MIN_MAX_OUTPUT_TOKENS || maxTokens > REQUEST_MAX_MAX_OUTPUT_TOKENS) {
+    return { ok: false, message: 'Max output tokens must be between ' + REQUEST_MIN_MAX_OUTPUT_TOKENS + ' and ' + REQUEST_MAX_MAX_OUTPUT_TOKENS + '.' };
+  }
+  result.maxOutputTokens = maxTokens;
+
+  var modeRaw = (input.thinkingMode || defaults.thinkingMode);
+  var mode = String(modeRaw).trim().toLowerCase();
+  if (capability.thinkingModes.indexOf(mode) === -1) {
+    return { ok: false, message: 'Thinking mode "' + mode + '" is not supported for the selected model.' };
+  }
+  result.thinkingMode = mode;
+  if (mode === 'off' && !capability.supportsThinkingOff) {
+    return { ok: false, message: 'Thinking off mode is not supported for the selected model.' };
+  }
+
+  var budget = parseOptionalInteger(input.thinkingBudget);
+  if (budget === null) {
+    result.thinkingBudget = null;
+  } else if (!capability.supportsThinkingBudget) {
+    return { ok: false, message: 'Thinking budget is not supported for the selected model.' };
+  } else {
+    var minBudget = capability.minBudget;
+    var maxBudget = capability.maxBudget;
+    if (budget < minBudget || budget > maxBudget) {
+      return { ok: false, message: 'Thinking budget must be between ' + minBudget + ' and ' + maxBudget + '.' };
+    }
+    result.thinkingBudget = budget;
+  }
+
+  return { ok: true, value: result };
+}
+
+function getStoredRequestConfig(modelId) {
+  var props = PropertiesService.getUserProperties();
+  var raw = {
+    temperature: props.getProperty(REQUEST_TEMPERATURE_PROPERTY),
+    maxOutputTokens: props.getProperty(REQUEST_MAX_OUTPUT_TOKENS_PROPERTY),
+    thinkingMode: props.getProperty(REQUEST_THINKING_MODE_PROPERTY),
+    thinkingBudget: props.getProperty(REQUEST_THINKING_BUDGET_PROPERTY)
+  };
+  var validated = validateRequestConfig(raw, modelId || getStoredModel());
+  if (!validated.ok) {
+    return getDefaultRequestConfig();
+  }
+  return validated.value;
+}
+
+function getSetupDialogState(modelId) {
+  var resolvedModel = modelId || getStoredModel();
+  var capability = getThinkingCapabilityByModel(resolvedModel);
+  var config = getStoredRequestConfig(resolvedModel);
+  return {
+    config: config,
+    capability: capability
+  };
+}
+
+function buildGenerationConfigFromSettings(modelId, requestConfig) {
+  var cfg = requestConfig || getStoredRequestConfig(modelId);
+  var capability = getThinkingCapabilityByModel(modelId);
+  var generationConfig = {
+    temperature: cfg.temperature,
+    maxOutputTokens: cfg.maxOutputTokens
+  };
+
+  if (capability.configType === 'level') {
+    // Gemini level-based configs expect low/medium/high style values.
+    if (cfg.thinkingMode === 'minimal') generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    if (cfg.thinkingMode === 'standard') generationConfig.thinkingConfig = { thinkingLevel: 'medium' };
+    if (cfg.thinkingMode === 'high') generationConfig.thinkingConfig = { thinkingLevel: 'high' };
+  } else if (capability.configType === 'budget') {
+    if (cfg.thinkingMode === 'off') {
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    } else if (cfg.thinkingMode === 'minimal') {
+      generationConfig.thinkingConfig = { thinkingBudget: cfg.thinkingBudget !== null ? cfg.thinkingBudget : 512 };
+    } else if (cfg.thinkingMode === 'standard') {
+      generationConfig.thinkingConfig = { thinkingBudget: cfg.thinkingBudget !== null ? cfg.thinkingBudget : 2048 };
+    } else if (cfg.thinkingMode === 'high') {
+      generationConfig.thinkingConfig = { thinkingBudget: cfg.thinkingBudget !== null ? cfg.thinkingBudget : 8192 };
+    }
+  }
+
+  return generationConfig;
+}
+
 /**
  * Opens the API key & model dialog. When forUpdate is true (Setup from menu), key is optional and Save just closes.
  * When forUpdate is false (key missing), key is required and Save & Continue starts transcription.
@@ -380,6 +542,7 @@ function getModelOptions() {
 function showApiKeyDialog(forUpdate) {
   var ui = DocumentApp.getUi();
   var currentModel = getStoredModel();
+  var setupState = getSetupDialogState(currentModel);
   var options = getModelOptions();
   var optionsHtml = options.map(function(o) {
     var sel = (o.id === currentModel) ? ' selected' : '';
@@ -393,25 +556,48 @@ function showApiKeyDialog(forUpdate) {
       '(sign in, then click <b>Create API key</b>).</p>';
   var btnLabel = forUpdate ? 'Save' : 'Save &amp; Continue';
   var dialogTitle = forUpdate ? 'Setup API key & model' : 'Set API Key';
+  var stateJson = JSON.stringify(setupState).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
     '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
     introHtml +
     '<p style="margin:0 0 8px; font-size:12px; color:#555;">' +
     'See <a href="https://aistudio.google.com/rate-limit" target="_blank">Rate limits</a> for free tier and billing.</p>' +
     '<label style="display:block; margin-bottom:4px; font-weight:bold;">Model:</label>' +
-    '<select id="model" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
+    '<select id="model" onchange="onModelChange()" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
+    '<div style="border:1px solid #DADCE0; border-radius:8px; padding:12px; margin:8px 0 12px;">' +
+      '<p style="margin:0 0 8px; font-size:12px; font-weight:bold; color:#3C4043;">Request parameters</p>' +
+      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Temperature:</label>' +
+      '<input id="temperature" type="number" step="0.1" min="0" max="2" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;" />' +
+      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Max output tokens:</label>' +
+      '<input id="maxOutputTokens" type="number" step="1" min="1" max="65536" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;" />' +
+      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Thinking mode:</label>' +
+      '<select id="thinkingMode" onchange="onThinkingModeChange()" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;"></select>' +
+      '<p id="thinkingBudgetHelp" style="display:none; margin:0 0 8px; font-size:12px; color:#5f6368;">Thinking budget is available only for models that support budget-based thinking controls.</p>' +
+      '<div id="thinkingBudgetRow" style="display:none;">' +
+        '<label id="thinkingBudgetLabel" style="display:block; margin-bottom:4px; font-weight:bold;">Thinking budget (optional):</label>' +
+        '<input id="thinkingBudget" type="number" step="1" min="-1" max="32768" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" />' +
+      '</div>' +
+    '</div>' +
     '<label style="display:block; margin-bottom:4px; font-weight:bold;">API Key:</label>' +
     '<input id="apiKey" type="text" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" placeholder="' + (forUpdate ? 'Leave blank to keep current key' : 'Paste your API key here') + '" />' +
     '<div id="status" style="color:#C62828; margin-top:6px; font-size:12px;"></div>' +
     (forUpdate ? '<p style="margin:12px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'Clear stored API key? You will be asked for it again on next Transcribe.\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">Clear stored API key</a></p>' : '') +
     '<div style="text-align:right; margin-top:12px;">' +
-    '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer;">' + btnLabel + '</button></div>' +
+    '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer; border:0; border-radius:4px; color:#fff; background:#1A73E8;">' + btnLabel + '</button></div>' +
     '<script>' +
     'var forUpdate=' + (forUpdate ? 'true' : 'false') + ';' +
+    'var setupState=JSON.parse("' + stateJson + '");' +
+    'function getCapability(modelId){ if(!modelId) return setupState.capability; var m=String(modelId).toLowerCase(); if(m.indexOf("gemini-3")===0||m==="gemini-flash-latest"){ return { configType:"level", supportsThinkingBudget:false, supportsThinkingOff:false, thinkingModes:["auto","minimal","standard","high"] }; } return { configType:"budget", supportsThinkingBudget:true, supportsThinkingOff:true, thinkingModes:["auto","off","minimal","standard","high"], minBudget:-1, maxBudget:32768 }; }' +
+    'function populateFromState(){ document.getElementById("temperature").value=setupState.config.temperature; document.getElementById("maxOutputTokens").value=setupState.config.maxOutputTokens; onModelChange(); if(setupState.config.thinkingBudget!==null&&setupState.config.thinkingBudget!==undefined){ document.getElementById("thinkingBudget").value=setupState.config.thinkingBudget; } }' +
+    'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=v.charAt(0).toUpperCase()+v.slice(1); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); }' +
+    'function onThinkingModeChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var mode=document.getElementById("thinkingMode").value; var budgetEl=document.getElementById("thinkingBudget"); var budgetLabel=document.getElementById("thinkingBudgetLabel"); var budgetRow=document.getElementById("thinkingBudgetRow"); var budgetHelp=document.getElementById("thinkingBudgetHelp"); var modelSupportsBudget=!!cap.supportsThinkingBudget; var enabled=modelSupportsBudget&&(mode==="minimal"||mode==="standard"||mode==="high"); budgetRow.style.display=modelSupportsBudget?"block":"none"; budgetHelp.style.display=modelSupportsBudget?"none":"block"; budgetEl.disabled=!enabled; budgetLabel.style.color=enabled?"#202124":"#9AA0A6"; if(!enabled){ budgetEl.value=""; } }' +
+    'function validateConfig(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var temp=Number(document.getElementById("temperature").value); if(!isFinite(temp)){ return { ok:false, message:"Temperature must be a number." }; } if(temp<0||temp>2){ return { ok:false, message:"Temperature must be between 0 and 2." }; } var maxOut=Number(document.getElementById("maxOutputTokens").value); if(!Number.isInteger(maxOut)){ return { ok:false, message:"Max output tokens must be an integer." }; } if(maxOut<1||maxOut>65536){ return { ok:false, message:"Max output tokens must be between 1 and 65536." }; } var mode=document.getElementById("thinkingMode").value; if(cap.thinkingModes.indexOf(mode)===-1){ return { ok:false, message:"Thinking mode is not supported for selected model." }; } var budgetRaw=document.getElementById("thinkingBudget").value; var budget=null; if(budgetRaw!==null&&budgetRaw!==undefined&&String(budgetRaw).trim()!==""){ if(!/^-?\\d+$/.test(String(budgetRaw).trim())){ return { ok:false, message:"Thinking budget must be an integer." }; } budget=parseInt(String(budgetRaw).trim(),10); if(!cap.supportsThinkingBudget){ return { ok:false, message:"Thinking budget is not supported for selected model." }; } if(budget<cap.minBudget||budget>cap.maxBudget){ return { ok:false, message:"Thinking budget must be between "+cap.minBudget+" and "+cap.maxBudget+"." }; } } return { ok:true, value:{ temperature:temp, maxOutputTokens:maxOut, thinkingMode:mode, thinkingBudget:budget } }; }' +
     'function save(){' +
       'var key=document.getElementById("apiKey").value;' +
       'var modelId=document.getElementById("model").value;' +
+      'var cfg=validateConfig();' +
       'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="Please enter an API key.";return;}' +
+      'if(!cfg.ok){document.getElementById("status").innerText=cfg.message;return;}' +
       'document.getElementById("status").innerText="Saving\\u2026";' +
       'document.getElementById("saveBtn").disabled=true;' +
       'google.script.run' +
@@ -420,7 +606,7 @@ function showApiKeyDialog(forUpdate) {
           'else{ document.getElementById("status").innerText=(r&&r.message)||"Failed to save."; document.getElementById("saveBtn").disabled=false; }' +
         '})' +
         '.withFailureHandler(function(err){ document.getElementById("status").innerText=err.message||String(err); document.getElementById("saveBtn").disabled=false; })' +
-        '.saveApiKeyAndModel(key, modelId);' +
+        '.saveApiKeyAndModel(key, modelId, cfg.value);' +
     '}' +
     'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
     'var AUTH_MSG="' + (AUTH_REQUIRED_MSG.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')) + '";' +
@@ -435,8 +621,9 @@ function showApiKeyDialog(forUpdate) {
         '.withFailureHandler(function(err){ showErr(err.message||String(err)); })' +
         '.runTranscribeWorker();' +
     '}' +
+    'populateFromState();' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(440).setHeight(320), dialogTitle);
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(460).setHeight(520), dialogTitle);
 }
 
 /** Opens Setup API key & model dialog from the Extension menu (key optional, save and close). */
@@ -448,15 +635,28 @@ function showSetupApiKeyAndModelDialog() {
  * Saves the API key to User Properties (private per Google account). Called from the API key dialog.
  */
 function saveApiKey(key) {
-  return saveApiKeyAndModel(key, null);
+  return saveApiKeyAndModel(key, null, null);
 }
 
 /**
  * Saves API key and/or model ID. Key or modelId can be null to leave unchanged.
  */
-function saveApiKeyAndModel(key, modelId) {
+function saveApiKeyAndModel(key, modelId, requestConfig) {
   var modelSelected = (modelId && typeof modelId === 'string' && modelId.trim() !== '') ? modelId.trim() : null;
   var props = PropertiesService.getUserProperties();
+  var effectiveModel = modelSelected || getStoredModel();
+  var validatedConfig = validateRequestConfig(requestConfig || getStoredRequestConfig(effectiveModel), effectiveModel);
+  if (!validatedConfig.ok) {
+    logObsEvent('setup_action', {
+      operation: 'setup',
+      status: 'error',
+      action: 'save_key_model',
+      modelSelected: modelSelected,
+      errorCode: 'UNKNOWN',
+      errorMessage: validatedConfig.message
+    });
+    return { ok: false, message: validatedConfig.message };
+  }
   if (key && typeof key === 'string' && key.trim() !== '') {
     props.setProperty(API_KEY_PROPERTY, key.trim());
     Logger.log('saveApiKeyAndModel: key saved');
@@ -465,12 +665,24 @@ function saveApiKeyAndModel(key, modelId) {
     props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
     Logger.log('saveApiKeyAndModel: model saved ' + modelId.trim());
   }
+  props.setProperty(REQUEST_TEMPERATURE_PROPERTY, String(validatedConfig.value.temperature));
+  props.setProperty(REQUEST_MAX_OUTPUT_TOKENS_PROPERTY, String(validatedConfig.value.maxOutputTokens));
+  props.setProperty(REQUEST_THINKING_MODE_PROPERTY, String(validatedConfig.value.thinkingMode));
+  if (validatedConfig.value.thinkingBudget === null || validatedConfig.value.thinkingBudget === undefined) {
+    props.deleteProperty(REQUEST_THINKING_BUDGET_PROPERTY);
+  } else {
+    props.setProperty(REQUEST_THINKING_BUDGET_PROPERTY, String(validatedConfig.value.thinkingBudget));
+  }
   logObsEvent('setup_action', {
     operation: 'setup',
     status: 'success',
     action: 'save_key_model',
     modelSelected: modelSelected,
-    keyUpdated: !!(key && typeof key === 'string' && key.trim() !== '')
+    keyUpdated: !!(key && typeof key === 'string' && key.trim() !== ''),
+    temperature: validatedConfig.value.temperature,
+    maxOutputTokens: validatedConfig.value.maxOutputTokens,
+    thinkingMode: validatedConfig.value.thinkingMode,
+    thinkingBudget: validatedConfig.value.thinkingBudget
   });
   return { ok: true };
 }
@@ -860,6 +1072,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   telemetry = telemetry || {};
   var apiStartMs = Date.now();
   var modelId = getStoredModel();
+  var requestConfig = getStoredRequestConfig(modelId);
+  var generationConfig = buildGenerationConfigFromSettings(modelId, requestConfig);
   var imageBytesArr = imageBlob.getBytes();
   var imageBytes = imageBytesArr.length;
   Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + imageBytes);
@@ -870,6 +1084,10 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     runId: telemetry.runId || null,
     docIdHash: telemetry.docIdHash || null,
     model: modelId,
+    temperature: requestConfig.temperature,
+    maxOutputTokens: requestConfig.maxOutputTokens,
+    thinkingMode: requestConfig.thinkingMode,
+    thinkingBudget: requestConfig.thinkingBudget,
     promptLength: prompt ? prompt.length : 0,
     imageBytes: imageBytes
   });
@@ -883,11 +1101,7 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
 
   var payload = {
     contents: [{ parts: parts }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 32768,
-      thinkingConfig: { thinkingBudget: 2048 }
-    }
+    generationConfig: generationConfig
   };
 
   var options = {

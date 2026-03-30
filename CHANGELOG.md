@@ -6,7 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-(Nothing yet.)
+### ✨ Added
+
+- **Request parameter controls in setup** — Extended **Setup API key & model** with per-user Gemini request tuning: `temperature` (default `0.1`), `maxOutputTokens`, and model-aware thinking controls (`thinking mode`, optional `thinking budget` when supported).
+
+### 🔧 Changed
+
+- **Config persistence** — Setup now stores API key, model, and request settings together in User Properties and reuses them for transcription requests.
+- **Gemini request wiring** — `callGemini` now builds `generationConfig` from saved user settings instead of hardcoded values, including conditional thinking config by model family.
+- **Setup modal styling** — Updated setup popup primary action button to use the same blue primary style language as the sidebar.
+
+### 🐛 Fixed
+
+- **Setup misconfiguration prevention** — Added client/server validation for request fields to block invalid numeric values and unsupported thinking combinations before sending API requests.
+
+### 📚 Documentation
+
+- Updated `README.md`, `docs/INSTALLATION.md`, and `docs/USER_GUIDE.md` with the new setup parameter workflow and validation guidance.
 
 ## [0.5.0-observability] — 2026-03-29
 
