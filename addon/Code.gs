@@ -43,7 +43,7 @@ function onOpen(e) {
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
       .addSeparator()
-      .addItem('Setup API key & model', 'showSetupApiKeyAndModelDialog')
+      .addItem('Setup AI', 'showSetupApiKeyAndModelDialog')
       .addItem('Help / User Guide', 'showHelp')
       .addItem('Report an issue', 'reportIssue')
       .addToUi();
@@ -549,40 +549,60 @@ function showApiKeyDialog(forUpdate) {
     return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
   }).join('');
   var introHtml = forUpdate
-    ? '<p style="margin:0 0 8px;">Update your <b>API key</b> and/or <b>model</b>. Leave API key blank to keep the current key.</p>'
-    : '<p style="margin:0 0 8px;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
-      '<p style="margin:0 0 8px;">Get a free key at ' +
-      '<a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> ' +
-      '(sign in, then click <b>Create API key</b>).</p>';
+    ? '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">Fine tune AI for Image Transcription. Set API Key and Model.</p>'
+    : '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
+      '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.35;">Create a key at ' +
+      '<a href="https://aistudio.google.com/api-keys" target="_blank">Google AI Studio API Keys</a> ' +
+      '(sign in, click <b>Create API key</b>, then paste it below).</p>';
   var btnLabel = forUpdate ? 'Save' : 'Save &amp; Continue';
-  var dialogTitle = forUpdate ? 'Setup API key & model' : 'Set API Key';
+  var dialogTitle = forUpdate ? 'Setup AI' : 'Set API Key';
   var stateJson = JSON.stringify(setupState).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
-    '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
+    '<body style="font-family: Arial, sans-serif; padding: 14px;">' +
     introHtml +
-    '<p style="margin:0 0 8px; font-size:12px; color:#555;">' +
-    'See <a href="https://aistudio.google.com/rate-limit" target="_blank">Rate limits</a> for free tier and billing.</p>' +
-    '<label style="display:block; margin-bottom:4px; font-weight:bold;">Model:</label>' +
-    '<select id="model" onchange="onModelChange()" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
-    '<div style="border:1px solid #DADCE0; border-radius:8px; padding:12px; margin:8px 0 12px;">' +
-      '<p style="margin:0 0 8px; font-size:12px; font-weight:bold; color:#3C4043;">Request parameters</p>' +
-      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Temperature:</label>' +
-      '<input id="temperature" type="number" step="0.1" min="0" max="2" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;" />' +
-      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Max output tokens:</label>' +
-      '<input id="maxOutputTokens" type="number" step="1" min="1" max="65536" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;" />' +
-      '<label style="display:block; margin-bottom:4px; font-weight:bold;">Thinking mode:</label>' +
-      '<select id="thinkingMode" onchange="onThinkingModeChange()" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:8px;"></select>' +
-      '<p id="thinkingBudgetHelp" style="display:none; margin:0 0 8px; font-size:12px; color:#5f6368;">Thinking budget is available only for models that support budget-based thinking controls.</p>' +
+    '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.3;">' +
+    'See <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank">Gemini API pricing</a> for cost details by model and token usage. Token usage impacts cost.</p>' +
+    '<label style="display:block; margin-bottom:3px; font-weight:bold;">AI model for Image Transcription</label>' +
+    '<select id="model" onchange="onModelChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px; margin-bottom:8px;">' + optionsHtml + '</select>' +
+    '<div style="border:1px solid #DADCE0; border-radius:8px; padding:10px; margin:6px 0 8px;">' +
+      '<p style="margin:0 0 6px; font-size:12px; font-weight:bold; color:#3C4043;">Transcription behavior</p>' +
+      '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
+        '<div>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Transcription strictness</label>' +
+          '<input id="temperature" type="number" step="0.1" min="0" max="2" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
+        '</div>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher strictness keeps output closer to visible text; lower strictness allows more interpretation.</p>' +
+      '</div>' +
+      '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
+        '<div>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Max text length</label>' +
+          '<input id="maxOutputTokens" type="number" step="1" min="1" max="65536" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
+        '</div>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher values reduce truncation risk on dense pages, but can increase cost and response size.</p>' +
+      '</div>' +
+      '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
+        '<div>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Reasoning depth</label>' +
+          '<select id="thinkingMode" onchange="onThinkingModeChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;"></select>' +
+        '</div>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher thinking can improve difficult handwriting interpretation, but usually increases latency and token use.</p>' +
+      '</div>' +
       '<div id="thinkingBudgetRow" style="display:none;">' +
-        '<label id="thinkingBudgetLabel" style="display:block; margin-bottom:4px; font-weight:bold;">Thinking budget (optional):</label>' +
-        '<input id="thinkingBudget" type="number" step="1" min="-1" max="32768" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" />' +
+        '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start;">' +
+          '<div>' +
+            '<label id="thinkingBudgetLabel" style="display:block; margin-bottom:3px; font-weight:bold;">Reasoning effort limit (optional)</label>' +
+            '<input id="thinkingBudget" type="number" step="1" min="-1" max="32768" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
+          '</div>' +
+          '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Larger budgets allow deeper reasoning on hard pages, but can increase latency and cost.</p>' +
+        '</div>' +
       '</div>' +
     '</div>' +
-    '<label style="display:block; margin-bottom:4px; font-weight:bold;">API Key:</label>' +
-    '<input id="apiKey" type="text" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px;" placeholder="' + (forUpdate ? 'Leave blank to keep current key' : 'Paste your API key here') + '" />' +
-    '<div id="status" style="color:#C62828; margin-top:6px; font-size:12px;"></div>' +
-    (forUpdate ? '<p style="margin:12px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'Clear stored API key? You will be asked for it again on next Transcribe.\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">Clear stored API key</a></p>' : '') +
-    '<div style="text-align:right; margin-top:12px;">' +
+    '<label style="display:block; margin-bottom:3px; font-weight:bold;">API Key:</label>' +
+    '<input id="apiKey" type="text" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" placeholder="' + (forUpdate ? 'Leave blank to keep current key' : 'Paste your API key here') + '" />' +
+    '<p style="margin:4px 0 0; font-size:11px; color:#5f6368; line-height:1.3;">Need a key? Create one at <a href="https://aistudio.google.com/api-keys" target="_blank">aistudio.google.com/api-keys</a>.</p>' +
+    '<div id="status" style="color:#C62828; margin-top:5px; font-size:12px;"></div>' +
+    (forUpdate ? '<p style="margin:6px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'Clear stored API key? You will be asked for it again on next Transcribe.\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">Clear stored API key</a></p>' : '') +
+    '<div style="text-align:right; margin-top:8px;">' +
     '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer; border:0; border-radius:4px; color:#fff; background:#1A73E8;">' + btnLabel + '</button></div>' +
     '<script>' +
     'var forUpdate=' + (forUpdate ? 'true' : 'false') + ';' +
@@ -590,7 +610,7 @@ function showApiKeyDialog(forUpdate) {
     'function getCapability(modelId){ if(!modelId) return setupState.capability; var m=String(modelId).toLowerCase(); if(m.indexOf("gemini-3")===0||m==="gemini-flash-latest"){ return { configType:"level", supportsThinkingBudget:false, supportsThinkingOff:false, thinkingModes:["auto","minimal","standard","high"] }; } return { configType:"budget", supportsThinkingBudget:true, supportsThinkingOff:true, thinkingModes:["auto","off","minimal","standard","high"], minBudget:-1, maxBudget:32768 }; }' +
     'function populateFromState(){ document.getElementById("temperature").value=setupState.config.temperature; document.getElementById("maxOutputTokens").value=setupState.config.maxOutputTokens; onModelChange(); if(setupState.config.thinkingBudget!==null&&setupState.config.thinkingBudget!==undefined){ document.getElementById("thinkingBudget").value=setupState.config.thinkingBudget; } }' +
     'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=v.charAt(0).toUpperCase()+v.slice(1); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); }' +
-    'function onThinkingModeChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var mode=document.getElementById("thinkingMode").value; var budgetEl=document.getElementById("thinkingBudget"); var budgetLabel=document.getElementById("thinkingBudgetLabel"); var budgetRow=document.getElementById("thinkingBudgetRow"); var budgetHelp=document.getElementById("thinkingBudgetHelp"); var modelSupportsBudget=!!cap.supportsThinkingBudget; var enabled=modelSupportsBudget&&(mode==="minimal"||mode==="standard"||mode==="high"); budgetRow.style.display=modelSupportsBudget?"block":"none"; budgetHelp.style.display=modelSupportsBudget?"none":"block"; budgetEl.disabled=!enabled; budgetLabel.style.color=enabled?"#202124":"#9AA0A6"; if(!enabled){ budgetEl.value=""; } }' +
+    'function onThinkingModeChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var mode=document.getElementById("thinkingMode").value; var budgetEl=document.getElementById("thinkingBudget"); var budgetLabel=document.getElementById("thinkingBudgetLabel"); var budgetRow=document.getElementById("thinkingBudgetRow"); var modelSupportsBudget=!!cap.supportsThinkingBudget; var enabled=modelSupportsBudget&&(mode==="minimal"||mode==="standard"||mode==="high"); budgetRow.style.display=modelSupportsBudget?"block":"none"; budgetEl.disabled=!enabled; budgetLabel.style.color=enabled?"#202124":"#9AA0A6"; if(!enabled){ budgetEl.value=""; } }' +
     'function validateConfig(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var temp=Number(document.getElementById("temperature").value); if(!isFinite(temp)){ return { ok:false, message:"Temperature must be a number." }; } if(temp<0||temp>2){ return { ok:false, message:"Temperature must be between 0 and 2." }; } var maxOut=Number(document.getElementById("maxOutputTokens").value); if(!Number.isInteger(maxOut)){ return { ok:false, message:"Max output tokens must be an integer." }; } if(maxOut<1||maxOut>65536){ return { ok:false, message:"Max output tokens must be between 1 and 65536." }; } var mode=document.getElementById("thinkingMode").value; if(cap.thinkingModes.indexOf(mode)===-1){ return { ok:false, message:"Thinking mode is not supported for selected model." }; } var budgetRaw=document.getElementById("thinkingBudget").value; var budget=null; if(budgetRaw!==null&&budgetRaw!==undefined&&String(budgetRaw).trim()!==""){ if(!/^-?\\d+$/.test(String(budgetRaw).trim())){ return { ok:false, message:"Thinking budget must be an integer." }; } budget=parseInt(String(budgetRaw).trim(),10); if(!cap.supportsThinkingBudget){ return { ok:false, message:"Thinking budget is not supported for selected model." }; } if(budget<cap.minBudget||budget>cap.maxBudget){ return { ok:false, message:"Thinking budget must be between "+cap.minBudget+" and "+cap.maxBudget+"." }; } } return { ok:true, value:{ temperature:temp, maxOutputTokens:maxOut, thinkingMode:mode, thinkingBudget:budget } }; }' +
     'function save(){' +
       'var key=document.getElementById("apiKey").value;' +
@@ -623,10 +643,10 @@ function showApiKeyDialog(forUpdate) {
     '}' +
     'populateFromState();' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(460).setHeight(520), dialogTitle);
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(500), dialogTitle);
 }
 
-/** Opens Setup API key & model dialog from the Extension menu (key optional, save and close). */
+/** Opens Setup AI dialog from the Extension menu (key optional, save and close). */
 function showSetupApiKeyAndModelDialog() {
   showApiKeyDialog(true);
 }
@@ -1459,7 +1479,7 @@ function transcribeImageByIndex(bodyIndex) {
       errorCode: 'UNKNOWN',
       errorMessage: 'API key not set'
     });
-    return { ok: false, message: 'API key not set. Use Setup API key & model first.' };
+    return { ok: false, message: 'API key not set. Use Setup AI first.' };
   }
   logObsEvent('transcribe_image_start', {
     operation: operation,
@@ -1619,7 +1639,7 @@ function getSidebarHtml() {
 
     '<div id="keyBanner" class="banner banner-warn" style="display:none">',
     '  Set up your API key to start transcribing.',
-    '  <a href="#" onclick="setupKey();return false" style="display:block;margin-top:4px">Setup API key &amp; model</a>',
+    '  <a href="#" onclick="setupKey();return false" style="display:block;margin-top:4px">Setup AI</a>',
     '</div>',
 
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
@@ -1652,7 +1672,7 @@ function getSidebarHtml() {
 
     '<div class="actions section">',
     '  <a class="action-link" href="#" onclick="doImport();return false">Import from Drive Folder</a>',
-    '  <a class="action-link" href="#" onclick="setupKey();return false">Setup API key &amp; model</a>',
+    '  <a class="action-link" href="#" onclick="setupKey();return false">Setup AI</a>',
     '</div>',
 
     '<div class="section" style="font-size:12px">',

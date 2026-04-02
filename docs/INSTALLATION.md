@@ -37,7 +37,7 @@ flowchart LR
 
 - **📧** A Google account (personal or Google Workspace).
 - **📄** A Google Document where you want to transcribe metric book images.
-- **🔑** A **Google AI API key** (Gemini). Get one at [Google AI Studio™](https://aistudio.google.com/app/apikey) or [Google Cloud™ Console](https://console.cloud.google.com/) (enable the Generative Language API and create an API key). You can skip this step — the add-on will prompt you with instructions and a link on first use of **Transcribe Image**.
+- **🔑** A **Google AI API key** (Gemini). Get one at [Google AI Studio™](https://aistudio.google.com/api-keys) or [Google Cloud™ Console](https://console.cloud.google.com/) (enable the Generative Language API and create an API key). You can skip this step — the add-on will prompt you with instructions and a link on first use of **Transcribe Image**.
 
 ---
 
@@ -55,8 +55,8 @@ flowchart LR
 
 1. **🏪** Open the **Metric Book Transcriber** listing on the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber" or use the direct link once published).
 2. **📥** Click **Install** and grant the requested permissions.
-3. **📄** Open any Google Doc. You should see the menu **Extensions** → **Metric Book Transcriber** with **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup API key & model**, and more. You can also click the add-on icon in the right-side panel to open the sidebar.
-4. **🔑** The first time you run **Transcribe Image**, the add-on prompts you to enter a [Google AI (Gemini) API key](https://aistudio.google.com/app/apikey) and choose a model (default: Gemini Flash Latest, free tier ~20 requests/day). Get a free key, paste it, pick a model, and click **Save & Continue**. Your key and model are stored privately (per user). To change them later, use **Setup API key & model**. See [rate limits](https://aistudio.google.com/rate-limit) for free tier and billing.
+3. **📄** Open any Google Doc. You should see the menu **Extensions** → **Metric Book Transcriber** with **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup AI**, and more. You can also click the add-on icon in the right-side panel to open the sidebar.
+4. **🔑** The first time you run **Transcribe Image**, the add-on prompts you to enter a [Google AI (Gemini) API key](https://aistudio.google.com/api-keys) and choose a model (default: Gemini Flash Latest, free tier ~20 requests/day). Get a key, paste it, pick a model, and click **Save & Continue**. Your key and model are stored privately (per user). To change them later, use **Setup AI**. See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for model and token cost details.
 
 That's it — you can now import images from Drive and transcribe them. See the [User Guide](USER_GUIDE.md) for step-by-step usage.
 
@@ -89,9 +89,9 @@ flowchart LR
    - Set **Version** to **Latest code** (and **Enabled** as needed).
    - Save. (See `docs/TestDeployments_popup.jpg` for reference if available.)
 4. **▶️ Run the test:** In the Test deployments dialog, select your saved test and click **Execute**. The test document opens with the add-on available.
-5. **📄** In the document you should see the **Metric Book Transcriber** menu (e.g. **Extensions** → **Metric Book Transcriber** → **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup API key & model**). Authorize when prompted.
+5. **📄** In the document you should see the **Metric Book Transcriber** menu (e.g. **Extensions** → **Metric Book Transcriber** → **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup AI**). Authorize when prompted.
 6. **🔑** Set the API key and model. You have two options:
-   - **In-app (recommended):** Just run **Transcribe Image** — if no key is set, a dialog appears with a link to [Google AI Studio](https://aistudio.google.com/app/apikey), model choice (default: Gemini Flash Latest), and an API key field. Enter the key, pick a model, and click **Save & Continue**. To change key or model later, use **Setup API key & model**.
+   - **In-app (recommended):** Just run **Transcribe Image** — if no key is set, a dialog appears with a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys), model choice (default: Gemini Flash Latest), and an API key field. Enter the key, pick a model, and click **Save & Continue**. To change key or model later, use **Setup AI**.
    - **Manual:** **Project Settings** → **Script properties** → add `GEMINI_API_KEY` with your key. (Note: the in-app dialog stores the key and model per user; manual Script properties are shared across all users of the project.)
 
 The add-on runs in the context of the test document. When you run **Transcribe Image**, a dialog shows "Awaiting response from Gemini API… This may take up to 1 minute." To test with the latest code, keep **Latest code** in the test and refresh the document after saving changes.
@@ -120,8 +120,8 @@ flowchart LR
    - Add a file **Prompt.gs** and paste the contents of `addon/Prompt.gs`.
    - **Project Settings** (gear) → enable **Show "appsscript.json" manifest file in editor**, then open `appsscript.json` and replace its contents with `addon/appsscript.json` from this repo.
 4. **💾 Save** the project (Ctrl+S / Cmd+S).
-5. **▶️** Run **onOpen** once from the script editor (authorize if prompted). **🔄 Reload** the document; the menu **Extensions** → **Metric Book Transcriber** (Transcribe Image, Import Book from Drive Folder, Setup API key & model) should appear.
-6. **🔑** Set the API key: run **Transcribe Image** and the add-on will prompt you with instructions and a link to [Google AI Studio](https://aistudio.google.com/app/apikey). Alternatively, set it manually in **Project Settings** → **Script properties** (note: the in-app dialog stores the key per user; manual Script properties are shared).
+5. **▶️** Run **onOpen** once from the script editor (authorize if prompted). **🔄 Reload** the document; the menu **Extensions** → **Metric Book Transcriber** (Transcribe Image, Import Book from Drive Folder, Setup AI) should appear.
+6. **🔑** Set the API key: run **Transcribe Image** and the add-on will prompt you with instructions and a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys). Alternatively, set it manually in **Project Settings** → **Script properties** (note: the in-app dialog stores the key per user; manual Script properties are shared).
 
 ---
 
@@ -152,7 +152,7 @@ flowchart LR
    - Create a new Apps Script project: `clasp create --type docs --title "Metric Book Transcriber" --rootDir addon` (or clone an existing project and set `rootDir` to `addon`).  
    - `clasp push`.
 3. **Without clasp:** Copy the contents of `addon/Code.gs`, `addon/Prompt.gs`, and `addon/appsscript.json` into your Apps Script project (create one from a document via **Extensions** → **Apps Script**, or create a standalone at script.google.com).
-4. **🔑** Set the API key and model: run **Transcribe Image** and the add-on will prompt you (or use **Setup API key & model**), or set the key manually in **Project Settings** → **Script properties** (note: the in-app dialog stores the key and model per user; manual Script properties are shared).
+4. **🔑** Set the API key and model: run **Transcribe Image** and the add-on will prompt you (or use **Setup AI**), or set the key manually in **Project Settings** → **Script properties** (note: the in-app dialog stores the key and model per user; manual Script properties are shared).
 5. If the script is **bound to a document**, run **onOpen** once and reload the doc. If it is **standalone**, use **Option 1** (Test deployments) to run it in a document.
 
 ---
@@ -164,22 +164,22 @@ The manifest (`appsscript.json`) includes an `addOns` block with a `logoUrl` poi
 ## 🔑 API key and model
 
 - The API key and selected model are stored in **User Properties** (private to each Google account), not in the code. Each user's key and model choice are isolated.
-- On first use of **Transcribe Image**, if no key is set, the add-on shows a dialog with a link to [Google AI Studio](https://aistudio.google.com/app/apikey), a **model** dropdown (default: Gemini Flash Latest; options include Gemini 3.1 Flash Lite and Gemini 3.1 Pro Preview), and an API key field. After entering the key and clicking **Save & Continue**, both are saved and the transcription proceeds.
-- To **update key or model** anytime: **Extensions** → **Metric Book Transcriber** → **Setup API key & model**. Leave the API key blank to keep the current key; change the model and click **Save**. Use **Clear stored API key** in that dialog to remove the key (you will be prompted again on next Transcribe).
-- The same setup dialog also supports request tuning: `temperature` (default `0.1`), `maxOutputTokens`, and model-aware thinking settings (`thinking mode`, optional `thinking budget`). Invalid combinations are blocked in the UI and revalidated server-side.
-- Free tier limits (e.g. ~20 requests/day for Gemini Flash Latest) and billing: see [Google AI Studio Rate limits](https://aistudio.google.com/rate-limit).
+- On first use of **Transcribe Image**, if no key is set, the add-on shows a dialog with a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys), a **model** dropdown (default: Gemini Flash Latest; options include Gemini 3.1 Flash Lite and Gemini 3.1 Pro Preview), and an API key field. After entering the key and clicking **Save & Continue**, both are saved and the transcription proceeds.
+- To **update key or model** anytime: **Extensions** → **Metric Book Transcriber** → **Setup AI**. Leave the API key blank to keep the current key; change the model and click **Save**. Use **Clear stored API key** in that dialog to remove the key (you will be prompted again on next Transcribe).
+- The same setup dialog also supports request tuning: **Transcription strictness** (default `0.1`), **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**. Invalid combinations are blocked in the UI and revalidated server-side.
+- Pricing and billing details: see [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 ## 🔧 Troubleshooting
 
 | Issue | What to do |
 |-------|------------|
 | **Menu doesn't appear** | Reload the document. For container-bound scripts, ensure the script is bound to this document (Extensions → Apps Script opens the same project). For test deployments, run **Execute** from Deploy → Test deployments. |
-| **"Please set your Google AI API key" / no key** | Run **Transcribe Image** — the add-on will prompt you to enter a key and choose a model, with a link to [Google AI Studio](https://aistudio.google.com/app/apikey). Or use **Setup API key & model** to set or change key and model. |
-| **Setup dialog shows validation error** | Check request settings in **Setup API key & model**. `temperature` must be between `0` and `2`; `maxOutputTokens` must be an integer between `1` and `65536`; thinking options depend on the selected model. |
+| **"Please set your Google AI API key" / no key** | Run **Transcribe Image** — the add-on will prompt you to enter a key and choose a model, with a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys). Or use **Setup AI** to set or change key and model. |
+| **Setup dialog shows validation error** | Check request settings in **Setup AI**. **Transcription strictness** must be between `0` and `2`; **Max text length** must be an integer between `1` and `65536`; reasoning options depend on the selected model. |
 | **"Authorisation is required to perform that action"** | You may be a collaborator on the doc (not the person who added the add-on). Install the add-on for your account: **Extensions** → **Metric Book Transcriber** and complete the authorization when prompted. Or remove and re-add the add-on to re-authorize. |
-| **Quota exceeded / 429** | Free tier has limited requests per day (e.g. ~20 for Gemini Flash Latest). The add-on shows the API error in the dialog. Check [rate limits](https://aistudio.google.com/rate-limit); consider enabling billing or switching model via **Setup API key & model**. |
+| **Quota exceeded / 429** | Free tier has limited requests per day (e.g. ~20 for Gemini Flash Latest). The add-on shows the API error in the dialog. Check [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) and your quota/billing setup; consider switching model via **Setup AI**. |
 | **Cannot access folder** (Import from Drive) | Ensure the folder is shared with you or you own it. If using a **custom GCP project** (e.g. for Marketplace), enable the **Google Drive API** in that project: [APIs & Services → Library → Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com). Re-authorize the add-on if you changed permissions. |
-| **API errors / 403** | Confirm the API key is valid and the Generative Language API is enabled. Check [Google AI Studio](https://aistudio.google.com/app/apikey) or Cloud Console. |
+| **API errors / 403** | Confirm the API key is valid and the Generative Language API is enabled. Check [Google AI Studio API Keys](https://aistudio.google.com/api-keys) or Cloud Console. |
 | **Timeout** | The script uses a 60-second timeout. Try a smaller image or try again. |
 
 For usage (document structure, Context section, step-by-step with screenshots), see [USER_GUIDE.md](USER_GUIDE.md).

@@ -8,17 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 (Nothing yet.)
 
+## [0.6.1-ai-config-improvements] — 2026-03-30
+
+### 🔧 Changed
+
+- **Setup naming and copy clarity** — Renamed user-facing setup entry to **Setup AI** in menu/sidebar and dialog title, and clarified setup instructions for API key/model updates.
+- **Setup links** — Updated API-key creation link to `https://aistudio.google.com/api-keys` and replaced setup pricing guidance link with Gemini API pricing docs.
+- **Setup form usability** — Added compact parameter impact hints and tightened spacing to reduce scrolling in the setup popup.
+
+### 📚 Documentation
+
+- Updated `README.md`, `docs/INSTALLATION.md`, and `docs/USER_GUIDE.md` to reflect **Setup AI** naming, new links, and the added parameter guidance notes.
+
 ## [0.6.0-ai-config-params] — 2026-03-30
 
 ### ✨ Added
 
-- **Request parameter controls in setup** — Extended **Setup API key & model** with per-user Gemini request tuning: `temperature` (default `0.1`), `maxOutputTokens`, and model-aware thinking controls (`thinking mode`, optional `thinking budget` when supported).
+- **Request parameter controls in setup** — Extended **Setup AI** with per-user Gemini request tuning: `temperature` (default `0.1`), `maxOutputTokens`, and model-aware thinking controls (`thinking mode`, optional `thinking budget` when supported).
 
 ### 🔧 Changed
 
 - **Config persistence** — Setup now stores API key, model, and request settings together in User Properties and reuses them for transcription requests.
 - **Gemini request wiring** — `callGemini` now builds `generationConfig` from saved user settings instead of hardcoded values, including conditional thinking config by model family.
 - **Setup modal styling** — Updated setup popup primary action button to use the same blue primary style language as the sidebar.
+- **Setup naming and guidance** — Renamed user-facing setup entry to **Setup AI**, updated API-key creation link to `aistudio.google.com/api-keys`, and replaced setup pricing guidance link with Gemini API pricing docs.
 
 ### 🐛 Fixed
 
@@ -81,6 +94,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.4.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0
 [0.5.0-observability]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.5.0-observability
 [0.6.0-ai-config-params]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.0-ai-config-params
+[0.6.1-ai-config-improvements]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.1-ai-config-improvements
 
 ## [0.3.1] — 2026-03-15
 
