@@ -19,10 +19,11 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  D[🔑 Setup Key / Model] --> E[📂 Open Sidebar]
-  E --> F[☑️ Select images]
-  F --> G[✍️ Transcribe Selected]
-  G --> H[✅ Review results]
+  D[📁 Import from Drive] --> E[🔑 Setup AI]
+  E --> F[🧾 Extract Context]
+  F --> G[☑️ Select images]
+  G --> H[✍️ Transcribe Selected]
+  H --> I[✅ Review results]
 ```
 
 **Transcribe flow (single image — menu)**
@@ -45,7 +46,7 @@ flowchart LR
 
 The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Extract Context from Cover Image**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
-![Extensions menu with Open Sidebar highlighted](GeneaScriptAddOn-Extensions-Menu-OpenPanel.jpg)
+![v0.8 main page with sidebar and document](app-screenshots/v0.8-main-page.jpg)
 
 ---
 
@@ -96,20 +97,21 @@ Use this to create a document with a Context section and all scan images from a 
 The sidebar is the easiest way to transcribe one or many images at once.
 
 1. Open **Extensions** → **Metric Book Transcriber** → **Open Sidebar**, or click the add-on icon in the right-side panel and then **Open Transcriber Sidebar**.
-2. The sidebar shows a list of all inline images in the document, labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark.
-3. **Select images** — check the images you want to transcribe, or use **Select All**. You can select a single image or multiple.
-4. Click **Transcribe Selected**. If any selected images already have transcription text below them, a confirmation dialog asks whether to replace it.
-5. The sidebar processes images in document order. For each image it shows:
+2. The sidebar shows the top action flow in order: **Import from Drive Folder**, **Setup AI**, **Extract Context from Selected Image**, then the image list and **Transcribe Selected** action.
+3. The image list shows inline images labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark.
+4. **Select images** — check the images you want to transcribe, or use **Select All**. You can select a single image or multiple.
+5. Click **Transcribe Selected**. If any selected images already have transcription text below them, a confirmation dialog asks whether to replace it.
+6. The sidebar processes images in document order. For each image it shows:
    - A progress counter ("Transcribing 2 of 7…")
    - The current image label
    - Elapsed time and estimated time remaining
    - A progress bar
-6. When an image completes, it gets a status icon:
+7. When an image completes, it gets a status icon:
    - **Green checkmark** — transcription inserted successfully.
    - **Orange warning** — output may be truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete.
    - **Red X** — failed (hover for error details). The batch continues with the next image.
-7. You can click **Stop** at any time to halt the batch after the current image finishes.
-8. When the batch completes, the sidebar shows a summary (e.g. "Done: 7 succeeded in 4m 32s") and auto-refreshes the image list.
+8. You can click **Stop** at any time to halt the batch after the current image finishes.
+9. When the batch completes, the sidebar shows a summary (e.g. "Done: 7 succeeded in 4m 32s") and auto-refreshes the image list.
 
 ![Sidebar batch transcription in progress — progress bar, elapsed time, status icons](GeneaScript-SidePanel-BatchTranscription-InProgress.jpg)
 
@@ -129,7 +131,10 @@ This feature helps you populate the `Context` section automatically from a cover
    - Sidebar action **Extract Context from Selected Image** (select exactly one image first).
 3. Select the cover/title image and click **Extract**.
 4. Review AI-extracted fields (archive name/reference, document description, date range, villages, surnames, notes).
-5. Edit any field as needed and click **Apply Context Updates**.
+5. Edit any field as needed and click **Apply Context**.
+6. On success, the popup closes automatically and updates are written to the top `Context` section.
+
+![v0.8 extract context popup](app-screenshots/v0.8-extract-context-popup.jpg)
 
 The add-on updates known Context fields and merges list items where possible. You can continue manual edits afterward.
 
@@ -162,7 +167,7 @@ You can also transcribe one image at a time using the classic menu flow:
 
 To change your API key, Gemini model, or request behavior anytime (for example after hitting free-tier limits or to try different transcription quality settings), use **Extensions** → **Metric Book Transcriber** → **Setup AI**. In the dialog you can pick a model, tune **Transcription strictness**, **Max text length**, and **Reasoning depth**, and review short notes that explain how each parameter can affect transcription quality/latency/cost. On models that support it, you can also set **Reasoning effort limit**. Enter a new API key (or leave it blank to keep the current one), and click **Save**. Use **Clear stored API key** to remove your key so you’ll be prompted again on the next Transcribe.
 
-![Setup AI dialog — Model dropdown, request parameters with hints, API key field, Save, Clear stored API key](Step0_Doc_Extension_SetAPIKey.png)
+![v0.8 setup AI popup](app-screenshots/v0.8-setup-ai-popup.jpg)
 
 ## 📝 What the output looks like
 
