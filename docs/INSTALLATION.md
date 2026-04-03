@@ -169,6 +169,121 @@ The manifest (`appsscript.json`) includes an `addOns` block with a `logoUrl` poi
 - The same setup dialog also supports request tuning: **Transcription strictness** (default `0.1`), **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**. Invalid combinations are blocked in the UI and revalidated server-side.
 - Pricing and billing details: see [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
+## 🎛️ Setting up Google Picker API for Production (Publishers/Deployers only)
+
+**⚠️ This section is for publishers and deployers** setting up the add-on for **production use** (Marketplace listing, organization-wide deployment). **End users do not need to configure this** — the Picker is pre-configured by the publisher.
+
+The add-on uses the **Google Picker API** for the "Import Book from Drive Files" feature. When properly configured, users see a native Google file picker to select images. If not configured, a manual fallback (paste file URLs/IDs) is available.
+
+### Prerequisites
+
+- A **Google Cloud Console project** for your add-on
+- **Owner or Editor** role on that project
+- The add-on deployed to that project (via clasp or Cloud Console)
+
+### Setup Steps
+
+```mermaid
+flowchart LR
+  A[📂 Open GCP Console] --> B[🔌 Enable Picker API]
+  B --> C[🔑 Create API Key]
+  C --> D[🔒 Restrict API Key<br/>Picker API only]
+  D --> E[📋 Note Project Number]
+  E --> F[⚙️ Set Script Properties]
+  F --> G([✅ Picker Ready])
+```
+
+1. **📂 Open Google Cloud Console:**
+   - Go to [console.cloud.google.com](https://console.cloud.google.com/)
+   - Select the project used for your add-on (the one linked in `appsscript.json` or OAuth consent screen)
+
+2. **🔌 Enable the Google Picker API:**
+   - Navigate to **APIs & Services** → **Library**
+   - Search for **Google Picker API**
+   - Click **Enable**
+   - (Note: The Picker API itself doesn't require enabling in newer GCP projects; this step may be automatic)
+
+3. **🔑 Create an API Key:**
+   - Navigate to **APIs & Services** → **Credentials**
+   - Click **+ CREATE CREDENTIALS** → **API key**
+   - Copy the generated API key (e.g., `AIzaSy...`)
+
+4. **🔒 Restrict the API Key (Recommended):**
+   - Click **Edit API key** (pencil icon) for the key you just created
+   - Under **API restrictions**, select **Restrict key**
+   - In the dropdown, find and select **Google Picker API**
+   - (Optional) Under **Application restrictions**, you can restrict by HTTP referrers (e.g., `*.googleusercontent.com/*` for Apps Script dialogs)
+   - Click **Save**
+
+5. **📋 Get the Project Number (App ID):**
+   - In the Google Cloud Console, go to the **Dashboard** (left sidebar)
+   - The **Project number** is displayed near the top (e.g., `123456789012`)
+   - Copy this number — it's your Picker App ID
+
+6. **⚙️ Set Script Properties in Apps Script:**
+   - Open your Apps Script project (the one you deployed)
+   - Go to **Project Settings** (gear icon)
+   - Scroll to **Script Properties**
+   - Add two properties:
+     - **Property:** `GOOGLE_PICKER_API_KEY`  
+       **Value:** Your API key from step 3 (e.g., `AIzaSy...`)
+     - **Property:** `GOOGLE_PICKER_APP_ID`  
+       **Value:** Your project number from step 5 (e.g., `123456789012`)
+   - Click **Save script properties**
+
+7. **✅ Verify Configuration:**
+   - Open a Google Doc
+   - Run **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Files**
+   - The Picker dialog should open and show "Ready." status
+   - Click **Open Drive Picker** — the Google Picker modal should appear showing your Drive files
+   - If it fails, check the **Troubleshooting** section below
+
+### Alternative: Set via clasp
+
+If you use `clasp`, you can set script properties from the command line:
+
+```bash
+# Set Picker API key
+clasp setting scriptId YOUR_SCRIPT_ID
+clasp open
+# Then set properties via Project Settings UI, or use the Apps Script API
+```
+
+(Note: `clasp` doesn't have a direct command to set script properties; use the UI or Apps Script API)
+
+### Fallback Behavior
+
+If the Picker API is **not configured** (script properties missing or invalid):
+- The "Import Book from Drive Files" dialog shows an error: "Picker is not configured. Set script properties GOOGLE_PICKER_API_KEY and GOOGLE_PICKER_APP_ID (Cloud project number)."
+- Users can click **"Use manual links/IDs"** to paste Drive file URLs or IDs instead
+- Import still works via manual input — Picker is a UX enhancement, not required
+
+### For Developers (Local Testing)
+
+Developers working on the add-on codebase need their own Picker configuration:
+1. Create a personal GCP project (or use an existing one)
+2. Follow steps 1-5 above to get an API key and project number
+3. Set script properties in your **local test deployment**:
+   - Open your test Apps Script project
+   - **Project Settings** → **Script Properties** → add `GOOGLE_PICKER_API_KEY` and `GOOGLE_PICKER_APP_ID`
+4. `clasp push` and test in a Google Doc
+
+Each developer's keys are private to their test environment. Production keys are set once by the publisher.
+
+### Security Notes
+
+- **API Key restriction:** Always restrict the API key to **Google Picker API only** (step 4). Do not use unrestricted keys.
+- **Script Properties:** These are **shared** across all users of the add-on. Do not put sensitive per-user data here.
+- **User Properties vs Script Properties:**
+  - **User Properties** (per-user, private): API keys for Gemini, model choice, user settings
+  - **Script Properties** (shared, public to code): Picker API key, App ID (public to all users of the deployment)
+
+### References
+
+- [Google Picker API Overview](https://developers.google.com/drive/picker/guides/overview)
+- [Google Cloud Console](https://console.cloud.google.com/)
+- [SPEC-9-OAUTH-SCOPE-MIGRATION.md](../project/SPEC-9-OAUTH-SCOPE-MIGRATION.md) — Full Picker integration specification
+
 ## 🔧 Troubleshooting
 
 | Issue | What to do |
@@ -179,6 +294,8 @@ The manifest (`appsscript.json`) includes an `addOns` block with a `logoUrl` poi
 | **"Authorisation is required to perform that action"** | You may be a collaborator on the doc (not the person who added the add-on). Install the add-on for your account: **Extensions** → **Metric Book Transcriber** and complete the authorization when prompted. Or remove and re-add the add-on to re-authorize. |
 | **Quota exceeded / 429** | Free tier has limited requests per day (e.g. ~20 for Gemini Flash Latest). The add-on shows the API error in the dialog. Check [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) and your quota/billing setup; consider switching model via **Setup AI**. |
 | **Cannot access selected files** (Import from Drive) | Ensure each file is shared with you or owned by you. If using a **custom GCP project** (e.g. for Marketplace), enable the **Google Drive API** in that project: [APIs & Services → Library → Google Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com). Re-authorize the add-on if you changed permissions. |
+| **Picker not configured / "Use manual links/IDs"** | The Google Picker API is not configured (publisher/deployer setup only). Click **"Use manual links/IDs"** in the Import dialog and paste Drive file URLs or IDs instead. If you are the publisher/deployer, see the **Setting up Google Picker API for Production** section above. |
+| **Picker fails to open / API load error** | Check network connection and ensure `apis.google.com` is not blocked. If the error persists, use the **"Use manual links/IDs"** fallback. Verify Picker API key and App ID in script properties (publisher/deployer only). |
 | **API errors / 403** | Confirm the API key is valid and the Generative Language API is enabled. Check [Google AI Studio API Keys](https://aistudio.google.com/api-keys) or Cloud Console. |
 | **Timeout** | The script uses a 60-second timeout. Try a smaller image or try again. |
 

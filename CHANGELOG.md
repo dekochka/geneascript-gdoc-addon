@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0-oauth-scope-migration] — 2026-04-04
+
+### 🔐 Security & Compliance
+
+- **OAuth scope narrowed** — Migrated from `drive.readonly` to `drive.file` scope per Google Workspace Marketplace verification requirements. Add-on now only accesses files explicitly selected by users via Google Picker, following least-privilege principle.
+- **Google Picker API integration** — Replaced manual file URL/ID input with native Google Picker UI for Drive file selection, improving security and user experience.
+
+### ✨ Added
+
+- **Dual-view Google Picker** — "Import Book from Drive Files" now opens a Google Picker with two tabs:
+  - **Images tab**: Flat view of all accessible images (JPEG, PNG, WebP)
+  - **Folders tab**: Folder browser with breadcrumb navigation and image-only filtering
+- **Parent folder auto-detection** — Picker automatically starts in the document's parent folder (if the document is saved in Drive), aligning with typical workflow where users create the doc in the same folder as images.
+- **Client-side MIME validation** — Selected files are validated by MIME type before import; non-image files automatically filtered with clear user feedback.
+- **Multi-select support** — Users can select up to 30 images at once in the Picker.
+- **Brief usage instructions** — Picker shows helpful instructions for 3 seconds when opening (auto-hide).
+- **Comprehensive logging** — Added detailed server-side (`Logger.log`) and client-side (`console.log`) logging throughout Picker lifecycle for troubleshooting.
+
+### 🔧 Changed
+
+- **Import dialog size** — Increased from 400×120px to 1100×700px to properly contain Google Picker (1051×650px, Google's API maximum).
+- **Import user flow** — Simplified to Picker-only flow (removed manual file URL/ID fallback per user feedback).
+- **Status feedback** — Enhanced import status messages: "Importing X images... (skipped Y non-image files)" with pluralization.
+- **OAuth consent screen** — Users now see "View and manage Google Drive files that you have opened or created with this app" instead of broader "See, edit, create, and delete all of your Google Drive files".
+
+### 🐛 Fixed
+
+- **HTML formatting issue** — Fixed `.join('\\n')` creating literal `\n` text in Picker HTML.
+- **Comment syntax error** — Fixed `/` → `//` in `getDrivePickerConfig()` that was breaking parent folder detection.
+- **Picker size constraint** — Fixed parent dialog size constraining Picker; now properly sized for full Picker display.
+- **Non-image file selection** — Added client-side filtering to prevent non-image files from being imported even if they slip through Picker's MIME filter.
+
+### 📚 Documentation
+
+- **USER_GUIDE.md** — Complete rewrite of "Import Book from Drive Files" section describing new Picker UI, two tabs, multi-select, and folder navigation.
+- **DESIGN.md** — Section 2.3 "Drive import architecture" completely revised: removed manual fallback references, added dual Picker view architecture, documented parent folder detection.
+- **INSTALLATION.md** — Added "Setting up Google Picker API for Production" section for publishers/deployers with step-by-step GCP Console setup, mermaid diagram, and script properties configuration.
+- **SPEC-9-OAUTH-SCOPE-MIGRATION.md** — NEW: Comprehensive specification for OAuth scope migration, Picker integration, and security model.
+- **CLAUDE.md** — NEW: Project guidance document for Claude Code sessions with development commands, architecture overview, and common gotchas.
+- **Screenshots** — Added `v0.9-export-from-drive-picker.jpg` and `v0.9-export-from-drive-folder-filter.jpg` showing new Picker UI.
+
+### ⚠️ Breaking Changes
+
+- **OAuth scope change** — Users who previously authorized the add-on with `drive.readonly` will be prompted to re-authorize with the new `drive.file` scope on their next use of "Import from Drive Files".
+- **Manual file URL/ID input removed** — The manual fallback (paste file URLs/IDs) has been removed in favor of the Picker-only flow.
+
+### 🔗 References
+
+- Google OAuth verification requirements addressed
+- Picker API documentation: https://developers.google.com/picker
+- OAuth scope documentation: https://developers.google.com/drive/api/guides/api-specific-auth
+
 ## [0.8.0-cover-context-extraction] — 2026-04-03
 
 ### ✨ Added
@@ -124,6 +176,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.6.0-ai-config-params]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.0-ai-config-params
 [0.7.0-ai-config-improvements]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.7.0-ai-config-improvements
 [0.8.0-cover-context-extraction]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.8.0-cover-context-extraction
+[0.9.0-oauth-scope-migration]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.9.0-oauth-scope-migration
 
 ## [0.3.1] — 2026-03-15
 

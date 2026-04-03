@@ -362,91 +362,231 @@ function importFromDriveFileIds(fileIds) {
  * Requires script properties:
  * - GOOGLE_PICKER_API_KEY
  * - GOOGLE_PICKER_APP_ID (Cloud project number)
+ * Also includes parent folder ID of current document for initial Picker view.
  */
 function getDrivePickerConfig() {
+  Logger.log('getDrivePickerConfig: start');
   var props = PropertiesService.getScriptProperties();
   var developerKey = props.getProperty(PICKER_API_KEY_PROPERTY);
   var appId = props.getProperty(PICKER_APP_ID_PROPERTY);
+  Logger.log('getDrivePickerConfig: developerKey=' + (developerKey ? 'present' : 'missing') + ', appId=' + (appId ? appId : 'missing'));
   if (!developerKey || !appId) {
+    Logger.log('getDrivePickerConfig: configuration incomplete');
     return {
       ok: false,
       message: 'Picker is not configured. Set script properties GOOGLE_PICKER_API_KEY and GOOGLE_PICKER_APP_ID (Cloud project number).'
     };
   }
+
+  // Try to get parent folder of current document to set as default Picker location
+  var parentFolderId = null;
+  try {
+    var doc = DocumentApp.getActiveDocument();
+    if (doc && doc.getId) {
+      var docId = doc.getId();
+      var docFile = DriveApp.getFileById(docId);
+      var parents = docFile.getParents();
+      if (parents.hasNext()) {
+        var parent = parents.next();
+        parentFolderId = parent.getId();
+        Logger.log('getDrivePickerConfig: found parent folder id=' + parentFolderId);
+      }
+    }
+  } catch (e) {
+    Logger.log('getDrivePickerConfig: could not get parent folder: ' + (e.message || String(e)));
+    // Non-fatal: Picker will open at root if parent not found
+  }
+
+  var oauthToken = ScriptApp.getOAuthToken();
+  Logger.log('getDrivePickerConfig: success, parentFolderId=' + (parentFolderId || 'null'));
   return {
     ok: true,
     developerKey: developerKey,
     appId: appId,
-    oauthToken: ScriptApp.getOAuthToken()
+    oauthToken: oauthToken,
+    parentFolderId: parentFolderId
   };
 }
 
 /**
- * Opens a modal dialog with Google Picker for multi-select Drive image import.
+ * Opens Google Picker directly for multi-select Drive image import.
+ * Shows a minimal loading dialog that auto-closes when Picker opens.
  */
 function showDrivePickerDialog() {
+  Logger.log('showDrivePickerDialog: start');
   var html = HtmlService.createHtmlOutput(getDrivePickerHtml())
-    .setWidth(820)
-    .setHeight(640);
-  DocumentApp.getUi().showModalDialog(html, 'Import from Drive Files');
+    .setWidth(1100)
+    .setHeight(700);
+  Logger.log('showDrivePickerDialog: showing modal dialog');
+  DocumentApp.getUi().showModalDialog(html, 'Import Drive Images');
+  Logger.log('showDrivePickerDialog: dialog shown');
+}
+
+/**
+ * Shows an error alert after import failure.
+ * Called from Picker callback when import fails.
+ */
+function showImportError(errorMessage) {
+  var ui = DocumentApp.getUi();
+  ui.alert('Import Failed', errorMessage || 'An error occurred during import. Please try again.', ui.ButtonSet.OK);
 }
 
 function getDrivePickerHtml() {
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     '<script src="https://apis.google.com/js/api.js"></script>',
-    '<style>body{font-family:Arial,sans-serif;padding:12px}button{padding:8px 12px;border:0;border-radius:6px;cursor:pointer}#openBtn{background:#1a73e8;color:#fff}#manualBtn{background:#f1f3f4;color:#202124;margin-left:8px}#status{margin-top:10px;font-size:12px;color:#5f6368}.warn{color:#b06000}</style>',
+    '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px}.error{color:#d93025}</style>',
     '</head><body>',
-    '<h3 style="margin:0 0 8px">Select images from Google Drive</h3>',
-    '<p style="margin:0 0 10px;font-size:13px;color:#444">Use Picker to choose one or more image files (JPEG/PNG/WebP).</p>',
-    '<button id="openBtn" onclick="openPicker()">Open Drive Picker</button>',
-    '<button id="manualBtn" onclick="useManual()">Use manual links/IDs</button>',
-    '<div id="status"></div>',
+    '<div id="status">Loading Google Picker...</div>',
+    '<div id="instructions" style="font-size:12px;color:#5f6368;margin-top:10px;display:none;">',
+    '  <strong>Images tab:</strong> All accessible images<br>',
+    '  <strong>Folders tab:</strong> Browse folders (images only)<br>',
+    '  Use search to find files by name',
+    '</div>',
     '<script>',
     'var pickerConfig=null;',
-    'function setStatus(msg,isWarn){var el=document.getElementById("status");el.textContent=msg||"";el.className=isWarn?"warn":"";}',
-    'function useManual(){ google.script.host.close(); google.script.run.importFromDriveFolder(); }',
+    'function setStatus(msg,isError){',
+    '  var el=document.getElementById("status");',
+    '  el.textContent=msg||"";',
+    '  el.className=isError?"error":"";',
+    '}',
+    'function hideDialog(){',
+    '  var el=document.getElementById("status");',
+    '  if(el)el.style.display="none";',
+    '  var inst=document.getElementById("instructions");',
+    '  if(inst)inst.style.display="none";',
+    '}',
+    'function showError(msg){',
+    '  document.getElementById("status").style.display="";',
+    '  setStatus(msg,true);',
+    '  setTimeout(function(){ google.script.host.close(); },3000);',
+    '}',
+    'function showStatus(msg){',
+    '  document.getElementById("status").style.display="";',
+    '  setStatus(msg,false);',
+    '}',
     'function init(){',
-    '  setStatus("Loading picker configuration...");',
-    '  google.script.run.withSuccessHandler(function(cfg){',
-    '    pickerConfig=cfg;',
-    '    if(!cfg||!cfg.ok){setStatus((cfg&&cfg.message)||"Picker configuration is missing.",true);return;}',
-    '    setStatus("Ready.");',
-    '  }).withFailureHandler(function(e){ setStatus(e.message||String(e),true); }).getDrivePickerConfig();',
+    '  console.log("init: starting Picker configuration fetch");',
+    '  google.script.run',
+    '    .withSuccessHandler(function(cfg){',
+    '      console.log("init: got config", cfg);',
+    '      pickerConfig=cfg;',
+    '      if(!cfg||!cfg.ok){',
+    '        console.error("init: config invalid or not ok", cfg);',
+    '        showError((cfg&&cfg.message)||"Picker is not configured. Contact your administrator.");',
+    '        return;',
+    '      }',
+    '      console.log("init: config valid, calling openPicker");',
+    '      openPicker();',
+    '    })',
+    '    .withFailureHandler(function(e){',
+    '      console.error("init: failed to get config", e);',
+    '      showError("Failed to load Picker configuration: "+(e.message||String(e)));',
+    '    })',
+    '    .getDrivePickerConfig();',
     '}',
     'function openPicker(){',
-    '  if(!pickerConfig||!pickerConfig.ok){setStatus("Picker is not configured. Use manual fallback for now.",true);return;}',
-    '  setStatus("Opening Picker...");',
-    '  gapi.load("picker", function(){',
-    '    var view = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);',
-    '    view.setMode(google.picker.DocsViewMode.LIST);',
-    '    var picker = new google.picker.PickerBuilder()',
-    '      .addView(view)',
-    '      .setOAuthToken(pickerConfig.oauthToken)',
-    '      .setDeveloperKey(pickerConfig.developerKey)',
-    '      .setAppId(pickerConfig.appId)',
-    '      .setOrigin(google.script.host.origin)',
-    '      .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)',
-    '      .setCallback(onPicked)',
-    '      .build();',
-    '    picker.setVisible(true);',
+    '  console.log("openPicker: starting");',
+    '  setStatus("Opening Google Picker...");',
+    '  console.log("openPicker: loading gapi picker");',
+    '  gapi.load("picker",{',
+    '    callback:function(){',
+    '      console.log("openPicker: gapi picker loaded successfully");',
+    '      var imagesView=new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);',
+    '      imagesView.setMode(google.picker.DocsViewMode.LIST);',
+    '      if(pickerConfig.parentFolderId){',
+    '        console.log("openPicker: setting parent folder for images view", pickerConfig.parentFolderId);',
+    '        imagesView.setParent(pickerConfig.parentFolderId);',
+    '      }',
+    '      var foldersView=new google.picker.DocsView();',
+    '      foldersView.setIncludeFolders(true);',
+    '      foldersView.setMimeTypes("image/jpeg,image/png,image/webp");',
+    '      foldersView.setMode(google.picker.DocsViewMode.LIST);',
+    '      if(pickerConfig.parentFolderId){',
+    '        console.log("openPicker: setting parent folder for folders view", pickerConfig.parentFolderId);',
+    '        foldersView.setParent(pickerConfig.parentFolderId);',
+    '      }',
+    '      console.log("openPicker: building picker with size 1051x650 and two views");',
+    '      var picker=new google.picker.PickerBuilder()',
+    '        .addView(imagesView)',
+    '        .addView(foldersView)',
+    '        .setOAuthToken(pickerConfig.oauthToken)',
+    '        .setDeveloperKey(pickerConfig.developerKey)',
+    '        .setAppId(pickerConfig.appId)',
+    '        .setOrigin(google.script.host.origin)',
+    '        .setSize(1051, 650)',
+    '        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)',
+    '        .setCallback(onPicked)',
+    '        .build();',
+    '      console.log("openPicker: picker built, making visible");',
+    '      picker.setVisible(true);',
+    '      console.log("openPicker: picker shown, showing instructions briefly");',
+    '      document.getElementById("instructions").style.display="";',
+    '      setTimeout(function(){',
+    '        console.log("openPicker: hiding instructions");',
+    '        hideDialog();',
+    '      }, 3000);',
+    '    },',
+    '    onerror:function(e){',
+    '      console.error("openPicker: gapi load error", e);',
+    '      showError("Failed to load Google Picker API. Check your network connection.");',
+    '    }',
     '  });',
     '}',
     'function onPicked(data){',
-    '  if(data.action===google.picker.Action.CANCEL){setStatus("Selection cancelled.");return;}',
-    '  if(data.action!==google.picker.Action.PICKED){return;}',
+    '  console.log("onPicked: callback triggered", data);',
+    '  if(data.action===google.picker.Action.CANCEL){',
+    '    console.log("onPicked: user cancelled, closing dialog");',
+    '    google.script.host.close();',
+    '    return;',
+    '  }',
+    '  if(data.action!==google.picker.Action.PICKED){',
+    '    console.log("onPicked: action not PICKED, ignoring", data.action);',
+    '    return;',
+    '  }',
     '  var docs=data.docs||[];',
+    '  console.log("onPicked: user selected", docs.length, "files");',
+    '  var validImageMimes=["image/jpeg","image/png","image/webp"];',
     '  var ids=[];',
-    '  for(var i=0;i<docs.length;i++){if(docs[i]&&docs[i].id)ids.push(docs[i].id);}',
-    '  if(!ids.length){setStatus("No files selected.",true);return;}',
-    '  setStatus("Importing "+ids.length+" file(s)...");',
-    '  google.script.run.withSuccessHandler(function(){ google.script.host.close(); })',
-    '    .withFailureHandler(function(e){ setStatus(e.message||String(e),true); })',
+    '  var skipped=0;',
+    '  for(var i=0;i<docs.length;i++){',
+    '    var doc=docs[i];',
+    '    if(!doc||!doc.id)continue;',
+    '    if(doc.mimeType&&validImageMimes.indexOf(doc.mimeType)>=0){',
+    '      ids.push(doc.id);',
+    '    }else{',
+    '      console.warn("onPicked: skipping non-image file", doc.name, doc.mimeType);',
+    '      skipped++;',
+    '    }',
+    '  }',
+    '  if(!ids.length){',
+    '    var msg=skipped>0?"Only image files (JPEG, PNG, WebP) can be imported.":"No files selected.";',
+    '    console.warn("onPicked: no valid images, skipped="+skipped);',
+    '    showError(msg);',
+    '    return;',
+    '  }',
+    '  if(skipped>0){',
+    '    console.log("onPicked: skipped "+skipped+" non-image files");',
+    '  }',
+    '  console.log("onPicked: starting import for", ids.length, "files");',
+    '  var statusMsg="Importing " + ids.length + " image"+(ids.length>1?"s":"")+"...";',
+    '  if(skipped>0)statusMsg+=" (skipped "+skipped+" non-image file"+(skipped>1?"s":"")+")";',
+    '  showStatus(statusMsg);',
+    '  google.script.run',
+    '    .withSuccessHandler(function(){',
+    '      console.log("onPicked: import completed successfully, closing dialog");',
+    '      showStatus("Import complete!");',
+    '      setTimeout(function(){ google.script.host.close(); }, 1000);',
+    '    })',
+    '    .withFailureHandler(function(e){',
+    '      console.error("onPicked: import failed", e);',
+    '      showError("Import failed: " + (e.message||String(e)));',
+    '    })',
     '    .importFromDriveFileIds(ids);',
     '}',
     'init();',
     '</script></body></html>'
-  ].join('\\n');
+  ].join('');
 }
 
 /**

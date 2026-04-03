@@ -52,26 +52,35 @@ The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar
 
 ## 📁 Import Book from Drive Files (recommended)
 
-Use this to create a document with a Context section and scan images from specific Drive files in one go.
+Use this to create a document with a Context section and scan images from your Google Drive in one go.
 
 1. Open a **new or existing** Google Docs™ document.
 2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Files**.
-3. When prompted, paste one or more **Google Drive file URLs or file IDs** (JPEG/PNG/WebP), separated by commas or new lines.
+3. A **Google Picker** dialog opens, automatically starting in **your document's parent folder** (if the document is saved in a Drive folder).
 
-   ![Enter Drive folder URL in the Import dialog](Step1_GDriveImport_SetFolderURL.png)
+   ![Google Picker showing Images tab with file selection](app-screenshots/v0.9-export-from-drive-picker.jpg)
 
-4. Click **OK**. The add-on will:
-   - Add a **Context** section at the top (full sample template with bold labels: archive name, reference, villages, common surnames, etc. — you can edit it).
-   - Import **up to 30 selected images** (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
+4. **Browse and select images:**
+   - **Images tab**: Flat view of all accessible images (JPEG, PNG, WebP only)
+   - **Folders tab**: Browse folder structure with breadcrumb navigation
+   - Use the **search bar** to find files by name
+   - **Multi-select** supported: select up to 30 images at once
+   - Click **Select** when ready (or **Cancel** to abort)
+
+   ![Google Picker showing Folders tab with folder navigation](app-screenshots/v0.9-export-from-drive-folder-filter.jpg)
+
+5. The add-on imports selected files and:
+   - Adds a **Context** section at the top (full sample template with bold labels: archive name, reference, villages, common surnames, etc. — you can edit it).
+   - Imports **up to 30 selected images** (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
    - For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (clickable link to the file in Drive), then the image (scaled to content width), then a page break.
 
-   ![Import in progress — images being added to the document](Step1_GDriveImport_Importing_Images.png)
+6. When the import finishes, a status message shows how many images were added (and how many skipped, if any). You can now run **Transcribe Image** on any of them (see below).
 
-5. When the import finishes, you'll see how many images were added (and how many skipped, if any). You can now run **Transcribe Image** on any of them (see below).
-
-   ![Import complete — Context and imported images in the document](Step1_GDriveImport_Import_Result.png)
-
-**📌 Notes:** Each file must be accessible to your account. Very large, invalid, inaccessible, or unsupported files may be skipped; the add-on reports how many were skipped. Edit the Context block with your actual archive and locality details before transcribing for best results.
+**📌 Notes:** 
+- Only files you select via Picker are accessible to the add-on (narrower OAuth scope for better security).
+- Non-image files are automatically filtered out and skipped with a message.
+- Very large images or inaccessible files may be skipped; the add-on reports counts.
+- Edit the Context block with your actual archive and locality details before transcribing for best results.
 
 ---
 

@@ -1,5 +1,7 @@
 # Project: Drive Folder Importer (Doc Builder)
 
+**⚠️ Note:** As of v0.9.0, this feature has been migrated to use the narrower `drive.file` OAuth scope with Google Picker API integration. See [SPEC-9-OAUTH-SCOPE-MIGRATION.md](SPEC-9-OAUTH-SCOPE-MIGRATION.md) for the current implementation details. This spec documents the original folder-based approach; the new implementation uses file selection (Picker or manual URL/ID paste) instead of folder enumeration.
+
 ## 1. Overview
 
 **Feature:** Drive Folder Importer ("Doc Builder")
