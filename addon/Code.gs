@@ -42,6 +42,7 @@ function onOpen(e) {
       .addItem('Open Sidebar', 'showTranscribeSidebar')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
+      .addItem('Extract Context from Cover Image', 'openExtractContextDialog')
       .addSeparator()
       .addItem('Setup AI', 'showSetupApiKeyAndModelDialog')
       .addItem('Help / User Guide', 'showHelp')
@@ -1087,6 +1088,404 @@ function buildPrompt(context) {
   return prompt;
 }
 
+function buildContextExtractionPrompt() {
+  return getContextExtractionPromptTemplate();
+}
+
+function parseContextExtractionResponse(responseText) {
+  var raw = String(responseText || '').trim();
+  if (!raw) throw new Error('Empty model response.');
+  try {
+    return JSON.parse(raw);
+  } catch (_e1) {}
+
+  var fence = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fence && fence[1]) {
+    try {
+      return JSON.parse(fence[1].trim());
+    } catch (_e2) {}
+  }
+
+  var first = raw.indexOf('{');
+  var last = raw.lastIndexOf('}');
+  if (first >= 0 && last > first) {
+    var candidate = raw.substring(first, last + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch (_e3) {}
+  }
+  throw new Error('Could not parse JSON from model response.');
+}
+
+function normalizeStringList(value) {
+  if (!value) return [];
+  var list = [];
+  if (Array.isArray(value)) {
+    list = value;
+  } else if (typeof value === 'string') {
+    list = value.split(/\r?\n|,/);
+  } else {
+    list = [String(value)];
+  }
+  var seen = {};
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var v = String(list[i] || '').trim();
+    if (!v) continue;
+    var key = v.toLowerCase();
+    if (seen[key]) continue;
+    seen[key] = true;
+    out.push(v);
+  }
+  return out;
+}
+
+function normalizeExtractedContext(raw) {
+  raw = raw || {};
+  var archiveName = String(raw.archiveName || raw.archive_name || '').trim();
+  var archiveReference = String(raw.archiveReference || raw.archive_reference || '').trim();
+  var documentDescription = String(raw.documentDescription || raw.document_description || raw.documentType || '').trim();
+  var dateRange = String(raw.dateRange || raw.date_range || '').trim();
+  var villages = normalizeStringList(raw.villages || raw.main_villages || raw.additional_villages);
+  var commonSurnames = normalizeStringList(raw.commonSurnames || raw.common_surnames);
+  var notes = String(raw.notes || '').trim();
+
+  return {
+    archiveName: archiveName,
+    archiveReference: archiveReference,
+    documentDescription: documentDescription,
+    dateRange: dateRange,
+    villages: villages,
+    commonSurnames: commonSurnames,
+    notes: notes
+  };
+}
+
+function getContextRange(body) {
+  var numChildren = body.getNumChildren();
+  var start = -1;
+  for (var i = 0; i < numChildren; i++) {
+    var child = body.getChild(i);
+    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    if (child.asParagraph().getText().trim() === CONTEXT_HEADING) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  var end = numChildren - 1;
+  for (var j = start + 1; j < numChildren; j++) {
+    var el = body.getChild(j);
+    if (el.getType() === DocumentApp.ElementType.PAGE_BREAK) {
+      end = j - 1;
+      break;
+    }
+    if (el.getType() === DocumentApp.ElementType.PARAGRAPH) {
+      var p = el.asParagraph();
+      var heading = p.getHeading();
+      // End Context before any new section heading.
+      if (heading !== DocumentApp.ParagraphHeading.NORMAL &&
+          heading !== DocumentApp.ParagraphHeading.HEADING1) {
+        end = j - 1;
+        break;
+      }
+      if (heading === DocumentApp.ParagraphHeading.HEADING1 &&
+          p.getText().trim() !== CONTEXT_HEADING) {
+        end = j - 1;
+        break;
+      }
+      // Page break/inline image may be inside a paragraph child, not body-level.
+      for (var k = 0; k < p.getNumChildren(); k++) {
+        var childType = p.getChild(k).getType();
+        if (childType === DocumentApp.ElementType.PAGE_BREAK ||
+            childType === DocumentApp.ElementType.INLINE_IMAGE) {
+          end = j - 1;
+          j = numChildren; // break outer loop
+          break;
+        }
+      }
+    }
+  }
+  return { start: start, end: end };
+}
+
+function setBoldLabelParagraphText(paragraph, label, value) {
+  var textValue = label + ': ' + (value || '');
+  paragraph.setText(textValue);
+  var txt = paragraph.editAsText();
+  txt.setBold(0, label.length - 1, true);
+}
+
+function normalizeContextLabelPrefix(text) {
+  var t = String(text || '').trim();
+  t = t.replace(/^\*+/, '').replace(/\*+:/, ':').replace(/\*+$/, '');
+  var colon = t.indexOf(':');
+  if (colon < 0) return t.toUpperCase();
+  return t.substring(0, colon).trim().toUpperCase();
+}
+
+function upsertLabeledField(body, range, label, value) {
+  if (!value) return false;
+  var normalizedTarget = String(label || '').toUpperCase();
+  for (var i = range.start + 1; i <= range.end; i++) {
+    var el = body.getChild(i);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var p = el.asParagraph();
+    var text = p.getText().trim();
+    if (normalizeContextLabelPrefix(text) === normalizedTarget) {
+      setBoldLabelParagraphText(p, label, value);
+      return true;
+    }
+  }
+  var insertAt = range.end + 1;
+  var para = body.insertParagraph(insertAt, label + ': ' + value);
+  setBoldLabelParagraphText(para, label, value);
+  range.end++;
+  return true;
+}
+
+function locateSectionLabel(body, range, label) {
+  var normalizedTarget = String(label || '').toUpperCase();
+  for (var i = range.start + 1; i <= range.end; i++) {
+    var el = body.getChild(i);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var text = el.asParagraph().getText().trim();
+    if (normalizeContextLabelPrefix(text) === normalizedTarget) return i;
+  }
+  return -1;
+}
+
+function isKnownContextLabel(text) {
+  var key = normalizeContextLabelPrefix(text);
+  return key === 'ARCHIVE_NAME' ||
+    key === 'ARCHIVE_REFERENCE' ||
+    key === 'DOCUMENT_DESCRIPTION' ||
+    key === 'DATE_RANGE' ||
+    key === 'VILLAGES' ||
+    key === 'COMMON_SURNAMES';
+}
+
+function normalizeLeadingContextBlankLines(body, range) {
+  var firstContentIndex = -1;
+  var blankIndexes = [];
+  for (var i = range.start + 1; i <= range.end; i++) {
+    var el = body.getChild(i);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) {
+      firstContentIndex = i;
+      break;
+    }
+    var txt = el.asParagraph().getText();
+    if (String(txt || '').trim() === '') {
+      blankIndexes.push(i);
+      continue;
+    }
+    firstContentIndex = i;
+    break;
+  }
+
+  if (firstContentIndex < 0) return;
+
+  if (blankIndexes.length === 0) {
+    body.insertParagraph(range.start + 1, ' ');
+    return;
+  }
+
+  // Keep exactly one leading blank paragraph.
+  for (var j = blankIndexes.length - 1; j >= 1; j--) {
+    body.removeChild(body.getChild(blankIndexes[j]));
+  }
+  body.getChild(blankIndexes[0]).asParagraph().setText(' ');
+}
+
+function mergeSectionListItems(body, range, sectionLabel, values) {
+  if (!values || values.length === 0) return 0;
+  var labelIndex = locateSectionLabel(body, range, sectionLabel);
+  if (labelIndex < 0) {
+    labelIndex = range.end + 1;
+    var labelPara = body.insertParagraph(labelIndex, sectionLabel + ':');
+    var labelText = labelPara.editAsText();
+    labelText.setBold(0, sectionLabel.length - 1, true);
+    range.end++;
+  }
+
+  var nextSectionStart = range.end + 1;
+  for (var i = labelIndex + 1; i <= range.end; i++) {
+    var el = body.getChild(i);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var t = el.asParagraph().getText();
+    if (isKnownContextLabel(t)) {
+      nextSectionStart = i;
+      break;
+    }
+  }
+
+  var itemIndexes = [];
+  for (var j = labelIndex + 1; j < nextSectionStart; j++) {
+    var itemEl = body.getChild(j);
+    if (itemEl.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    itemIndexes.push(j);
+  }
+
+  var inserted = 0;
+  var updateCount = Math.min(itemIndexes.length, values.length);
+  for (var k = 0; k < updateCount; k++) {
+    var existingIdx = itemIndexes[k];
+    var value = String(values[k] || '').trim();
+    if (!value) continue;
+    body.getChild(existingIdx).asParagraph().setText(value);
+  }
+
+  var insertAt = labelIndex + 1 + itemIndexes.length;
+  for (var m = itemIndexes.length; m < values.length; m++) {
+    var extra = String(values[m] || '').trim();
+    if (!extra) continue;
+    body.insertParagraph(insertAt, extra);
+    insertAt++;
+    inserted++;
+    range.end++;
+  }
+
+  // Clear any extra old rows if there were more existing items than new values.
+  for (var n = values.length; n < itemIndexes.length; n++) {
+    var staleIdx = itemIndexes[n];
+    // Apps Script may throw on empty text writes in some document states.
+    body.getChild(staleIdx).asParagraph().setText(' ');
+  }
+
+  return inserted;
+}
+
+function upsertContextFields(doc, extracted) {
+  ensureContextBlock(doc);
+  var body = doc.getBody();
+  var range = getContextRange(body);
+  if (!range) throw new Error('Context section is missing.');
+
+  var updated = [];
+  if (upsertLabeledField(body, range, 'ARCHIVE_NAME', extracted.archiveName)) updated.push('ARCHIVE_NAME');
+  if (upsertLabeledField(body, range, 'ARCHIVE_REFERENCE', extracted.archiveReference)) updated.push('ARCHIVE_REFERENCE');
+  if (upsertLabeledField(body, range, 'DOCUMENT_DESCRIPTION', extracted.documentDescription)) updated.push('DOCUMENT_DESCRIPTION');
+  if (upsertLabeledField(body, range, 'DATE_RANGE', extracted.dateRange)) updated.push('DATE_RANGE');
+  if (mergeSectionListItems(body, range, 'VILLAGES', extracted.villages) > 0) updated.push('VILLAGES');
+  if (mergeSectionListItems(body, range, 'COMMON_SURNAMES', extracted.commonSurnames) > 0) updated.push('COMMON_SURNAMES');
+  if (extracted.notes) {
+    body.insertParagraph(range.end + 1, 'Notes: ' + extracted.notes);
+    updated.push('NOTES');
+  }
+  normalizeLeadingContextBlankLines(body, range);
+  return updated;
+}
+
+function resolveImageBodyIndexByLabel(label) {
+  var target = String(label || '').trim();
+  if (!target) return null;
+  var response = getImageList();
+  if (!response || !response.ok || !response.images) return null;
+  for (var i = 0; i < response.images.length; i++) {
+    var img = response.images[i];
+    if (String(img.label || '').trim() === target) {
+      return img.index;
+    }
+  }
+  return null;
+}
+
+function extractContextFromImage(bodyIndex, expectedLabel) {
+  var runId = createRunId('ctx');
+  var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
+  if (!apiKey || apiKey.trim() === '') return { ok: false, message: 'API key not set. Use Setup AI first.' };
+
+  logObsEvent('context_extract_start', {
+    operation: 'context_extract',
+    status: 'start',
+    runId: runId,
+    docIdHash: docIdHash,
+    bodyIndex: bodyIndex
+  });
+
+  var effectiveBodyIndex = bodyIndex;
+  var hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+  if (!hit && expectedLabel) {
+    var resolved = resolveImageBodyIndexByLabel(expectedLabel);
+    if (typeof resolved === 'number' && !isNaN(resolved)) {
+      effectiveBodyIndex = resolved;
+      hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+    }
+  }
+  if (!hit) return { ok: false, message: 'No image found at body index ' + bodyIndex + '.' };
+  var blob = hit.inlineImage.getBlob();
+  var mimeType = blob.getContentType() || 'image/png';
+  if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+
+  try {
+    var geminiResult = callGemini(apiKey, buildContextExtractionPrompt(), blob, mimeType, {
+      runId: runId,
+      operation: 'context_extract',
+      entrypoint: 'context_dialog',
+      docIdHash: docIdHash
+    });
+    var parsed = parseContextExtractionResponse(geminiResult.text);
+    var extracted = normalizeExtractedContext(parsed);
+    logObsEvent('context_extract_done', {
+      operation: 'context_extract',
+      status: 'success',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: effectiveBodyIndex,
+      finishReason: geminiResult.finishReason
+    });
+    return {
+      ok: true,
+      extracted: extracted,
+      rawModelText: geminiResult.text,
+      finishReason: geminiResult.finishReason
+    };
+  } catch (e) {
+    var message = e.message || String(e);
+    logObsEvent('context_extract_error', {
+      operation: 'context_extract',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: bodyIndex,
+      errorCode: classifyErrorCode(message),
+      errorMessage: sanitizeErrorMessage(message)
+    });
+    return { ok: false, message: message };
+  }
+}
+
+function applyExtractedContext(extracted) {
+  var runId = createRunId('ctx_apply');
+  var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  try {
+    var normalized = normalizeExtractedContext(extracted || {});
+    var updatedFields = upsertContextFields(doc, normalized);
+    logObsEvent('context_apply_done', {
+      operation: 'context_apply',
+      status: 'success',
+      runId: runId,
+      docIdHash: docIdHash,
+      updatedFields: updatedFields
+    });
+    return { ok: true, updatedFields: updatedFields };
+  } catch (e) {
+    var message = e.message || String(e);
+    logObsEvent('context_apply_error', {
+      operation: 'context_apply',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      errorCode: classifyErrorCode(message),
+      errorMessage: sanitizeErrorMessage(message)
+    });
+    return { ok: false, message: message };
+  }
+}
+
 /**
  * Calls the Gemini API with the given prompt and image.
  * Returns { text: string, finishReason: string }.
@@ -1579,6 +1978,59 @@ function transcribeImageByIndex(bodyIndex) {
   return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0 };
 }
 
+function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
+  var imagesResponse = getImageList();
+  var images = (imagesResponse && imagesResponse.ok && imagesResponse.images) ? imagesResponse.images : [];
+  var selected = (typeof preselectedBodyIndex === 'number') ? preselectedBodyIndex : '';
+  var selectedLabel = String(preselectedLabel || '');
+  var lockedSelection = (typeof preselectedBodyIndex === 'number' && !isNaN(preselectedBodyIndex));
+  var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family:Arial,sans-serif;padding:16px;">' +
+    '<p style="margin:0 0 10px;font-size:12px;color:#444;">Extract metadata with AI, review fields, then apply updates to the Context section.</p>' +
+    '<div id="imgWrap" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label style="font-weight:bold;white-space:nowrap;">Cover Image</label><select id="imgSel" style="flex:1;padding:6px;"></select><div id="imgLabel" style="display:none;flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fafafa;font-size:12px;"></div></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-start;align-items:center;margin-bottom:6px;">' +
+      '<button id="extractBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;">Extract</button>' +
+      '<button onclick="google.script.host.close()" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">Cancel</button>' +
+      '<button id="applyBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;" disabled>Apply Context</button>' +
+    '</div>' +
+    '<div id="status" style="font-size:14px;font-weight:600;color:#1a73e8;margin-bottom:10px;min-height:20px;"></div>' +
+    '<div id="form" style="display:none;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Archive name</label><input id="archiveName" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Archive reference</label><input id="archiveReference" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Document description</label><textarea id="documentDescription" style="width:100%;min-height:54px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Date range</label><input id="dateRange" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Villages (one per line)</label><textarea id="villages" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Common surnames (one per line)</label><textarea id="commonSurnames" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">Notes</label><textarea id="notes" style="width:100%;min-height:52px;padding:6px;"></textarea>' +
+    '</div>' +
+    '<script>' +
+      'var images=' + JSON.stringify(images) + ';' +
+      'var preselected=' + JSON.stringify(selected) + ';' +
+      'var preselectedLabel=' + JSON.stringify(selectedLabel) + ';' +
+      'var locked=' + JSON.stringify(lockedSelection) + ';' +
+      'function el(id){return document.getElementById(id);}' +
+      'function setStatus(kind,msg){ var s=el("status"); if(kind==="error"){s.style.color="#c62828"; s.textContent="❌ "+msg;} else if(kind==="success"){s.style.color="#2e7d32"; s.textContent="✅ "+msg;} else if(kind==="progress"){s.style.color="#1a73e8"; s.textContent="🔄 "+msg;} else {s.style.color="#666"; s.textContent=msg||"";} }' +
+      'function currentImageLabel(idx){if(preselectedLabel)return preselectedLabel;for(var i=0;i<images.length;i++){if(Number(images[i].index)===Number(idx))return images[i].label||("Image "+(i+1));}return "Selected image";}' +
+      'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">No images found</option>"; el("extractBtn").disabled=true; setStatus("error","Import images first."); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; h+="<option value=\\""+m.index+"\\""+sel+">"+(m.label||("Image "+(i+1)))+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
+      'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
+      'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
+      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error","Select a cover image."); return;} setStatus("progress","Extracting context..."); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success","Extraction complete. Review and apply."); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||"Extraction failed."); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
+      'el("extractBtn").onclick=runExtract;' +
+      'el("applyBtn").onclick=function(){ var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress","Applying context updates..."); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success","Context updated."); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; setStatus("error",(r&&r.message)||"Apply failed."); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload); };' +
+      'fillSelect(); if(locked){runExtract();}' +
+    '</script>' +
+    '</body></html>';
+  DocumentApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(680), 'Extract Context from Cover Image');
+}
+
+function openExtractContextDialogFromSidebar(bodyIndex) {
+  if (typeof bodyIndex !== 'number' || isNaN(bodyIndex)) {
+    return { ok: false, message: 'Select exactly one image first.' };
+  }
+  var label = arguments.length > 1 ? arguments[1] : '';
+  openExtractContextDialog(bodyIndex, label);
+  return { ok: true };
+}
+
 /** Opens the sidebar panel. */
 function showTranscribeSidebar() {
   var html = HtmlService.createHtmlOutput(getSidebarHtml())
@@ -1663,6 +2115,9 @@ function getSidebarHtml() {
 
     '<div class="section">',
     '  <button id="goBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; Transcribe Selected</button>',
+    '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
+    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Folder</button>',
+    '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
     '  <button id="stopBtn" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; Stop</button>',
     '</div>',
 
@@ -1671,11 +2126,6 @@ function getSidebarHtml() {
     '  <div class="bar"><div class="bar-fill" id="progBar" style="width:0%"></div></div>',
     '  <div id="progDetail"></div>',
     '  <div id="progTime" style="font-size:11px;color:#666;margin-top:2px"></div>',
-    '</div>',
-
-    '<div class="actions section">',
-    '  <a class="action-link" href="#" onclick="doImport();return false">Import from Drive Folder</a>',
-    '  <a class="action-link" href="#" onclick="setupKey();return false">Setup AI</a>',
     '</div>',
 
     '<div class="section" style="font-size:12px">',
@@ -1695,7 +2145,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v0.4.0</div>',
+    '<div class="footer">v0.8.0</div>',
 
     '<script>',
     'var imgs=[],stopReq=false,running=false;',
@@ -1757,6 +2207,8 @@ function getSidebarHtml() {
     '  var b=el("goBtn");',
     '  b.disabled=n===0||!hasKey||running;',
     '  b.textContent=n>1?"\\u25B6 Transcribe Selected ("+n+")":"\\u25B6 Transcribe Selected";',
+    '  var e=el("extractBtnSidebar");',
+    '  e.disabled=n!==1||!hasKey||running;',
     '}',
 
     'function toggleAll(v){',
@@ -1875,6 +2327,7 @@ function getSidebarHtml() {
 
     'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
     'function doImport(){google.script.run.importFromDriveFolder();}',
+    'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent="Select exactly one image to extract context."; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||"Unable to open extract dialog."; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
 

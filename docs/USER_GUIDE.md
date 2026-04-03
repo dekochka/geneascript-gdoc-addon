@@ -39,10 +39,11 @@ flowchart LR
 1. **Build the document** — Use **Import Book from Drive Folder** (recommended) or add Context and images manually.
 2. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
 3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup AI**, or click **Setup AI** in the sidebar.
+4. **Extract Context from cover image (recommended after import)** — Use **Extract Context from Cover Image** (menu) or **Extract Context from Selected Image** (sidebar) to auto-fill Context fields from a title page, then review and edit before applying.
 
 **Menu overview**
 
-The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
+The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Extract Context from Cover Image**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
 ![Extensions menu with Open Sidebar highlighted](GeneaScriptAddOn-Extensions-Menu-OpenPanel.jpg)
 
@@ -118,6 +119,22 @@ The sidebar is the easiest way to transcribe one or many images at once.
 
 ---
 
+## 🧾 Extract Context from cover/title page
+
+This feature helps you populate the `Context` section automatically from a cover/title image after Drive import.
+
+1. Import images with **Import Book from Drive Folder**.
+2. Start extraction using either:
+   - **Extensions** → **Metric Book Transcriber** → **Extract Context from Cover Image**, or
+   - Sidebar action **Extract Context from Selected Image** (select exactly one image first).
+3. Select the cover/title image and click **Extract**.
+4. Review AI-extracted fields (archive name/reference, document description, date range, villages, surnames, notes).
+5. Edit any field as needed and click **Apply Context Updates**.
+
+The add-on updates known Context fields and merges list items where possible. You can continue manual edits afterward.
+
+---
+
 ## ✍️ How to transcribe a single image (menu)
 
 You can also transcribe one image at a time using the classic menu flow:
@@ -188,6 +205,8 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Sidebar shows "No images found"** | The document has no inline images. Import scans via **Import Book from Drive Folder** or paste images directly into the document, then click **Refresh**. |
 | **Sidebar image failed (red X)** | Hover over the red X to see the error. Common causes: API rate limit (429), image too large, network timeout. The batch continues with the remaining images. You can retry the failed image afterward. |
 | **Orange warning on sidebar image** | The model's output was truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete. Try a smaller or clearer image, or switch to a model with higher output limits. |
+| **Extract Context action says select one image** | In the sidebar, check exactly one image before running **Extract Context from Selected Image**. |
+| **Context extraction returns unusable text** | Try a clearer cover image, rerun extraction, then edit fields manually before apply. |
 | **"No homepage card" on right panel icon** | Ensure the latest code is deployed. The right-side icon shows a Card with an "Open Transcriber Sidebar" button. If you see this error, redeploy via `clasp push --force` or update the test deployment. |
 
 For installation and API key setup, see [INSTALLATION.md](INSTALLATION.md).

@@ -6,7 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-(Nothing yet.)
+## [0.8.0-cover-context-extraction] — 2026-04-03
+
+### ✨ Added
+
+- **Cover context extraction flow** — Added a new AI-assisted flow to extract Context metadata from a selected cover/title image after Drive import, with entry points in both the sidebar and extension menu.
+- **Review before apply** — Added an editable extraction dialog so users can review and adjust extracted fields before writing updates to the document `Context` section.
+- **Dedicated extraction prompt file** — Added `addon/ContextExtractionPrompt.gs` to keep context-extraction prompting separate from transcription prompting.
+- **Feature spec** — Added `project/SPEC-8-COVER-CONTEXT-EXTRACTION.md` documenting UX design, technical design, contracts, and acceptance criteria for v0.8.0.
+
+### 🔧 Changed
+
+- **Sidebar actions** — Added **Extract Context from Selected Image** action and bumped sidebar footer version to `v0.8.0`.
+- **Menu actions** — Added **Extract Context from Cover Image** item under **Extensions → Metric Book Transcriber**.
+- **Context writeback behavior** — Added targeted context upsert/merge logic for known labels and list sections while preserving unrelated user-authored lines.
+
+### 📚 Documentation
+
+- Updated `docs/USER_GUIDE.md` with the new cover-context extraction workflow and troubleshooting notes.
 
 ## [0.7.0-ai-config-improvements] — 2026-04-03
 
@@ -97,6 +114,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.5.0-observability]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.5.0-observability
 [0.6.0-ai-config-params]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.0-ai-config-params
 [0.7.0-ai-config-improvements]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.7.0-ai-config-improvements
+[0.8.0-cover-context-extraction]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.8.0-cover-context-extraction
 
 ## [0.3.1] — 2026-03-15
 
