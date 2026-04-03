@@ -31,6 +31,75 @@ All logic runs in the user’s Apps Script project; there is no separate backend
 - Script is **bound to the document** (container-bound). The add-on runs in the context of the open Doc; `DocumentApp.getActiveDocument()` is used to access the document and selection.
 - Menu runs in **authorization mode**: the first time the user runs “Transcribe Image,” they must authorize the script (Document access, Script Properties, external HTTP to `generativelanguage.googleapis.com`).
 
+### 2.3 Drive import architecture
+
+The add-on uses the **Google Picker API** for importing metric book scan images from Google Drive into a document:
+
+**Google Picker flow**
+- User selects **Extensions → Metric Book Transcriber → Import Book from Drive Files** (or sidebar button)
+- Loading dialog opens (1100×700px) with “Loading Google Picker...” message and brief instructions
+- Picker configuration retrieved from script properties (`GOOGLE_PICKER_API_KEY`, `GOOGLE_PICKER_APP_ID`)
+- OAuth token generated via `ScriptApp.getOAuthToken()`
+- **Document's parent folder detected** via `DriveApp.getFileById(docId).getParents()`
+- Google Picker API loads, Picker opens automatically in same dialog
+- **Picker starts in document's parent folder** (if available) - aligns with workflow where doc is created in same folder as images
+- **Two Picker tabs available:**
+  - **Images tab**: Flat view using `google.picker.ViewId.DOCS_IMAGES` (images only), mode `LIST`
+  - **Folders tab**: Folder browser with `setIncludeFolders(true)` and MIME type filter for images
+- Both views: `MULTISELECT_ENABLED`, size 1051×650px (Google Picker API maximum)
+- Brief instructions shown for 3 seconds, then hidden
+- User navigates folders (in Folders tab), selects 1-30 image files (JPEG/PNG/WebP)
+- **Client-side validation**: `onPicked()` callback filters non-image files by MIME type before import
+- Selected file IDs passed to `importFromDriveFileIds(ids)`
+- For each ID: `DriveApp.getFileById(id)` retrieves file (requires `drive.file` scope + user selection)
+- Images inserted with Context block, H2 headings, source links, scaling, page breaks
+- Status shown in dialog: “Importing X images... (skipped Y non-image files)” if applicable
+- On completion: “Import complete!” shown briefly, dialog closes
+
+**OAuth scope model (v0.9.0+):**
+- **`drive.file` scope** (non-sensitive): “View and manage Google Drive files that you have opened or created with this app”
+- **Access granted to:**
+  - Files explicitly selected via Picker
+  - Files created by app (not applicable to this add-on)
+- **Access NOT granted to:**
+  - All user files (no blanket access)
+  - Files not selected via Picker
+- **Previous scope** (`drive.readonly`): Removed in v0.9.0 per Google OAuth verification requirements (too broad, violates minimum scope requirement)
+
+**Configuration (script properties, set by publisher/deployer):**
+- `GOOGLE_PICKER_API_KEY`: API key from GCP Console with Picker API enabled
+- `GOOGLE_PICKER_APP_ID`: GCP project number
+- If not set: Picker shows error message, import fails
+
+**Import flow:**
+1. Collect file IDs from Picker selection
+2. Loop through IDs, call `DriveApp.getFileById(id)` for each
+3. Validate MIME type (`image/jpeg`, `image/png`, `image/webp`)
+4. Natural sort by filename (digit segments compared numerically)
+5. Truncate to `MAX_IMPORT_IMAGES` (30)
+6. Ensure Context block exists (`ensureContextBlock()` checks for “Context” heading)
+7. For each image:
+   - Insert H2 heading (filename without extension)
+   - Insert “Source Image Link: [filename]” as hyperlink to Drive URL
+   - Insert image blob via `body.appendImage(blob)`
+   - Scale to content width minus margins if larger
+   - Insert page break
+8. Log observability events (per-file status, summary counts)
+9. Alert user with success/skip counts
+
+**Error handling:**
+- Picker not configured → Error message in dialog: “Picker is not configured. Contact your administrator.”
+- Picker API load failure → Error message in dialog: “Failed to load Google Picker API. Check your network connection.”
+- User selects only non-image files → Error message in dialog: “Only image files (JPEG, PNG, WebP) can be imported.”
+- File access denied → Skipped by server-side import, counted in status
+- File deleted/moved → Skipped by server-side import, counted in status
+- Non-image file selected → Filtered by client-side validation, counted in status: “Importing X images... (skipped Y non-image files)”
+- Import exceeds 30 limit → Server-side truncation, alert shows “Added 30, skipped X (limit reached)”
+
+**References:**
+- Full specification: [SPEC-9-OAUTH-SCOPE-MIGRATION.md](../project/SPEC-9-OAUTH-SCOPE-MIGRATION.md)
+- Original Drive import spec: [SPEC-2-GDRIVE-to-GDOC.md](../project/SPEC-2-GDRIVE-to-GDOC.md)
+
 ---
 
 ## 3. Context extraction

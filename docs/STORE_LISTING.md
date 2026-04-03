@@ -30,7 +30,7 @@ Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealo
 ✨ FEATURES
 
 📁 Import from Google Drive™
-Open a Google Docs™ document, run "Import Book from Drive Folder," and paste a Drive folder URL. The add-on inserts a Context template and up to 30 images (JPEG, PNG, WebP), natural-sorted by filename, each with a heading and source link.
+Open a Google Docs™ document, run "Import Book from Drive Files," and paste one or more Drive file links/IDs. The add-on inserts a Context template and up to 30 images (JPEG, PNG, WebP), natural-sorted by filename, each with a heading and source link.
 
 🤖 AI-Powered Transcription
 Open the Sidebar, select one or more images, and click "Transcribe Selected." The add-on sends each image and your document's Context section to Gemini™ and inserts the transcription below the image — no copy-pasting required. Batch transcription processes multiple images with live progress, elapsed time, and estimated time remaining. You can also transcribe a single image via the menu.
@@ -52,7 +52,7 @@ On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key
 📖 HOW TO USE
 
 1. Open a Google Docs™ document.
-2. Run Extensions > Metric Book Transcriber > Import Book from Drive Folder (or add images manually).
+2. Run Extensions > Metric Book Transcriber > Import Book from Drive Files (or add images manually).
 3. Edit the Context section to match your source archive and locality.
 4. Open the Sidebar (Extensions > Metric Book Transcriber > Open Sidebar, or click the add-on icon in the right panel).
 5. Select images and click "Transcribe Selected" to batch-transcribe, or select a single image and use "Transcribe Image" from the menu.
@@ -172,7 +172,7 @@ Before (re-)submitting the app for review, verify these items in the Google Clou
 1. **OAuth consent screen → In production**
    - Google Cloud Console → APIs & Services → OAuth consent screen → Publishing status must be **In production**, not "Testing".
    - "Testing" restricts installs to explicitly listed test users and causes **Error 403: access denied** for anyone else.
-   - Moving to production may require completing **OAuth verification** for sensitive scopes (`drive.readonly`, `script.external_request`). See [publishing status docs](https://support.google.com/cloud/answer/10311615#publishing-status).
+  - Moving to production may require completing **OAuth verification** for sensitive scopes (for this app: `script.external_request`). See [publishing status docs](https://support.google.com/cloud/answer/10311615#publishing-status).
 
 2. **Marketplace SDK → Store listing**
    - Paste the **Short description** and **Detailed description** from the sections above (EN + UK) -- they contain the required ™ marks and trademark footnote.

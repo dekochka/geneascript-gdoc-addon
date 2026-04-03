@@ -1,6 +1,6 @@
 # 📖 Metric Book Transcriber Add-On
 
-A Google Docs add-on that helps transcribe images of metric books (birth, marriage, and death registers) using the **Google AI (Gemini)** API. You can **import scan images from a Google Drive folder** into a document (with a Context block and source links), then **transcribe** one image at a time from the menu or **batch-transcribe** multiple images from the **sidebar**; the add-on inserts structured transcription **directly below each image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
+A Google Docs add-on that helps transcribe images of metric books (birth, marriage, and death registers) using the **Google AI (Gemini)** API. You can **import scan images from selected Google Drive files** into a document (with a Context block and source links), then **transcribe** one image at a time from the menu or **batch-transcribe** multiple images from the **sidebar**; the add-on inserts structured transcription **directly below each image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
 
 ## 🎬 Demo
 
@@ -26,19 +26,19 @@ flowchart LR
     Transcription[Transcription below image]
   end
   subgraph addon [Add-on]
-    ImportMenu["Import Book from Drive Folder"]
+    ImportMenu["Import Book from Drive Files"]
     ExtractMenu["Extract Context from Cover Image"]
     TranscribeMenu["Transcribe Image"]
     SetupMenu["Setup AI"]
     Sidebar["Sidebar: Import > Setup > Extract > Select > Transcribe"]
   end
   subgraph external [External]
-    DriveFolder[Drive folder URL]
+    DriveFiles[Drive file links or IDs]
     Gemini[Gemini API]
   end
   OpenDoc --> ImportMenu
-  ImportMenu --> DriveFolder
-  DriveFolder --> ContextImages
+  ImportMenu --> DriveFiles
+  DriveFiles --> ContextImages
   ContextImages --> ExtractMenu
   ExtractMenu --> Gemini
   Gemini --> CoverContext
@@ -52,9 +52,9 @@ flowchart LR
 *Typical flow: import from Drive, setup AI, extract context from cover image, then transcribe selected images.*
 
 - **📍 Where it runs:** Google Docs (install from the [Marketplace](https://workspace.google.com/marketplace/), or use a Test deployment / container-bound script).
-- **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Folder** prompts for a Drive folder URL or ID, then adds a **Context** section at the top (full sample template from `ContextTemplate.gs` with bold labels), imports up to **30 images** from the folder (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Very large or invalid images are skipped and the final alert reports how many were added or skipped.
+- **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Files** prompts for Drive file links or IDs, then adds a **Context** section at the top (full sample template from `ContextTemplate.gs` with bold labels), imports up to **30 selected images** (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Inaccessible, unsupported, very large, or invalid images are skipped and the final alert reports how many were added or skipped.
 - **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document's Context to the **Gemini** API and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin, English), and Quality Metrics / Assessment (styled in blue and red).
-- **🔑 API key, model, and request config:** A Google AI (Gemini) API key is required. The add-on prompts you to enter it the first time you run **Transcribe Image** (with a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys)). You can choose the model: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). In the same setup dialog you can tune transcription behavior using **Transcription strictness**, **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**, each with inline impact hints. Update key/model/settings anytime via **Extensions → Metric Book Transcriber → Setup AI**. See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for cost details by model and token usage. Each user's key, model, and request settings are stored privately (User Properties). Drive folder import requires access to the folder (you own it or it's shared with you).
+- **🔑 API key, model, and request config:** A Google AI (Gemini) API key is required. The add-on prompts you to enter it the first time you run **Transcribe Image** (with a link to [Google AI Studio API Keys](https://aistudio.google.com/api-keys)). You can choose the model: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). In the same setup dialog you can tune transcription behavior using **Transcription strictness**, **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**, each with inline impact hints. Update key/model/settings anytime via **Extensions → Metric Book Transcriber → Setup AI**. See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for cost details by model and token usage. Each user's key, model, and request settings are stored privately (User Properties). Drive import requires access to each selected file (you own it or it is shared with you).
 
 ## 📚 Documentation
 
