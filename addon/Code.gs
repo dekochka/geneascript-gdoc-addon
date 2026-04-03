@@ -363,6 +363,9 @@ function importFromDriveFileIds(fileIds) {
  * - GOOGLE_PICKER_API_KEY
  * - GOOGLE_PICKER_APP_ID (Cloud project number)
  * Also includes parent folder ID of current document for initial Picker view.
+ *
+ * ⚠️ SECURITY WARNING: This function returns sensitive credentials (OAuth token, API keys).
+ * Never log the returned object directly. Always redact sensitive fields before logging.
  */
 function getDrivePickerConfig() {
   Logger.log('getDrivePickerConfig: start');
@@ -469,10 +472,10 @@ function getDrivePickerHtml() {
     '  console.log("init: starting Picker configuration fetch");',
     '  google.script.run',
     '    .withSuccessHandler(function(cfg){',
-    '      console.log("init: got config", cfg);',
+    '      console.log("init: config received", {ok: cfg.ok, hasToken: !!cfg.oauthToken, hasKey: !!cfg.developerKey, appId: cfg.appId});',
     '      pickerConfig=cfg;',
     '      if(!cfg||!cfg.ok){',
-    '        console.error("init: config invalid or not ok", cfg);',
+    '        console.error("init: config invalid", {ok: cfg.ok, message: cfg.message});',
     '        showError((cfg&&cfg.message)||"Picker is not configured. Contact your administrator.");',
     '        return;',
     '      }',
