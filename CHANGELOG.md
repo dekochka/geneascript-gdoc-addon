@@ -8,13 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 (Nothing yet.)
 
-## [0.6.1-ai-config-improvements] — 2026-03-30
+## [0.7.0-ai-config-improvements] — 2026-04-03
 
 ### 🔧 Changed
 
 - **Setup naming and copy clarity** — Renamed user-facing setup entry to **Setup AI** in menu/sidebar and dialog title, and clarified setup instructions for API key/model updates.
 - **Setup links** — Updated API-key creation link to `https://aistudio.google.com/api-keys` and replaced setup pricing guidance link with Gemini API pricing docs.
 - **Setup form usability** — Added compact parameter impact hints and tightened spacing to reduce scrolling in the setup popup.
+- **Gemini 3 thinking-level mapping precision** — Updated request building so `minimal` is sent as `thinkingLevel: "minimal"` for Gemini Flash/Flash-Lite, while Gemini 3.1 Pro keeps the compatibility mapping to `thinkingLevel: "low"` to avoid API errors.
+- **Observability parameter verification** — Validated and retained setup-parameter telemetry (`temperature`, `maxOutputTokens`, `thinkingMode`, `thinkingBudget`) on `transcribe_image_api_start` and end-to-end token/cost/latency metrics on API/done events during manual execution tests.
 
 ### 📚 Documentation
 
@@ -94,7 +96,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 [0.4.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.4.0
 [0.5.0-observability]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.5.0-observability
 [0.6.0-ai-config-params]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.0-ai-config-params
-[0.6.1-ai-config-improvements]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.6.1-ai-config-improvements
+[0.7.0-ai-config-improvements]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.7.0-ai-config-improvements
 
 ## [0.3.1] — 2026-03-15
 

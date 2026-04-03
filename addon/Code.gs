@@ -510,14 +510,17 @@ function getSetupDialogState(modelId) {
 function buildGenerationConfigFromSettings(modelId, requestConfig) {
   var cfg = requestConfig || getStoredRequestConfig(modelId);
   var capability = getThinkingCapabilityByModel(modelId);
+  var normalizedModelId = String(modelId || '').toLowerCase();
+  var isGemini31Pro = normalizedModelId.indexOf('gemini-3.1-pro') === 0;
   var generationConfig = {
     temperature: cfg.temperature,
     maxOutputTokens: cfg.maxOutputTokens
   };
 
   if (capability.configType === 'level') {
-    // Gemini level-based configs expect low/medium/high style values.
-    if (cfg.thinkingMode === 'minimal') generationConfig.thinkingConfig = { thinkingLevel: 'low' };
+    // Gemini 3.1 Pro does not support "minimal"; use "low" as the closest strictness.
+    // Gemini 3 Flash / Flash-Lite support "minimal" natively.
+    if (cfg.thinkingMode === 'minimal') generationConfig.thinkingConfig = { thinkingLevel: isGemini31Pro ? 'low' : 'minimal' };
     if (cfg.thinkingMode === 'standard') generationConfig.thinkingConfig = { thinkingLevel: 'medium' };
     if (cfg.thinkingMode === 'high') generationConfig.thinkingConfig = { thinkingLevel: 'high' };
   } else if (capability.configType === 'budget') {
