@@ -1862,7 +1862,7 @@ function getImageList() {
  * Phase 3 stub — returns mock success after a short delay.
  * Real implementation will be wired in Phase 4.
  */
-function transcribeImageByIndex(bodyIndex) {
+function transcribeImageByIndex(bodyIndex, expectedLabel) {
   Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex);
   var runId = createRunId('tx');
   var operationStartMs = Date.now();
@@ -1891,7 +1891,15 @@ function transcribeImageByIndex(bodyIndex) {
     docIdHash: docIdHash,
     bodyIndex: bodyIndex
   });
-  var hit = findInlineImageAtBodyIndex(doc, bodyIndex);
+  var effectiveBodyIndex = bodyIndex;
+  var hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+  if (!hit && expectedLabel) {
+    var resolvedIndex = resolveImageBodyIndexByLabel(expectedLabel);
+    if (typeof resolvedIndex === 'number' && !isNaN(resolvedIndex)) {
+      effectiveBodyIndex = resolvedIndex;
+      hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+    }
+  }
   if (!hit) {
     logObsEvent('transcribe_image_error', {
       operation: operation,
@@ -1929,7 +1937,7 @@ function transcribeImageByIndex(bodyIndex) {
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
-      bodyIndex: bodyIndex,
+      bodyIndex: effectiveBodyIndex,
       errorCode: classifyErrorCode(e.message || String(e)),
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -1944,7 +1952,7 @@ function transcribeImageByIndex(bodyIndex) {
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
-      bodyIndex: bodyIndex,
+      bodyIndex: effectiveBodyIndex,
       errorCode: 'API_EMPTY_CANDIDATES',
       errorMessage: 'The API returned no text'
     });
@@ -1959,7 +1967,7 @@ function transcribeImageByIndex(bodyIndex) {
     status: 'success',
     runId: runId,
     docIdHash: docIdHash,
-    bodyIndex: bodyIndex,
+    bodyIndex: effectiveBodyIndex,
     model: geminiResult.model,
     imageBytes: geminiResult.imageBytes,
     promptTokens: geminiResult.promptTokens,
@@ -1975,7 +1983,7 @@ function transcribeImageByIndex(bodyIndex) {
     latencyMs: Date.now() - operationStartMs,
     latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
   });
-  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0 };
+  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex };
 }
 
 function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
@@ -2100,6 +2108,12 @@ function getSidebarHtml() {
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
 
     '<div class="section">',
+    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Folder</button>',
+    '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
+    '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
+    '</div>',
+
+    '<div class="section">',
     '  <div class="section-header">',
     '    <span class="section-title">Images (<span id="imgCount">0</span>)</span>',
     '    <button class="btn btn-sm" onclick="refreshImages()" title="Refresh image list">&#8635; Refresh</button>',
@@ -2115,9 +2129,6 @@ function getSidebarHtml() {
 
     '<div class="section">',
     '  <button id="goBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; Transcribe Selected</button>',
-    '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
-    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Folder</button>',
-    '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
     '  <button id="stopBtn" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; Stop</button>',
     '</div>',
 
@@ -2290,7 +2301,7 @@ function getSidebarHtml() {
     '        m._s="fail";m._e=e.message||String(e);fail++;',
     '        renderList();next(ti+1);',
     '      })',
-    '      .transcribeImageByIndex(t.bi+shift);',
+    '      .transcribeImageByIndex(t.bi+shift, m.label);',
     '  }',
     '  next(0);',
     '}',
@@ -2326,7 +2337,7 @@ function getSidebarHtml() {
     '}',
 
     'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
-    'function doImport(){google.script.run.importFromDriveFolder();}',
+    'function doImport(){google.script.run.withSuccessHandler(function(){ refreshImages(); }).withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; refreshImages(); }).importFromDriveFolder();}',
     'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent="Select exactly one image to extract context."; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||"Unable to open extract dialog."; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',

@@ -20,6 +20,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Sidebar actions** — Added **Extract Context from Selected Image** action and bumped sidebar footer version to `v0.8.0`.
 - **Menu actions** — Added **Extract Context from Cover Image** item under **Extensions → Metric Book Transcriber**.
 - **Context writeback behavior** — Added targeted context upsert/merge logic for known labels and list sections while preserving unrelated user-authored lines.
+- **Sidebar action order** — Reordered top-to-bottom flow to better match user workflow: Import → Setup AI → Extract Context → image selection → Transcribe.
+- **Import UX** — Sidebar now auto-refreshes image list after Drive import completes, without requiring manual refresh.
+
+### 🐛 Fixed
+
+- **Stale index recovery** — Added label-based fallback resolution for transcribe/extract when body indices shift after document mutations.
+- **Context placement** — Fixed context range boundary detection so updates are written to the top `Context` section instead of the document bottom.
+- **Apply errors on sparse Context** — Fixed empty-text and last-paragraph edge cases during section updates.
+- **Leading blank lines in Context** — Normalized context opening spacing to a single leading blank line after apply.
 
 ### 📚 Documentation
 
