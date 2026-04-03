@@ -10,9 +10,9 @@ A Google Docs add-on that helps transcribe images of metric books (birth, marria
 
 **Recommended:** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any Google Doc. See [Installation](docs/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
 
-## 📸 Sample Output
+## 📸 Current UI (v0.8)
 
-![Sample transcription output — image with structured transcription below (Quality Metrics in blue, Assessment in red)](docs/TranscribeAddOn-TranscriptionResults.png)
+![v0.8 main page with sidebar workflow](docs/app-screenshots/v0.8-main-page.jpg)
 
 ## 📊 Overview
 
@@ -21,13 +21,16 @@ flowchart LR
   subgraph doc [Google Doc]
     OpenDoc[Open document]
     ContextImages[Context + images in doc]
+    CoverContext[Cover context extracted]
     SelectImage[Select one image]
     Transcription[Transcription below image]
   end
   subgraph addon [Add-on]
     ImportMenu["Import Book from Drive Folder"]
+    ExtractMenu["Extract Context from Cover Image"]
     TranscribeMenu["Transcribe Image"]
     SetupMenu["Setup AI"]
+    Sidebar["Sidebar: Import > Setup > Extract > Select > Transcribe"]
   end
   subgraph external [External]
     DriveFolder[Drive folder URL]
@@ -36,13 +39,17 @@ flowchart LR
   OpenDoc --> ImportMenu
   ImportMenu --> DriveFolder
   DriveFolder --> ContextImages
+  ContextImages --> ExtractMenu
+  ExtractMenu --> Gemini
+  Gemini --> CoverContext
+  CoverContext --> Sidebar
   ContextImages --> SelectImage
   SelectImage --> TranscribeMenu
   TranscribeMenu --> Gemini
   Gemini --> Transcription
 ```
 
-*Typical flow: import from Drive (or add context and images manually), then transcribe selected images one by one.*
+*Typical flow: import from Drive, setup AI, extract context from cover image, then transcribe selected images.*
 
 - **📍 Where it runs:** Google Docs (install from the [Marketplace](https://workspace.google.com/marketplace/), or use a Test deployment / container-bound script).
 - **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Folder** prompts for a Drive folder URL or ID, then adds a **Context** section at the top (full sample template from `ContextTemplate.gs` with bold labels), imports up to **30 images** from the folder (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Very large or invalid images are skipped and the final alert reports how many were added or skipped.

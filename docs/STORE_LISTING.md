@@ -154,7 +154,9 @@ Google, Google Docs, Google Drive, Google AI Studio та Gemini є торгов�
 | Icon (small) | 32 x 32 px | Done | `addon/img/GeneaScript_logo_32.png` |
 | Icon (large) | 128 x 128 px | Done | `addon/img/GeneaScript_logo_128.png` |
 | Card banner | 220 x 140 px | Done | `addon/img/GeneaScript_marketplace_banner.png` |
-| Screenshot 1 — Menu and transcription results | 1280 x 800 px | Done | `docs/TranscribeAddOn-Screenshot-1280x800.png` |
+| Screenshot 1 — v0.8 main page | 1280 x 800 px | Done | `docs/app-screenshots/v0.8-main-page.jpg` |
+| Screenshot 2 — v0.8 extract context popup | 1280 x 800 px | Done | `docs/app-screenshots/v0.8-extract-context-popup.jpg` |
+| Screenshot 3 — v0.8 setup AI popup | 1280 x 800 px | Done | `docs/app-screenshots/v0.8-setup-ai-popup.jpg` |
 | Screenshot 2 — Transcription in progress | 1280 x 800 px | Optional | Capture if desired |
 | Screenshot 3 — Import from Drive flow | 1280 x 800 px | Optional | Capture if desired |
 
