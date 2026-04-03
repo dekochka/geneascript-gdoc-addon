@@ -3,7 +3,7 @@ layout: default
 ---
 # 📖 User Guide — Metric Book Transcriber Add-On
 
-This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google™ AI (Gemini™)**. You can **import scan images from a Google Drive™ folder** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
+This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google™ AI (Gemini™)**. You can **import scan images from Google Drive™ file links/IDs that you select** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
 
 ## 📊 User flow
 
@@ -37,32 +37,32 @@ flowchart LR
 
 ## 🔄 Workflow summary
 
-1. **Build the document** — Use **Import Book from Drive Folder** (recommended) or add Context and images manually.
+1. **Build the document** — Use **Import Book from Drive Files** (recommended) or add Context and images manually.
 2. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
 3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup AI**, or click **Setup AI** in the sidebar.
 4. **Extract Context from cover image (recommended after import)** — Use **Extract Context from Cover Image** (menu) or **Extract Context from Selected Image** (sidebar) to auto-fill Context fields from a title page, then review and edit before applying.
 
 **Menu overview**
 
-The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Folder**, **Extract Context from Cover Image**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
+The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
 ![v0.8 main page with sidebar and document](app-screenshots/v0.8-main-page.jpg)
 
 ---
 
-## 📁 Import Book from Drive Folder (recommended)
+## 📁 Import Book from Drive Files (recommended)
 
-Use this to create a document with a Context section and all scan images from a folder in one go.
+Use this to create a document with a Context section and scan images from specific Drive files in one go.
 
 1. Open a **new or existing** Google Docs™ document.
-2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Folder**.
-3. When prompted, paste the **Google Drive folder URL or folder ID** that contains your metric book scans. You can copy the URL from the address bar when the folder is open in Drive (e.g. `https://drive.google.com/drive/folders/...`).
+2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Files**.
+3. When prompted, paste one or more **Google Drive file URLs or file IDs** (JPEG/PNG/WebP), separated by commas or new lines.
 
    ![Enter Drive folder URL in the Import dialog](Step1_GDriveImport_SetFolderURL.png)
 
 4. Click **OK**. The add-on will:
    - Add a **Context** section at the top (full sample template with bold labels: archive name, reference, villages, common surnames, etc. — you can edit it).
-   - Import **up to 30 images** from the folder (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
+   - Import **up to 30 selected images** (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
    - For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (clickable link to the file in Drive), then the image (scaled to content width), then a page break.
 
    ![Import in progress — images being added to the document](Step1_GDriveImport_Importing_Images.png)
@@ -71,7 +71,7 @@ Use this to create a document with a Context section and all scan images from a 
 
    ![Import complete — Context and imported images in the document](Step1_GDriveImport_Import_Result.png)
 
-**📌 Notes:** The folder must be one you own or that's shared with you. Very large or invalid images may be skipped; the add-on reports how many were skipped. Edit the Context block with your actual archive and locality details before transcribing for best results.
+**📌 Notes:** Each file must be accessible to your account. Very large, invalid, inaccessible, or unsupported files may be skipped; the add-on reports how many were skipped. Edit the Context block with your actual archive and locality details before transcribing for best results.
 
 ---
 
@@ -125,7 +125,7 @@ The sidebar is the easiest way to transcribe one or many images at once.
 
 This feature helps you populate the `Context` section automatically from a cover/title image after Drive import.
 
-1. Import images with **Import Book from Drive Folder**.
+1. Import images with **Import Book from Drive Files**.
 2. Start extraction using either:
    - **Extensions** → **Metric Book Transcriber** → **Extract Context from Cover Image**, or
    - Sidebar action **Extract Context from Selected Image** (select exactly one image first).
@@ -195,9 +195,9 @@ Blank lines separate records for readability. You can edit any of this text in t
 | Issue | What to do |
 |-------|------------|
 | **"Please select a single image"** | Click on one metric book image so it is selected, then run **Transcribe Image** again. |
-| **Invalid Drive Folder link** | Paste the full folder URL from the Drive address bar (e.g. `https://drive.google.com/drive/folders/...`) or the folder ID. Use a **folder** link, not a file. |
-| **Cannot access folder** | The folder must be owned by you or shared with you. If you added Drive access recently, re-authorize (revoke the app in Google Account → Third-party apps, then run Import again). |
-| **No images found in this folder** | Only JPEG, PNG, and WebP are imported. Add at least one image in one of these formats. |
+| **Invalid Drive input** | Paste one or more valid **file** URLs/IDs (e.g. `https://drive.google.com/file/d/.../view`), separated by commas or new lines. |
+| **Cannot access some files** | Each file must be owned by you or shared with you. If you changed access recently, re-authorize and run import again. |
+| **No images found in selection** | Only JPEG, PNG, and WebP are imported. Ensure selected files are images in one of these formats. |
 | **Some images skipped** | Very large or invalid images may be skipped; the add-on reports how many. Resize or re-export large scans if needed. |
 | **"Set API Key" dialog / API key prompt** | The add-on prompts for a key and model on first use of **Transcribe Image**. Create a key at [Google AI Studio API Keys](https://aistudio.google.com/api-keys), paste it, choose a model, and click **Save & Continue**. To change key or model later, use **Extensions** → **Metric Book Transcriber** → **Setup AI**. See [INSTALLATION.md](INSTALLATION.md). |
 | **Setup dialog validation error** | Check request fields in **Setup AI**. **Transcription strictness** must be `0..2`; **Max text length** must be an integer `1..65536`; and reasoning options depend on the selected model. |
@@ -207,7 +207,7 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Timeout** | The add-on waits up to about 60 seconds. If the request times out, try again or use a smaller/simpler image. |
 | **Empty or odd transcription** | Ensure the selected element is the image (not a drawing or text). Add or improve the Context section and try again. |
 | **Transcription at bottom of doc** | Ensure you have the latest script; insertion uses the body-level block containing the selected image. Select the image and run again. |
-| **Sidebar shows "No images found"** | The document has no inline images. Import scans via **Import Book from Drive Folder** or paste images directly into the document, then click **Refresh**. |
+| **Sidebar shows "No images found"** | The document has no inline images. Import scans via **Import Book from Drive Files** or paste images directly into the document, then click **Refresh**. |
 | **Sidebar image failed (red X)** | Hover over the red X to see the error. Common causes: API rate limit (429), image too large, network timeout. The batch continues with the remaining images. You can retry the failed image afterward. |
 | **Orange warning on sidebar image** | The model's output was truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete. Try a smaller or clearer image, or switch to a model with higher output limits. |
 | **Extract Context action says select one image** | In the sidebar, check exactly one image before running **Extract Context from Selected Image**. |

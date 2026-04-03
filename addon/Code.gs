@@ -21,6 +21,8 @@ var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 30;
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
+var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -41,7 +43,7 @@ function onOpen(e) {
       .createMenu('Metric Book Transcriber')
       .addItem('Open Sidebar', 'showTranscribeSidebar')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
-      .addItem('Import Book from Drive Folder', 'importFromDriveFolder')
+      .addItem('Import Book from Drive Files', 'showDrivePickerDialog')
       .addItem('Extract Context from Cover Image', 'openExtractContextDialog')
       .addSeparator()
       .addItem('Setup AI', 'showSetupApiKeyAndModelDialog')
@@ -55,16 +57,22 @@ function onOpen(e) {
 }
 
 /**
- * Extracts Google Drive folder ID from a full URL or raw ID. Returns null if invalid.
- * Handles URLs like https://drive.google.com/drive/folders/ID or ?id=ID.
+ * Extracts unique Google Drive file IDs from text containing file URLs/IDs.
+ * Accepts IDs or links separated by commas, spaces, or newlines.
  */
-function extractFolderId(urlOrId) {
-  if (!urlOrId || typeof urlOrId !== 'string') return null;
-  var input = urlOrId.trim();
-  if (input.length === 0) return null;
-  var idPattern = /[-\w]{25,}/;
-  var match = input.match(idPattern);
-  return match ? match[0] : null;
+function extractDriveFileIds(inputText) {
+  if (!inputText || typeof inputText !== 'string') return [];
+  var matches = inputText.match(/[-\w]{25,}/g) || [];
+  var deduped = [];
+  var seen = {};
+  for (var i = 0; i < matches.length; i++) {
+    var id = matches[i];
+    if (!seen[id]) {
+      seen[id] = true;
+      deduped.push(id);
+    }
+  }
+  return deduped;
 }
 
 /**
@@ -166,12 +174,28 @@ function appendImageNameAndSourceLink(body, file) {
 }
 
 /**
- * Imports metric book images from a Google Drive folder: prompts for folder URL/ID,
- * fetches images (jpeg, png, webp), natural-sorts them, injects Context block if needed,
- * then appends up to MAX_IMPORT_IMAGES images scaled to content width with page breaks.
+ * Legacy/manual import path that prompts for Drive file URLs/IDs.
+ * Used as a fallback when picker setup is missing.
  */
 function importFromDriveFolder() {
-  Logger.log('importFromDriveFolder: start');
+  Logger.log('importFromDriveFolder: manual fallback start');
+  var ui = DocumentApp.getUi();
+  var response = ui.prompt(
+    'Drive Files',
+    'Paste one or more Google Drive image file URLs or IDs (JPEG, PNG, WebP), separated by commas or new lines.',
+    ui.ButtonSet.OK_CANCEL
+  );
+  if (response.getSelectedButton() !== ui.Button.OK) return;
+  var fileIds = extractDriveFileIds(response.getResponseText());
+  importFromDriveFileIds(fileIds);
+}
+
+/**
+ * Imports metric book images from explicit Drive file IDs selected by the user.
+ * This is the core import path used by Google Picker and manual fallback.
+ */
+function importFromDriveFileIds(fileIds) {
+  Logger.log('importFromDriveFileIds: start');
   var runId = createRunId('import');
   var operationStartMs = Date.now();
   var ui = DocumentApp.getUi();
@@ -184,84 +208,60 @@ function importFromDriveFolder() {
     runId: runId,
     docIdHash: docIdHash
   });
-  var response = ui.prompt('Drive Folder', 'Enter the Google Drive Folder ID or URL containing the metric book scans.', ui.ButtonSet.OK_CANCEL);
-  if (response.getSelectedButton() !== ui.Button.OK) {
-    Logger.log('importFromDriveFolder: user cancelled prompt');
-    logObsEvent('import_drive_done', {
-      operation: 'import_drive',
-      status: 'stop',
-      runId: runId,
-      docIdHash: docIdHash,
-      importLatencyMs: Date.now() - operationStartMs
+  var normalizedIds = [];
+  if (fileIds && fileIds.forEach) {
+    fileIds.forEach(function (id) {
+      if (id) normalizedIds.push(String(id).trim());
     });
-    return;
   }
-  var rawInput = response.getResponseText();
-  var folderId = extractFolderId(rawInput);
-  Logger.log('importFromDriveFolder: rawInput length=' + (rawInput ? rawInput.length : 0) + ' extracted folderId=' + (folderId || 'null'));
-  if (!folderId) {
-    Logger.log('importFromDriveFolder: invalid link, no folderId extracted');
+  Logger.log('importFromDriveFileIds: received fileIds=' + normalizedIds.length);
+  if (!normalizedIds.length) {
+    Logger.log('importFromDriveFileIds: invalid input, no file IDs provided');
     logObsEvent('import_drive_error', {
       operation: 'import_drive',
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
       errorCode: 'UNKNOWN',
-      errorMessage: 'invalid folder link'
+      errorMessage: 'invalid drive file links'
     });
-    ui.alert('Invalid link', 'Invalid Drive Folder link. Please check the URL.', ui.ButtonSet.OK);
+    ui.alert('Invalid input', 'No valid Drive file IDs found. Please provide file links or IDs.', ui.ButtonSet.OK);
     return;
   }
-  var folder;
-  try {
-    Logger.log('importFromDriveFolder: calling DriveApp.getFolderById(' + folderId + ')');
-    folder = DriveApp.getFolderById(folderId);
-    Logger.log('importFromDriveFolder: folder resolved name="' + folder.getName() + '"');
-  } catch (e) {
-    Logger.log('importFromDriveFolder: DriveApp.getFolderById failed for id=' + folderId + ' error=' + (e.message || String(e)));
-    var errMsg = e.message || String(e);
-    logObsEvent('import_drive_error', {
-      operation: 'import_drive',
-      status: 'error',
-      runId: runId,
-      docIdHash: docIdHash,
-      folderIdHash: hashId(folderId),
-      errorCode: classifyErrorCode(errMsg),
-      errorMessage: sanitizeErrorMessage(errMsg)
-    });
-    if (errMsg.indexOf('not enabled') !== -1 || errMsg.indexOf('Access Not Configured') !== -1) {
-      ui.alert('Drive API not enabled', 'The Google Drive API is not enabled in your GCP project. Please enable it at console.cloud.google.com → APIs & Services → Library → Google Drive API.', ui.ButtonSet.OK);
-    } else {
-      ui.alert('Access denied', 'Cannot access folder (id: ' + folderId + '). ' + errMsg, ui.ButtonSet.OK);
-    }
-    return;
-  }
+
   var imageFiles = [];
-  var fileIterator = folder.getFiles();
-  var totalFiles = 0;
-  while (fileIterator.hasNext()) {
-    var file = fileIterator.next();
-    totalFiles++;
-    var mime = file.getMimeType();
-    if (IMAGE_MIME_TYPES.indexOf(mime) !== -1) imageFiles.push(file);
+  var rejectedCount = 0;
+  for (var idIndex = 0; idIndex < normalizedIds.length; idIndex++) {
+    var fileId = normalizedIds[idIndex];
+    try {
+      var file = DriveApp.getFileById(fileId);
+      var mime = file.getMimeType();
+      if (IMAGE_MIME_TYPES.indexOf(mime) !== -1) {
+        imageFiles.push(file);
+      } else {
+        rejectedCount++;
+      }
+    } catch (e) {
+      rejectedCount++;
+      Logger.log('importFromDriveFileIds: cannot access file id=' + fileId + ' error=' + (e.message || String(e)));
+    }
   }
-  Logger.log('importFromDriveFolder: listed folder totalFiles=' + totalFiles + ' imageFiles=' + imageFiles.length);
+  Logger.log('importFromDriveFileIds: selected=' + normalizedIds.length + ' imageFiles=' + imageFiles.length + ' rejected=' + rejectedCount);
   if (imageFiles.length === 0) {
-    Logger.log('importFromDriveFolder: no images in folder, aborting');
+    Logger.log('importFromDriveFileIds: no valid images after filtering');
     logObsEvent('import_drive_done', {
       operation: 'import_drive',
       status: 'success',
       runId: runId,
       docIdHash: docIdHash,
-      folderIdHash: hashId(folderId),
-      totalFiles: totalFiles,
+      selectedFiles: normalizedIds.length,
       imageFiles: 0,
       addedCount: 0,
-      skippedCount: 0,
+      skippedCount: rejectedCount,
       count: 0,
       importLatencyMs: Date.now() - operationStartMs
     });
-    ui.alert('No images', 'No images found in this folder.', ui.ButtonSet.OK);
+    ui.alert('No images', 'No accessible JPEG/PNG/WebP files found in your selection.', ui.ButtonSet.OK);
     return;
   }
   imageFiles = naturalSortFiles(imageFiles);
@@ -271,20 +271,20 @@ function importFromDriveFolder() {
     truncated = true;
   }
   var count = imageFiles.length;
-  Logger.log('importFromDriveFolder: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
-  ui.alert('Importing', 'Ready to import ' + count + ' image(s). Click OK to start — this may take a minute.', ui.ButtonSet.OK);
+  Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
+  ui.alert('Importing', 'Ready to import ' + count + ' image(s) from your selected files. Click OK to start — this may take a minute.', ui.ButtonSet.OK);
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
   var skipped = 0;
   for (var i = 0; i < imageFiles.length; i++) {
-    Logger.log('importFromDriveFolder: inserting image ' + (i + 1) + '/' + count);
+    Logger.log('importFromDriveFileIds: inserting image ' + (i + 1) + '/' + count);
     var file = imageFiles[i];
     var imageStartMs = Date.now();
     try {
       var blob = file.getBlob();
       var bytes = blob.getBytes().length;
-      Logger.log('importFromDriveFolder: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
+      Logger.log('importFromDriveFileIds: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
       appendImageNameAndSourceLink(body, file);
       var inlineImage = body.appendImage(blob);
       var w = inlineImage.getWidth();
@@ -301,7 +301,7 @@ function importFromDriveFolder() {
         status: 'success',
         runId: runId,
         docIdHash: docIdHash,
-        folderIdHash: hashId(folderId),
+        selectedFiles: normalizedIds.length,
         imageOrdinal: i + 1,
         fileName: file.getName(),
         blobSizeBytes: bytes,
@@ -313,14 +313,14 @@ function importFromDriveFolder() {
       try {
         bytesForError = file.getBlob().getBytes().length;
       } catch (_ignored) {}
-      Logger.log('importFromDriveFolder: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + (bytesForError / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
-      Logger.log('importFromDriveFolder: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
+      Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + (bytesForError / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
+      Logger.log('importFromDriveFileIds: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
       logObsEvent('import_drive_image_processed', {
         operation: 'import_drive',
         status: 'error',
         runId: runId,
         docIdHash: docIdHash,
-        folderIdHash: hashId(folderId),
+        selectedFiles: normalizedIds.length,
         imageOrdinal: i + 1,
         fileName: file.getName(),
         blobSizeBytes: bytesForError,
@@ -331,17 +331,16 @@ function importFromDriveFolder() {
     }
   }
   var added = count - skipped;
-  Logger.log('importFromDriveFolder: done added=' + added + ' skipped=' + skipped + ' count=' + count);
+  Logger.log('importFromDriveFileIds: done added=' + added + ' skipped=' + skipped + ' count=' + count);
   logObsEvent('import_drive_done', {
     operation: 'import_drive',
     status: 'success',
     runId: runId,
     docIdHash: docIdHash,
-    folderIdHash: hashId(folderId),
-    totalFiles: totalFiles,
+    selectedFiles: normalizedIds.length,
     imageFiles: imageFiles.length,
     addedCount: added,
-    skippedCount: skipped,
+    skippedCount: skipped + rejectedCount,
     count: count,
     truncated: truncated,
     maxImportImages: MAX_IMPORT_IMAGES,
@@ -351,8 +350,103 @@ function importFromDriveFolder() {
   if (skipped > 0) {
     doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
   }
+  if (rejectedCount > 0) {
+    doneMsg += ' ' + rejectedCount + ' skipped (not accessible or unsupported format).';
+  }
   doneMsg += '\n\nNext steps: edit the Context section at the top of the document to match your source (archive, dates, villages, surnames), then select an image and run Transcribe Image.';
   ui.alert('Done', doneMsg, ui.ButtonSet.OK);
+}
+
+/**
+ * Returns Google Picker runtime config for sidebar/modal usage.
+ * Requires script properties:
+ * - GOOGLE_PICKER_API_KEY
+ * - GOOGLE_PICKER_APP_ID (Cloud project number)
+ */
+function getDrivePickerConfig() {
+  var props = PropertiesService.getScriptProperties();
+  var developerKey = props.getProperty(PICKER_API_KEY_PROPERTY);
+  var appId = props.getProperty(PICKER_APP_ID_PROPERTY);
+  if (!developerKey || !appId) {
+    return {
+      ok: false,
+      message: 'Picker is not configured. Set script properties GOOGLE_PICKER_API_KEY and GOOGLE_PICKER_APP_ID (Cloud project number).'
+    };
+  }
+  return {
+    ok: true,
+    developerKey: developerKey,
+    appId: appId,
+    oauthToken: ScriptApp.getOAuthToken()
+  };
+}
+
+/**
+ * Opens a modal dialog with Google Picker for multi-select Drive image import.
+ */
+function showDrivePickerDialog() {
+  var html = HtmlService.createHtmlOutput(getDrivePickerHtml())
+    .setWidth(820)
+    .setHeight(640);
+  DocumentApp.getUi().showModalDialog(html, 'Import from Drive Files');
+}
+
+function getDrivePickerHtml() {
+  return [
+    '<!doctype html><html><head><meta charset="utf-8">',
+    '<script src="https://apis.google.com/js/api.js"></script>',
+    '<style>body{font-family:Arial,sans-serif;padding:12px}button{padding:8px 12px;border:0;border-radius:6px;cursor:pointer}#openBtn{background:#1a73e8;color:#fff}#manualBtn{background:#f1f3f4;color:#202124;margin-left:8px}#status{margin-top:10px;font-size:12px;color:#5f6368}.warn{color:#b06000}</style>',
+    '</head><body>',
+    '<h3 style="margin:0 0 8px">Select images from Google Drive</h3>',
+    '<p style="margin:0 0 10px;font-size:13px;color:#444">Use Picker to choose one or more image files (JPEG/PNG/WebP).</p>',
+    '<button id="openBtn" onclick="openPicker()">Open Drive Picker</button>',
+    '<button id="manualBtn" onclick="useManual()">Use manual links/IDs</button>',
+    '<div id="status"></div>',
+    '<script>',
+    'var pickerConfig=null;',
+    'function setStatus(msg,isWarn){var el=document.getElementById("status");el.textContent=msg||"";el.className=isWarn?"warn":"";}',
+    'function useManual(){ google.script.host.close(); google.script.run.importFromDriveFolder(); }',
+    'function init(){',
+    '  setStatus("Loading picker configuration...");',
+    '  google.script.run.withSuccessHandler(function(cfg){',
+    '    pickerConfig=cfg;',
+    '    if(!cfg||!cfg.ok){setStatus((cfg&&cfg.message)||"Picker configuration is missing.",true);return;}',
+    '    setStatus("Ready.");',
+    '  }).withFailureHandler(function(e){ setStatus(e.message||String(e),true); }).getDrivePickerConfig();',
+    '}',
+    'function openPicker(){',
+    '  if(!pickerConfig||!pickerConfig.ok){setStatus("Picker is not configured. Use manual fallback for now.",true);return;}',
+    '  setStatus("Opening Picker...");',
+    '  gapi.load("picker", function(){',
+    '    var view = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES);',
+    '    view.setMode(google.picker.DocsViewMode.LIST);',
+    '    var picker = new google.picker.PickerBuilder()',
+    '      .addView(view)',
+    '      .setOAuthToken(pickerConfig.oauthToken)',
+    '      .setDeveloperKey(pickerConfig.developerKey)',
+    '      .setAppId(pickerConfig.appId)',
+    '      .setOrigin(google.script.host.origin)',
+    '      .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)',
+    '      .setCallback(onPicked)',
+    '      .build();',
+    '    picker.setVisible(true);',
+    '  });',
+    '}',
+    'function onPicked(data){',
+    '  if(data.action===google.picker.Action.CANCEL){setStatus("Selection cancelled.");return;}',
+    '  if(data.action!==google.picker.Action.PICKED){return;}',
+    '  var docs=data.docs||[];',
+    '  var ids=[];',
+    '  for(var i=0;i<docs.length;i++){if(docs[i]&&docs[i].id)ids.push(docs[i].id);}',
+    '  if(!ids.length){setStatus("No files selected.",true);return;}',
+    '  setStatus("Importing "+ids.length+" file(s)...");',
+    '  google.script.run.withSuccessHandler(function(){ google.script.host.close(); })',
+    '    .withFailureHandler(function(e){ setStatus(e.message||String(e),true); })',
+    '    .importFromDriveFileIds(ids);',
+    '}',
+    'init();',
+    '</script></body></html>'
+  ].join('\\n');
 }
 
 /**
@@ -2108,7 +2202,7 @@ function getSidebarHtml() {
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
 
     '<div class="section">',
-    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Folder</button>',
+    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Files</button>',
     '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
     '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
     '</div>',
@@ -2337,7 +2431,7 @@ function getSidebarHtml() {
     '}',
 
     'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
-    'function doImport(){google.script.run.withSuccessHandler(function(){ refreshImages(); }).withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; refreshImages(); }).importFromDriveFolder();}',
+    'function doImport(){google.script.run.withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; }).showDrivePickerDialog();}',
     'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent="Select exactly one image to extract context."; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||"Unable to open extract dialog."; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
