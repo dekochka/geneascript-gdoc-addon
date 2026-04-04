@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.1] — 2026-04-04
+
+### ✨ Added
+
+- **Detailed import error reporting** — Import result dialog now shows specific failed files with names, sizes, and reasons (e.g., "• 631-12-33_0003.jpg - Too large (3.60 MB)"). Helps users identify which images failed instead of just showing a count.
+
+### 🔧 Changed
+
+- **Sidebar auto-refresh** — Sidebar now automatically polls for document changes every 3 seconds when idle and refreshes the image list when new images are detected (e.g., after import completes). No more manual refresh button click needed.
+- **Import dialog timing** — Picker success message now stays open for 4 seconds (increased from 1 second) to allow time to read detailed error information.
+- **Sidebar version** — Updated footer from v0.8.0 to v0.9.1.
+
+### 🐛 Fixed
+
+- **Silent import failures** — Large images (>3-4 MB) that fail to import due to Google Docs size limits are now clearly reported with file name and size instead of silently creating empty sections.
+- **Stale sidebar after import** — Fixed sidebar not updating automatically after Drive import completes; polling mechanism now detects image count changes and triggers refresh.
+
 ## [0.9.0-oauth-scope-migration] — 2026-04-04
 
 ### 🔐 Security & Compliance
