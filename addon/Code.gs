@@ -40,7 +40,7 @@ function onInstall(e) {
 function onOpen(e) {
   try {
     DocumentApp.getUi()
-      .createMenu('Metric Book Transcriber')
+      .createMenu('GeneaScript Metric Book Transcriber')
       .addItem('Open Sidebar', 'showTranscribeSidebar')
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Files', 'showDrivePickerDialog')
@@ -2020,7 +2020,7 @@ function buildHomepageCard() {
       'Use the sidebar for batch transcription, import, and setup.'))
     .addWidget(button);
   return CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader().setTitle('Metric Book Transcriber'))
+    .setHeader(CardService.newCardHeader().setTitle('GeneaScript Metric Book Transcriber'))
     .addSection(section)
     .build();
 }
@@ -2301,7 +2301,7 @@ function openExtractContextDialogFromSidebar(bodyIndex) {
 /** Opens the sidebar panel. */
 function showTranscribeSidebar() {
   var html = HtmlService.createHtmlOutput(getSidebarHtml())
-    .setTitle('Metric Book Transcriber');
+    .setTitle('GeneaScript Metric Book Transcriber');
   DocumentApp.getUi().showSidebar(html);
 }
 
@@ -2314,7 +2314,7 @@ function getSidebarHtml() {
     '<html><head><base target="_top">',
     '<style>',
     '*{box-sizing:border-box;margin:0;padding:0}',
-    'body{font-family:Arial,sans-serif;font-size:13px;color:#333;padding:12px;display:flex;flex-direction:column;min-height:100vh}',
+    'body{font-family:Georgia,"Times New Roman",serif;font-size:13px;color:#333;padding:12px;display:flex;flex-direction:column;min-height:100vh}',
     '.section{margin-bottom:14px}',
     '.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}',
     '.section-title{font-weight:bold;font-size:13px}',
