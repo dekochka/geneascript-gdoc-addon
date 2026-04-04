@@ -2403,6 +2403,10 @@ function getSidebarHtml() {
     '    if(!k)document.getElementById("keyBanner").style.display="block";',
     '  }).withFailureHandler(function(){}).hasApiKey();',
     '  refreshImages();',
+    '  window.addEventListener("focus", function(){',
+    '    console.log("Sidebar regained focus, refreshing image list");',
+    '    refreshImages();',
+    '  });',
     '}',
 
     'function refreshImages(){',
