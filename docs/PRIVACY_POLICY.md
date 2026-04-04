@@ -1,11 +1,11 @@
 ---
 layout: default
 ---
-# Privacy Policy — Geneascript Metric Book Transcriber
+# Privacy Policy — GeneaScript Metric Book Transcriber
 
-**Last updated:** 2026-04-03
+**Last updated:** 2026-04-04
 
-Geneascript Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
+GeneaScript Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
 
 ## Data the Add-on Accesses
 
@@ -14,7 +14,7 @@ Geneascript Metric Book Transcriber ("the Add-on") is an open-source Google Docs
 | **Google™ AI (Gemini™) API key** | Required to call the Gemini™ API on the user's behalf. | Stored in Google Apps Script **User Properties** (private per Google account). Never sent anywhere other than Google's Generative Language API endpoint. |
 | **Document content (Context section)** | The text under the "Context" heading in the active Google Doc is read to build the transcription prompt. | Sent to the Google™ AI (Gemini™) API as part of the prompt. Not stored elsewhere. |
 | **Selected image** | The image the user selects for transcription is read from the document. | Sent (base64-encoded) to the Google™ AI (Gemini™) API. Not stored elsewhere. |
-| **Google Drive™ selected files (file names and images)** | When using "Import Book from Drive Files," the add-on reads only the image files the user explicitly selects by providing file links/IDs. | Images are inserted into the user's Google Doc. File metadata and blobs are processed in memory only. |
+| **Google Drive™ selected files (file names and images)** | When using "Import Book from Drive Files," the add-on reads only the image files the user explicitly selects via the Google Picker UI. The add-on uses the `drive.file` OAuth scope (non-sensitive), which grants access **only to files the user explicitly selects**—not to all Drive files. | Images are inserted into the user's Google Doc. File metadata and blobs are processed in memory only. No files are stored or cached. |
 
 ## Data Storage
 
