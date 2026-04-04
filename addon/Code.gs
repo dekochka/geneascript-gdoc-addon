@@ -226,7 +226,7 @@ function importFromDriveFileIds(fileIds) {
       errorMessage: 'invalid drive file links'
     });
     ui.alert('Invalid input', 'No valid Drive file IDs found. Please provide file links or IDs.', ui.ButtonSet.OK);
-    return;
+    return { ok: false, message: 'No valid Drive file IDs found' };
   }
 
   var imageFiles = [];
@@ -262,7 +262,7 @@ function importFromDriveFileIds(fileIds) {
       importLatencyMs: Date.now() - operationStartMs
     });
     ui.alert('No images', 'No accessible JPEG/PNG/WebP files found in your selection.', ui.ButtonSet.OK);
-    return;
+    return { ok: false, message: 'No accessible JPEG/PNG/WebP files found' };
   }
   imageFiles = naturalSortFiles(imageFiles);
   var truncated = false;
@@ -277,6 +277,7 @@ function importFromDriveFileIds(fileIds) {
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
   var skipped = 0;
+  var skippedFiles = [];
   for (var i = 0; i < imageFiles.length; i++) {
     Logger.log('importFromDriveFileIds: inserting image ' + (i + 1) + '/' + count);
     var file = imageFiles[i];
@@ -313,7 +314,13 @@ function importFromDriveFileIds(fileIds) {
       try {
         bytesForError = file.getBlob().getBytes().length;
       } catch (_ignored) {}
-      Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + (bytesForError / 1e6).toFixed(2) + ' error=' + (e.message || String(e)));
+      var sizeMB = (bytesForError / 1e6).toFixed(2);
+      skippedFiles.push({
+        name: file.getName(),
+        sizeMB: sizeMB,
+        reason: bytesForError > 0 ? 'Too large (' + sizeMB + ' MB)' : 'Invalid or inaccessible'
+      });
+      Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + sizeMB + ' error=' + (e.message || String(e)));
       Logger.log('importFromDriveFileIds: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
       logObsEvent('import_drive_image_processed', {
         operation: 'import_drive',
@@ -346,15 +353,13 @@ function importFromDriveFileIds(fileIds) {
     maxImportImages: MAX_IMPORT_IMAGES,
     importLatencyMs: Date.now() - operationStartMs
   });
-  var doneMsg = 'Import complete. ' + added + ' image(s) added.';
-  if (skipped > 0) {
-    doneMsg += ' ' + skipped + ' skipped (invalid or too large for Docs).';
-  }
-  if (rejectedCount > 0) {
-    doneMsg += ' ' + rejectedCount + ' skipped (not accessible or unsupported format).';
-  }
-  doneMsg += '\n\nNext steps: edit the Context section at the top of the document to match your source (archive, dates, villages, surnames), then select an image and run Transcribe Image.';
-  ui.alert('Done', doneMsg, ui.ButtonSet.OK);
+  return {
+    ok: true,
+    added: added,
+    skipped: skipped,
+    rejected: rejectedCount,
+    skippedFiles: skippedFiles
+  };
 }
 
 /**
@@ -438,7 +443,7 @@ function getDrivePickerHtml() {
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     '<script src="https://apis.google.com/js/api.js"></script>',
-    '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px}.error{color:#d93025}</style>',
+    '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px;white-space:pre-wrap;text-align:left;max-width:600px;margin-left:auto;margin-right:auto}.error{color:#d93025}</style>',
     '</head><body>',
     '<div id="status">Loading Google Picker...</div>',
     '<div id="instructions" style="font-size:12px;color:#5f6368;margin-top:10px;display:none;">',
@@ -576,10 +581,27 @@ function getDrivePickerHtml() {
     '  if(skipped>0)statusMsg+=" (skipped "+skipped+" non-image file"+(skipped>1?"s":"")+")";',
     '  showStatus(statusMsg);',
     '  google.script.run',
-    '    .withSuccessHandler(function(){',
-    '      console.log("onPicked: import completed successfully, closing dialog");',
-    '      showStatus("Import complete!");',
-    '      setTimeout(function(){ google.script.host.close(); }, 1000);',
+    '    .withSuccessHandler(function(result){',
+    '      console.log("onPicked: import completed", result);',
+    '      if(!result||!result.ok){',
+    '        showError(result&&result.message?result.message:"Import failed");',
+    '        return;',
+    '      }',
+    '      var msg="Import complete!\\n\\n";',
+    '      msg+="✓ "+result.added+" image"+(result.added===1?"":"s")+" added successfully\\n";',
+    '      if(result.skipped>0){',
+    '        msg+="✗ "+result.skipped+" failed (too large or invalid)\\n\\n";',
+    '        msg+="Failed files:\\n";',
+    '        for(var i=0;i<result.skippedFiles.length&&i<5;i++){',
+    '          var sf=result.skippedFiles[i];',
+    '          msg+="• "+sf.name+" - "+sf.reason+"\\n";',
+    '        }',
+    '        if(result.skippedFiles.length>5){',
+    '          msg+="...and "+(result.skippedFiles.length-5)+" more\\n";',
+    '        }',
+    '      }',
+    '      showStatus(msg);',
+    '      setTimeout(function(){ google.script.host.close(); }, 4000);',
     '    })',
     '    .withFailureHandler(function(e){',
     '      console.error("onPicked: import failed", e);',
