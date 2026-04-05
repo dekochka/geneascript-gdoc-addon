@@ -10,9 +10,15 @@ A Google Docs add-on that helps transcribe images of metric books (birth, marria
 
 **Recommended:** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any Google Doc. See [Installation](docs/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
 
-## 📸 Current UI (v0.8)
+## 📸 Current UI (v1.0)
+
+**Main workflow with sidebar:**
 
 ![v0.8 main page with sidebar workflow](docs/app-screenshots/v0.8-main-page.jpg)
+
+**Template Gallery with tabbed preview:**
+
+![Template Gallery dialog showing available templates](docs/app-screenshots/v1.0-gallery-template.jpg)
 
 ## 📊 Overview
 
@@ -22,18 +28,20 @@ flowchart LR
     OpenDoc[Open document]
     ContextImages[Context + images in doc]
     CoverContext[Cover context extracted]
+    TemplateSelected[Template selected]
     SelectImage[Select one image]
     Transcription[Transcription below image]
   end
   subgraph addon [Add-on]
     ImportMenu["Import Book from Drive Files"]
     ExtractMenu["Extract Context from Cover Image"]
+    TemplateMenu["Select Template"]
     TranscribeMenu["Transcribe Image"]
     SetupMenu["Setup AI"]
-    Sidebar["Sidebar: Import > Setup > Extract > Select > Transcribe"]
+    Sidebar["Sidebar: Import > Setup > Extract > Template > Select > Transcribe"]
   end
   subgraph external [External]
-    DriveFiles[Drive file links or IDs]
+    DriveFiles[Google Drive files via Picker]
     Gemini[Gemini API]
   end
   OpenDoc --> ImportMenu
@@ -42,14 +50,16 @@ flowchart LR
   ContextImages --> ExtractMenu
   ExtractMenu --> Gemini
   Gemini --> CoverContext
-  CoverContext --> Sidebar
-  ContextImages --> SelectImage
+  CoverContext --> TemplateMenu
+  TemplateMenu --> TemplateSelected
+  TemplateSelected --> Sidebar
+  TemplateSelected --> SelectImage
   SelectImage --> TranscribeMenu
   TranscribeMenu --> Gemini
   Gemini --> Transcription
 ```
 
-*Typical flow: import from Drive, setup AI, extract context from cover image, then transcribe selected images.*
+*Typical flow: import from Drive, setup AI, extract context from cover image, select template (Galician or Russian), then transcribe selected images.*
 
 - **📍 Where it runs:** Google Docs (install from the [Marketplace](https://workspace.google.com/marketplace/), or use a Test deployment / container-bound script).
 - **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Files** opens a **Google Picker** dialog to select images from your Drive. Adds a **Context** section at the top (full sample template with bold labels), imports up to **30 selected images** (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in Drive), the image (scaled to content width), and a page break. Uses `drive.file` OAuth scope (non-sensitive) — only user-selected files are accessible, not all Drive files.
