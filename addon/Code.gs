@@ -45,6 +45,7 @@ function onOpen(e) {
       .addItem('Transcribe Image', 'transcribeSelectedImage')
       .addItem('Import Book from Drive Files', 'showDrivePickerDialog')
       .addItem('Extract Context from Cover Image', 'openExtractContextDialog')
+      .addItem('Select Template', 'showTemplateGalleryDialog')
       .addSeparator()
       .addItem('Setup AI', 'showSetupApiKeyAndModelDialog')
       .addItem('Help / User Guide', 'showHelp')
@@ -73,6 +74,39 @@ function extractDriveFileIds(inputText) {
     }
   }
   return deduped;
+}
+
+/**
+ * Fetches a Drive file by ID using the Drive REST API via UrlFetchApp.
+ * Works with drive.file scope (unlike DriveApp.getFileById which requires drive.readonly).
+ * Returns an object matching the DriveApp File interface used by import functions.
+ */
+function getDriveFileById_(fileId) {
+  var token = ScriptApp.getOAuthToken();
+  var metaUrl = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(fileId) +
+    '?fields=id,name,mimeType,webViewLink';
+  var metaResp = UrlFetchApp.fetch(metaUrl, {
+    headers: { 'Authorization': 'Bearer ' + token },
+    muteHttpExceptions: true
+  });
+  if (metaResp.getResponseCode() !== 200) {
+    throw new Error('Drive API error (' + metaResp.getResponseCode() + '): ' +
+      metaResp.getContentText().substring(0, 300));
+  }
+  var meta = JSON.parse(metaResp.getContentText());
+  return {
+    getId: function () { return meta.id; },
+    getName: function () { return meta.name; },
+    getMimeType: function () { return meta.mimeType; },
+    getUrl: function () { return meta.webViewLink || ('https://drive.google.com/file/d/' + meta.id + '/view'); },
+    getBlob: function () {
+      var dlUrl = 'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(meta.id) + '?alt=media';
+      var dlResp = UrlFetchApp.fetch(dlUrl, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      return dlResp.getBlob().setName(meta.name);
+    }
+  };
 }
 
 /**
@@ -233,13 +267,16 @@ function importFromDriveFileIds(fileIds) {
   var rejectedCount = 0;
   for (var idIndex = 0; idIndex < normalizedIds.length; idIndex++) {
     var fileId = normalizedIds[idIndex];
+    Logger.log('importFromDriveFileIds: trying file ' + (idIndex + 1) + '/' + normalizedIds.length + ' id=' + fileId);
     try {
-      var file = DriveApp.getFileById(fileId);
+      var file = getDriveFileById_(fileId);
       var mime = file.getMimeType();
+      Logger.log('importFromDriveFileIds: OK id=' + fileId + ' name=' + file.getName() + ' mime=' + mime);
       if (IMAGE_MIME_TYPES.indexOf(mime) !== -1) {
         imageFiles.push(file);
       } else {
         rejectedCount++;
+        Logger.log('importFromDriveFileIds: rejected non-image mime=' + mime);
       }
     } catch (e) {
       rejectedCount++;
@@ -392,17 +429,21 @@ function getDrivePickerConfig() {
     var doc = DocumentApp.getActiveDocument();
     if (doc && doc.getId) {
       var docId = doc.getId();
-      var docFile = DriveApp.getFileById(docId);
-      var parents = docFile.getParents();
-      if (parents.hasNext()) {
-        var parent = parents.next();
-        parentFolderId = parent.getId();
-        Logger.log('getDrivePickerConfig: found parent folder id=' + parentFolderId);
+      var token = ScriptApp.getOAuthToken();
+      var parentResp = UrlFetchApp.fetch(
+        'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(docId) + '?fields=parents',
+        { headers: { 'Authorization': 'Bearer ' + token }, muteHttpExceptions: true }
+      );
+      if (parentResp.getResponseCode() === 200) {
+        var parentData = JSON.parse(parentResp.getContentText());
+        if (parentData.parents && parentData.parents.length > 0) {
+          parentFolderId = parentData.parents[0];
+          Logger.log('getDrivePickerConfig: found parent folder id=' + parentFolderId);
+        }
       }
     }
   } catch (e) {
     Logger.log('getDrivePickerConfig: could not get parent folder: ' + (e.message || String(e)));
-    // Non-fatal: Picker will open at root if parent not found
   }
 
   var oauthToken = ScriptApp.getOAuthToken();
@@ -515,8 +556,8 @@ function getDrivePickerHtml() {
     '      }',
     '      console.log("openPicker: building picker with size 1051x650 and two views");',
     '      var picker=new google.picker.PickerBuilder()',
-    '        .addView(imagesView)',
     '        .addView(foldersView)',
+    '        .addView(imagesView)',
     '        .setOAuthToken(pickerConfig.oauthToken)',
     '        .setDeveloperKey(pickerConfig.developerKey)',
     '        .setAppId(pickerConfig.appId)',
@@ -553,6 +594,7 @@ function getDrivePickerHtml() {
     '  }',
     '  var docs=data.docs||[];',
     '  console.log("onPicked: user selected", docs.length, "files");',
+    '  for(var d=0;d<docs.length;d++){console.log("onPicked: doc["+d+"] id="+docs[d].id+" name="+docs[d].name+" mimeType="+docs[d].mimeType+" type="+docs[d].type+" serviceId="+docs[d].serviceId);}',
     '  var validImageMimes=["image/jpeg","image/png","image/webp"];',
     '  var ids=[];',
     '  var skipped=0;',
@@ -560,7 +602,7 @@ function getDrivePickerHtml() {
     '    var doc=docs[i];',
     '    if(!doc||!doc.id)continue;',
     '    if(doc.mimeType&&validImageMimes.indexOf(doc.mimeType)>=0){',
-    '      ids.push(doc.id);',
+    '      if(ids.indexOf(doc.id)===-1){ids.push(doc.id);}else{console.log("onPicked: dedup skip id="+doc.id);}',
     '    }else{',
     '      console.warn("onPicked: skipping non-image file", doc.name, doc.mimeType);',
     '      skipped++;',
@@ -1302,37 +1344,21 @@ function reportIssue() {
 function getContextFromDocument(doc) {
   Logger.log('getContextFromDocument: start');
   var body = doc.getBody();
-  var numChildren = body.getNumChildren();
-  var contextStart = -1;
-
-  for (var i = 0; i < numChildren; i++) {
-    var child = body.getChild(i);
-    if (child.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
-    var text = child.asParagraph().getText().trim();
-    if (text === CONTEXT_HEADING) {
-      contextStart = i;
-      break;
-    }
-  }
-
-  if (contextStart < 0) {
+  var range = getContextRange(body);
+  if (!range) {
     Logger.log('getContextFromDocument: no Context heading found');
     return '';
   }
-  Logger.log('getContextFromDocument: contextStart=' + contextStart);
+  Logger.log('getContextFromDocument: contextStart=' + range.start + ', contextEnd=' + range.end);
 
   var parts = [];
-  var count = 0;
-  for (var j = contextStart + 1; j < numChildren && count < MAX_CONTEXT_PARAGRAPHS; j++) {
+  for (var j = range.start + 1; j <= range.end; j++) {
     var el = body.getChild(j);
-    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) break;
-    var t = el.asParagraph().getText().trim();
-    if (t === CONTEXT_HEADING) break;
-    parts.push(t);
-    count++;
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    parts.push(el.asParagraph().getText().trim());
   }
   var result = parts.join('\n').trim();
-  Logger.log('getContextFromDocument: paragraphs collected=' + count + ', result length=' + result.length);
+  Logger.log('getContextFromDocument: paragraphs collected=' + parts.length + ', result length=' + result.length);
   return result;
 }
 
@@ -1523,36 +1549,16 @@ function isKnownContextLabel(text) {
     key === 'COMMON_SURNAMES';
 }
 
-function normalizeLeadingContextBlankLines(body, range) {
-  var firstContentIndex = -1;
-  var blankIndexes = [];
-  for (var i = range.start + 1; i <= range.end; i++) {
+function removeBlankParagraphsInRange(body, range) {
+  for (var i = range.end; i > range.start; i--) {
     var el = body.getChild(i);
-    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) {
-      firstContentIndex = i;
-      break;
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var txt = String(el.asParagraph().getText() || '').trim();
+    if (txt === '') {
+      body.removeChild(el);
+      range.end--;
     }
-    var txt = el.asParagraph().getText();
-    if (String(txt || '').trim() === '') {
-      blankIndexes.push(i);
-      continue;
-    }
-    firstContentIndex = i;
-    break;
   }
-
-  if (firstContentIndex < 0) return;
-
-  if (blankIndexes.length === 0) {
-    body.insertParagraph(range.start + 1, ' ');
-    return;
-  }
-
-  // Keep exactly one leading blank paragraph.
-  for (var j = blankIndexes.length - 1; j >= 1; j--) {
-    body.removeChild(body.getChild(blankIndexes[j]));
-  }
-  body.getChild(blankIndexes[0]).asParagraph().setText(' ');
 }
 
 function mergeSectionListItems(body, range, sectionLabel, values) {
@@ -1603,11 +1609,10 @@ function mergeSectionListItems(body, range, sectionLabel, values) {
     range.end++;
   }
 
-  // Clear any extra old rows if there were more existing items than new values.
-  for (var n = values.length; n < itemIndexes.length; n++) {
-    var staleIdx = itemIndexes[n];
-    // Apps Script may throw on empty text writes in some document states.
-    body.getChild(staleIdx).asParagraph().setText(' ');
+  // Remove extra old rows (iterate in reverse so indices stay valid).
+  for (var n = itemIndexes.length - 1; n >= values.length; n--) {
+    body.removeChild(body.getChild(itemIndexes[n]));
+    range.end--;
   }
 
   return inserted;
@@ -1630,7 +1635,7 @@ function upsertContextFields(doc, extracted) {
     body.insertParagraph(range.end + 1, 'Notes: ' + extracted.notes);
     updated.push('NOTES');
   }
-  normalizeLeadingContextBlankLines(body, range);
+  removeBlankParagraphsInRange(body, range);
   return updated;
 }
 
@@ -2369,6 +2374,7 @@ function getSidebarHtml() {
     '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Files</button>',
     '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
     '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
+    '  <button class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; Template: <span id="templateLabel" style="color:#1a73e8;font-weight:bold">Loading\u2026</span></button>',
     '</div>',
 
     '<div class="section">',
@@ -2420,29 +2426,29 @@ function getSidebarHtml() {
     'var imgs=[],stopReq=false,running=false;',
 
     'var lastImageCount=0;',
+    'function openTemplateGallery(){',
+    '  google.script.run.showTemplateGalleryDialog();',
+    '}',
+
+    'function loadTemplateLabel(){',
+    '  google.script.run.withSuccessHandler(function(list){',
+    '    if(list&&list.length){',
+    '      for(var i=0;i<list.length;i++){',
+    '        if(list[i].isSelected){document.getElementById("templateLabel").textContent=list[i].label;return;}',
+    '      }',
+    '    }',
+    '    document.getElementById("templateLabel").textContent="(none)";',
+    '  }).withFailureHandler(function(){',
+    '    document.getElementById("templateLabel").textContent="(error)";',
+    '  }).getTemplateListForClient();',
+    '}',
+
     'function init(){',
     '  google.script.run.withSuccessHandler(function(k){',
     '    if(!k)document.getElementById("keyBanner").style.display="block";',
     '  }).withFailureHandler(function(){}).hasApiKey();',
+    '  loadTemplateLabel();',
     '  refreshImages();',
-    '  setInterval(function(){',
-    '    if(!running){',
-    '      console.log("Polling for image list changes");',
-    '      google.script.run',
-    '        .withSuccessHandler(function(r){',
-    '          if(r&&r.ok){',
-    '            var newCount=(r.images||[]).length;',
-    '            if(newCount!==lastImageCount){',
-    '              console.log("Image count changed from "+lastImageCount+" to "+newCount+", refreshing");',
-    '              lastImageCount=newCount;',
-    '              refreshImages();',
-    '            }',
-    '          }',
-    '        })',
-    '        .withFailureHandler(function(){})',
-    '        .getImageList();',
-    '    }',
-    '  }, 3000);',
     '}',
 
     'function refreshImages(){',

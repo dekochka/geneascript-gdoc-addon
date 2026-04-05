@@ -1,63 +1,18 @@
 /**
  * Returns the prompt template for metric book transcription.
- * Placeholder {{CONTEXT}} is replaced with the document's Context section.
- * Content aligned with project/SPEC.md.
+ * Delegates to TemplateGallery.gs based on the selected template ID
+ * stored in Document Properties. Falls back to the Galician Greek Catholic
+ * prompt if no template is set or lookup fails.
+ *
+ * Placeholder {{CONTEXT}} is replaced with the document's Context section
+ * by buildPrompt() in Code.gs.
  */
 function getPromptTemplate() {
-  return [
-    '#### Role',
-    '',
-    'You are an expert archivist and paleographer specializing in 19th and early 20th-century Galician (Austrian/Polish/Ukrainian) vital records. Your task is to extract and transcribe handwritten text from the attached image of a metric book (birth, marriage, or death register).',
-    '',
-    '#### Context',
-    '',
-    '{{CONTEXT}}',
-    '',
-    '#### Input Template Description',
-    '',
-    'Metric Book may contain mix of different table formats for births, deaths, marriage records. Expected columns:',
-    '',
-    '**Births:** Natus/Born, Baptized, Confirmed, House Number, Name (Child), Catholic/Or Other, Boy/Girl, Legitimate/Illegitimate, Name (Parents), Status (Parents), Name (Godparents), Status (Godparents).',
-    '',
-    '**Deaths:** Record Number, Date of Death, Date of Burial, House Number, Name of Deceased, Catholic, Male/Female, Age, Cause of Death.',
-    '',
-    '**Marriages:** Record Number, Date of Marriage, House Number, Name (Groom), Catholic/Or Other (Groom), Age (Groom), Single/Widower (Groom), Name (Bride), Catholic/Or Other (Bride), Age (Bride), Single/Widow (Bride), Name (Witnesses), Status (Witnesses).',
-    '',
-    '#### Output Format',
-    '',
-    'Output must be formatted for readability in a document.',
-    'Use **bold** for labels, names, and key attributes (e.g., **Name:**, **Parents:**).',
-    'Do NOT use bullet points for the main record data. Use standard paragraphs.',
-    'Use blank lines to separate records.',
-    '',
-    'Page Header: Extract metadata from top of page: year, page number (Pagina), archival signatures (Fond/Opis/Case), village names in header.',
-    '',
-    'Record Output: For EACH record provide the following as standard lines of text (NO bullets):',
-    '**Address:** First line (village, house number).',
-    '**Name:** Person (births/deaths) or groom and bride (marriages).',
-    '**Parents:** (and their parents if available).',
-    '**Godparents/Witnesses:** Godparents (births) or witnesses (marriages).',
-    '**Notes:** Any marginal notes.',
-    '',
-    '**Quality Metrics:** Handwriting Quality (e.g., 3/5), Trust Score (e.g., 4/5).',
-    '**Assessment:** Quality of Output (e.g., 2/5), Corrections Notes.',
-    '',
-    'Provide the language summaries formatted as a bulleted list below each record.',
-    'IMPORTANT: Use these exact language labels verbatim — do not expand, abbreviate, or modify them:',
-    '- **ru:** [Summary in Russian]',
-    '- **uk:** [Summary in Ukrainian]',
-    '- **latin:** [Original Latin transcription]',
-    '- **en:** [Summary in English]',
-    'For Russian and Ukrainian use appropriate modern Western Ukrainian surname equivalents. Only transcribed text.',
-    '',
-    'Repeat Quality Metrics and Assessment under each record, not once for the whole document.',
-    '',
-    '#### Instructions',
-    '',
-    'Step 1: Extract page header metadata (year, page number, Fond/Opis/Case if visible, village names).',
-    '',
-    'Step 2: For each record provide structured summary in Russian, Ukrainian, Latin, and English per the record output format above.',
-    '',
-    'Transcription accuracy: Transcribe exactly as written; preserve spelling and abbreviations. If unclear use [illegible] or [possibly X]. Village name may appear in header or under house number column.'
-  ].join('\n');
+  try {
+    var templateId = getSelectedTemplateId();
+    return getPromptForTemplate(templateId);
+  } catch (e) {
+    Logger.log('getPromptTemplate: delegation failed, using Galician default. ' + e.message);
+    return getGaliciaGcPrompt();
+  }
 }
