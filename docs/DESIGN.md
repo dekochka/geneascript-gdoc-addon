@@ -100,6 +100,80 @@ The add-on uses the **Google Picker API** for importing metric book scan images 
 - Full specification: [SPEC-9-OAUTH-SCOPE-MIGRATION.md](../project/SPEC-9-OAUTH-SCOPE-MIGRATION.md)
 - Original Drive import spec: [SPEC-2-GDRIVE-to-GDOC.md](../project/SPEC-2-GDRIVE-to-GDOC.md)
 
+### 2.4 Template Gallery architecture
+
+The Template Gallery provides **domain-specific transcription templates** that control the AI prompt and context defaults. Each template is tailored to a specific region, religion, and era, with specialized linguistic hints, column schemas, and terminology.
+
+**Template system**
+- **Template registry** stored as inline JavaScript objects in `addon/TemplateGallery.gs`
+- Each template contains:
+  - Metadata: `id`, `label`, `region`, `religion`, `recordTypes`, `description`
+  - Full Gemini prompt (role, context placeholder, column descriptions, output format, instructions)
+  - Context block defaults (sample archive name, reference, villages, surnames)
+- Selected template ID stored in **Document Properties** (`SELECTED_TEMPLATE_ID`) — per-document, persists across sessions
+- Default template: `galicia_gc` (Galician Greek Catholic 19th c.)
+
+**Available templates (v1.0.0)**
+1. **Galician Greek Catholic (`galicia_gc`)** — Latin/Polish/Ukrainian registers with Latinized names, Polish orthography
+2. **Russian Imperial Orthodox (`russian_orthodox`)** — Pre-reform Russian Cyrillic registers with Church Slavonic, patronymics, Julian calendar
+
+**Template selection flow**
+- User opens Template Gallery via **Extensions → Metric Book Transcriber → Select Template** or sidebar "Template" button
+- Modal dialog (620×700px) shows:
+  - Current template indicator at top
+  - Template cards with radio selection (label, region, religion, record types, description)
+  - **"Review Template"** toggle expands tabbed preview with five tabs:
+    - **Context tab**: Shows live document context (or template defaults if no context)
+    - **Role tab**: AI role description
+    - **Columns tab**: Expected column schemas for births/deaths/marriages
+    - **Output Format tab**: Structure and formatting instructions
+    - **Instructions tab**: Step-by-step transcription guidelines
+  - Checkbox: "Update Context block with template defaults" (checked by default)
+  - Apply button saves template ID to Document Properties, optionally updates context block
+
+**Integration with transcription pipeline**
+- `Prompt.gs` delegates to `TemplateGallery.gs` via `getPromptForTemplate(templateId)`
+- `ContextTemplate.gs` delegates to `TemplateGallery.gs` via `getContextDefaultsForTemplate(templateId)`
+- `buildPrompt()` in `Code.gs` calls `getPromptTemplate()` which returns the selected template's prompt with `{{CONTEXT}}` placeholder
+- Template selection is **backward compatible**: documents without a selected template default to `galicia_gc`
+
+**Template structure (example)**
+```javascript
+{
+  id: 'galicia_gc',
+  label: 'Galician Greek Catholic (19th c.)',
+  region: 'Galicia (Austrian Empire)',
+  religion: 'Greek Catholic',
+  recordTypes: 'Birth, Marriage, Death',
+  description: 'Latin/Polish/Ukrainian registers...',
+  // Prompt and context defaults stored as functions:
+  // getGaliciaGcPrompt() returns full prompt string
+  // getGaliciaGcContextDefaults() returns context template string
+}
+```
+
+**Server-side functions** (in `TemplateGallery.gs`):
+- `getTemplateRegistry()` — returns full template registry object
+- `getSelectedTemplateId()` — reads from Document Properties, fallback to `galicia_gc`
+- `setSelectedTemplateId(id)` — writes to Document Properties
+- `getPromptForTemplate(templateId)` — returns full prompt string for template
+- `getContextDefaultsForTemplate(templateId)` — returns context defaults string
+- `getTemplateListForClient()` — returns template metadata array for dialog UI
+- `getTemplateSectionsForClient(templateId)` — returns preview sections (context, role, columns, outputFormat, instructions) for tabbed UI
+- `applyTemplate(templateId, updateContext)` — saves template ID, optionally updates context block
+
+**OAuth / Manifest**
+- No new scopes required — uses existing `documents.currentonly` for Document Properties access
+- No changes to `addon/appsscript.json`
+
+**Observability**
+- `template_apply_start` — logged when user clicks Apply
+- `template_apply_done` — logged on success with templateId, updatedFields, hadExistingData
+- `template_apply_error` — logged on failure with errorCode, errorMessage
+
+**References:**
+- Full specification: [SPEC-10-PROMPT-TEMPLATE-GALLERY.md](../project/SPEC-10-PROMPT-TEMPLATE-GALLERY.md)
+
 ---
 
 ## 3. Context extraction
@@ -261,12 +335,25 @@ After implementation, the repo layout is:
   - **DESIGN.md** (this file)  
   - **INSTALLATION.md** — how to install and configure the add-on and API key  
   - **USER_GUIDE.md** — how to structure the doc and use “Transcribe Image”
+  - **PRIVACY_POLICY.md** — privacy policy and data handling
+  - **TERMS_OF_SERVICE.md** — terms of service
+  - **STORE_LISTING.md** — Google Workspace Marketplace listing copy
 - **project/**  
   - **SPEC.md** — product and prompt spec
+  - **SPEC-1** through **SPEC-10** — feature specifications
+  - **TEMPLATE-SPEC.md** — template for new feature specs
 - **addon/** (Apps Script project)  
-  - **Code.gs** — `onOpen`, `transcribeSelectedImage`, and helpers (context, image, prompt, Gemini, insert)  
-  - **Prompt.gs** — prompt template with `{{CONTEXT}}` placeholder  
-  - **appsscript.json** — manifest (Docs add-on, `documents.currentonly` scope)
+  - **Code.gs** — `onOpen`, `transcribeSelectedImage`, Drive import, sidebar, and helpers
+  - **TemplateGallery.gs** — template registry, prompts, context defaults, selection dialog
+  - **Prompt.gs** — prompt template delegation (delegates to TemplateGallery)
+  - **ContextTemplate.gs** — context template delegation (delegates to TemplateGallery)
+  - **ContextExtractionPrompt.gs** — prompt for extracting context from cover images
+  - **Observability.gs** — structured logging and telemetry helpers
+  - **appsscript.json** — manifest (Docs add-on, OAuth scopes)
+- **observability/**  
+  - **dashboards/** — Google Cloud Monitoring dashboard JSON configs
+  - **scripts/** — metric apply scripts for GCP
+  - **README.md** — observability setup guide
 
 ---
 

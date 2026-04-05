@@ -2420,7 +2420,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v0.9.1</div>',
+    '<div class="footer">v1.0.1</div>',
 
     '<script>',
     'var imgs=[],stopReq=false,running=false;',

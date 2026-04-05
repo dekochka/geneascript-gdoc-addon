@@ -1,7 +1,7 @@
 # Feature specification: Template Gallery
 
-**Status:** Draft  
-**Target version:** v0.10.0  
+**Status:** Implemented  
+**Target version:** v1.0.0  
 **Related:** `project/SPEC.md` (prompt structure, column schemas, output format), `project/SPEC-8-COVER-CONTEXT-EXTRACTION.md` (context block management)
 
 ---

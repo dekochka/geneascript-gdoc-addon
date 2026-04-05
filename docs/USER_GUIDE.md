@@ -154,6 +154,8 @@ The add-on updates known Context fields and merges list items where possible. Yo
 
 Different metric books use different languages, column structures, and conventions. The **Template Gallery** lets you choose a **record profile** that matches your source material. Each template provides a specialized AI prompt with region-specific linguistic hints, column schemas, and terminology — significantly improving transcription accuracy.
 
+![Template Gallery dialog showing available templates with preview tabs](app-screenshots/v1.0-gallery-template.jpg)
+
 ### Available templates
 
 | Template | Region | Religion | Best for |
@@ -166,8 +168,8 @@ Different metric books use different languages, column structures, and conventio
 1. Open the Template Gallery using either:
    - **Extensions** → **Metric Book Transcriber** → **Select Template**, or
    - Click the **Template** button in the sidebar (shows the currently selected template name).
-2. In the dialog, select the template that matches your source material.
-3. Click **Preview Prompt** to inspect the full prompt text that will be sent to the AI (optional).
+2. In the dialog, select the template that matches your source material (radio button selection).
+3. Click **Review Template** to expand a tabbed preview with five sections: **Context** (shows your live document context), **Role**, **Columns**, **Output Format**, and **Instructions** (optional).
 4. Choose whether to **Update Context block with template defaults** (recommended for new documents; uncheck if you already have custom context).
 5. Click **Apply** to save.
 
