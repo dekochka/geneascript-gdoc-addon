@@ -145,7 +145,7 @@ The Store listing requires **App details** → **Edit language** with at least o
 Google, Google Docs, Google Drive, Google AI Studio та Gemini є торговими марками Google LLC.
 ```
 
-*(Target audience: Ukrainian genealogical researchers, Western Ukraine / Galicia, Latin-script metric books 18th–20th century; output includes Russian, Ukrainian, Latin, and English summaries per addon/Prompt.gs.)*
+*(Target audience: Eastern European genealogical researchers working with Galician (Austrian Empire) Latin-script metric books or Russian Imperial Orthodox Cyrillic records, 18th–20th century; output includes Russian, Ukrainian, Latin/Original, and English summaries per template-specific prompts in addon/TemplateGallery.gs.)*
 
 ## Graphic Assets Checklist
 
