@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-04-05
+
 ### ✨ Added
 
 - **Template Gallery** — New "Select Template" dialog accessible from sidebar and menu. Users choose a domain-specific template that controls the transcription prompt, context defaults, and output format. Two initial templates ship:
@@ -306,4 +308,5 @@ Initial proof-of-concept release.
 - **📋 Project specs** — SPEC.md (transcription spec), SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md (Drive Folder Importer spec).
 - **🔐 OAuth** — `drive.readonly` scope in manifest for folder access; API key stored in Script Properties only (not in code).
 
+[1.0.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.0.0
 [0.1-poc]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.1-poc

@@ -147,6 +147,7 @@ function getTemplateSectionsForClient(templateId) {
   }
   return {
     documentContext: documentContext,
+    hasDocumentContext: documentContext.length > 0,
     contextDefaults: contextDefaults,
     role: sections.role,
     columns: sections.columns,
@@ -157,7 +158,12 @@ function getTemplateSectionsForClient(templateId) {
 
 /**
  * Server function called from the Template Gallery dialog.
- * Saves template ID to Document Properties and optionally updates the Context block.
+ * Saves template ID to Document Properties and optionally scaffolds the Context block.
+ *
+ * When updateContext is true:
+ *   - If no Context block exists: creates one with template defaults.
+ *   - If a Context block exists: merges missing field labels from template
+ *     defaults without overwriting existing values.
  */
 function applyTemplate(templateId, updateContext) {
   try {
@@ -173,16 +179,17 @@ function applyTemplate(templateId, updateContext) {
       if (doc) {
         var body = doc.getBody();
         var contextRange = getContextRange(body);
-        if (contextRange && contextRange.end > contextRange.start) {
-          for (var i = contextRange.end; i > contextRange.start; i--) {
-            body.removeChild(body.getChild(i));
-          }
-          var defaults = getContextDefaultsForTemplate(templateId);
-          insertFormattedText(body, contextRange.start + 1, defaults);
-        } else {
+        if (!contextRange || contextRange.end <= contextRange.start) {
           ensureContextBlock(doc);
+          msg += ' Context block created with template defaults.';
+        } else {
+          var added = mergeTemplateLabelScaffold(body, contextRange, templateId);
+          if (added.length > 0) {
+            msg += ' Added missing fields: ' + added.join(', ') + '.';
+          } else {
+            msg += ' Context already has all template fields.';
+          }
         }
-        msg += ' Context block updated.';
       }
     }
 
@@ -192,6 +199,52 @@ function applyTemplate(templateId, updateContext) {
     Logger.log('applyTemplate error: ' + e.message);
     return { ok: false, message: 'Error applying template: ' + e.message };
   }
+}
+
+/**
+ * Adds missing field labels from template defaults to an existing context block.
+ * Never overwrites existing values — only appends labels that are absent.
+ * Returns array of label names that were added.
+ */
+function mergeTemplateLabelScaffold(body, range, templateId) {
+  var defaults = getContextDefaultsForTemplate(templateId);
+  var lines = defaults.split('\n');
+  var templateLabels = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].replace(/^\*+/, '').replace(/\*+/g, '').trim();
+    var colon = line.indexOf(':');
+    if (colon > 0) {
+      var key = line.substring(0, colon).trim().toUpperCase();
+      if (key === 'ARCHIVE_NAME' || key === 'ARCHIVE_REFERENCE' ||
+          key === 'DOCUMENT_DESCRIPTION' || key === 'DATE_RANGE' ||
+          key === 'VILLAGES' || key === 'COMMON_SURNAMES') {
+        templateLabels.push(key);
+      }
+    }
+  }
+
+  var existingLabels = {};
+  for (var j = range.start + 1; j <= range.end; j++) {
+    var el = body.getChild(j);
+    if (el.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+    var txt = el.asParagraph().getText().trim();
+    var normalized = normalizeContextLabelPrefix(txt);
+    if (normalized) existingLabels[normalized] = true;
+  }
+
+  var added = [];
+  var insertAt = range.end + 1;
+  for (var k = 0; k < templateLabels.length; k++) {
+    var label = templateLabels[k];
+    if (existingLabels[label]) continue;
+    var para = body.insertParagraph(insertAt, label + ':');
+    var paraText = para.editAsText();
+    paraText.setBold(0, label.length - 1, true);
+    insertAt++;
+    range.end++;
+    added.push(label);
+  }
+  return added;
 }
 
 // ---------------------------------------------------------------------------
@@ -474,6 +527,7 @@ function getTemplateGalleryHtml() {
     '.tab-content { max-height: 220px; overflow-y: auto; padding: 8px; font-family: "Roboto Mono", monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #f8f9fa; }',
     '.options { margin-bottom: 12px; }',
     '.options label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }',
+    '.options .hint { font-size: 11px; color: #5f6368; margin-left: 22px; margin-top: 2px; }',
     '.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }',
     '.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }',
     '.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }',
@@ -498,7 +552,10 @@ function getTemplateGalleryHtml() {
     '  </div>',
     '  <div class="tab-content" id="tabContent">Select a tab to preview...</div>',
     '</div>',
-    '<div class="options"><label><input type="checkbox" id="updateContext" checked> Update Context block with template defaults</label></div>',
+    '<div class="options">',
+    '  <label><input type="checkbox" id="updateContext"> Scaffold missing Context fields from template</label>',
+    '  <div class="hint" id="contextHint"></div>',
+    '</div>',
     '<div id="statusMsg" class="status"></div>',
     '<div class="actions">',
     '<button class="btn" onclick="google.script.host.close()">Cancel</button>',
@@ -538,17 +595,20 @@ function getTemplateGalleryHtml() {
     '  }',
     '}',
     '',
+    'var contextCheckboxInitialized=false;',
     'function loadSections(cb){',
     '  var id=getSelectedId();',
     '  if(!id)return;',
     '  document.getElementById("tabContent").textContent="Loading...";',
     '  google.script.run.withSuccessHandler(function(s){',
     '    cachedSections=s;',
+    '    if(!contextCheckboxInitialized){initContextCheckbox(s.hasDocumentContext);contextCheckboxInitialized=true;}',
     '    if(cb)cb();',
     '  }).withFailureHandler(function(err){',
     '    document.getElementById("tabContent").textContent="Error: "+err.message;',
     '  }).getTemplateSectionsForClient(id);',
     '}',
+    'loadSections();',
     '',
     'function switchTab(btn){',
     '  var tabs=document.querySelectorAll(".tab-btn");',
@@ -580,6 +640,18 @@ function getTemplateGalleryHtml() {
     '    sep.appendChild(btn);',
     '  }else{',
     '    el.textContent=map[tab]||"(empty)";',
+    '  }',
+    '}',
+    '',
+    'function initContextCheckbox(hasCtx){',
+    '  var cb=document.getElementById("updateContext");',
+    '  var hint=document.getElementById("contextHint");',
+    '  if(hasCtx){',
+    '    cb.checked=false;',
+    '    hint.textContent="Adds any missing field labels (e.g. VILLAGES, COMMON_SURNAMES) without overwriting existing values.";',
+    '  }else{',
+    '    cb.checked=true;',
+    '    hint.textContent="No context found in document. Will create Context block with template sample data.";',
     '  }',
     '}',
     '',
