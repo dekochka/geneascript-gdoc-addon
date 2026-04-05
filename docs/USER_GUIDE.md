@@ -38,13 +38,14 @@ flowchart LR
 ## 🔄 Workflow summary
 
 1. **Build the document** — Use **Import Book from Drive Files** (recommended) or add Context and images manually.
-2. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
-3. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup AI**, or click **Setup AI** in the sidebar.
-4. **Extract Context from cover image (recommended after import)** — Use **Extract Context from Cover Image** (menu) or **Extract Context from Selected Image** (sidebar) to auto-fill Context fields from a title page, then review and edit before applying.
+2. **Select Template (if needed)** — If your source material is not a Galician Greek Catholic register, open **Select Template** from the menu or sidebar to choose the matching record profile (e.g. Russian Imperial Orthodox).
+3. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
+4. **Setup (optional)** — To change your API key or Gemini model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup AI**, or click **Setup AI** in the sidebar.
+5. **Extract Context from cover image (recommended after import)** — Use **Extract Context from Cover Image** (menu) or **Extract Context from Selected Image** (sidebar) to auto-fill Context fields from a title page, then review and edit before applying.
 
 **Menu overview**
 
-The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
+The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
 ![v0.8 main page with sidebar and document](app-screenshots/v0.8-main-page.jpg)
 
@@ -146,6 +147,37 @@ This feature helps you populate the `Context` section automatically from a cover
 ![v0.8 extract context popup](app-screenshots/v0.8-extract-context-popup.jpg)
 
 The add-on updates known Context fields and merges list items where possible. You can continue manual edits afterward.
+
+---
+
+## 📋 Template Gallery — Select a record profile
+
+Different metric books use different languages, column structures, and conventions. The **Template Gallery** lets you choose a **record profile** that matches your source material. Each template provides a specialized AI prompt with region-specific linguistic hints, column schemas, and terminology — significantly improving transcription accuracy.
+
+### Available templates
+
+| Template | Region | Religion | Best for |
+|----------|--------|----------|----------|
+| **Galician Greek Catholic** (default) | Galicia (Austrian Empire) | Greek Catholic | Latin/Polish/Ukrainian registers with Latinized names, Polish surname orthography |
+| **Russian Imperial Orthodox** | Russian Empire | Orthodox | Pre-reform Russian Cyrillic registers with Church Slavonic influence, patronymics, Julian calendar dates |
+
+### How to select a template
+
+1. Open the Template Gallery using either:
+   - **Extensions** → **Metric Book Transcriber** → **Select Template**, or
+   - Click the **Template** button in the sidebar (shows the currently selected template name).
+2. In the dialog, select the template that matches your source material.
+3. Click **Preview Prompt** to inspect the full prompt text that will be sent to the AI (optional).
+4. Choose whether to **Update Context block with template defaults** (recommended for new documents; uncheck if you already have custom context).
+5. Click **Apply** to save.
+
+The selected template is stored **per document** — each document remembers its own template. All subsequent transcriptions in that document will use the selected template's prompt. Already-transcribed images are not affected; only new transcriptions use the new template.
+
+### When to change templates
+
+- If you are starting work on a **Russian Imperial metric book** (Метрическая книга) after previously working on Galician records, switch to the **Russian Imperial Orthodox** template.
+- If your results seem off (wrong column interpretation, incorrect language assumptions), check that the correct template is selected for your source material.
+- The **Galician Greek Catholic** template is the default and works best for Latin-script Galician registers.
 
 ---
 

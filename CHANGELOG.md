@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### ✨ Added
+
+- **Template Gallery** — New "Select Template" dialog accessible from sidebar and menu. Users choose a domain-specific template that controls the transcription prompt, context defaults, and output format. Two initial templates ship:
+  - **Galician Greek Catholic (19th c.)** — Latin/Polish/Ukrainian registers from Galician Greek Catholic parishes. Column headers in Latin with Cyrillic equivalents.
+  - **Russian Imperial Orthodox (Metricheskaya Kniga)** — Pre-reform Russian Cyrillic registers with Church Slavonic influence. Patronymics standard, Julian calendar dates.
+- **Template review (tabbed preview)** — "Show Template Review" expands a tabbed view with five tabs: Context (live document context), Role, Columns, Output Format, and Instructions.
+- **Per-document template persistence** — Selected template stored in Document Properties; each document remembers its template independently.
+- **Context tab shows live document context** — Template Gallery Context tab reads the actual Context block from the document, falling back to template defaults when no context exists.
+- **"Extract Context from Cover Image" button** — Context tab includes a convenience button to open the Extract Context dialog directly.
+- **Drive REST API helper** — New `getDriveFileById_` helper using `UrlFetchApp` + Drive REST API v3, replacing `DriveApp.getFileById()` which does not work with `drive.file` scope.
+
+### 🔧 Changed
+
+- **Prompt.gs refactored** — Now delegates to `TemplateGallery.gs` for the active template's prompt; backward compatible (defaults to Galician template for existing documents).
+- **ContextTemplate.gs refactored** — Now delegates to `TemplateGallery.gs` for template-specific context defaults.
+- **Sidebar template indicator** — Sidebar shows the currently selected template name with a clickable button to open the Template Gallery.
+- **Picker default tab** — Google Picker now opens on the "Google Drive" (folders) tab by default, allowing users to select a folder first.
+- **Sidebar polling removed** — Removed automatic 3-second polling for image list refresh; manual "Refresh" button retained.
+- **Drive API whitelisted** — Added `https://www.googleapis.com/` to `urlFetchWhitelist` in manifest for Drive REST API calls.
+
+### 🐛 Fixed
+
+- **Drive import with `drive.file` scope** — Replaced `DriveApp.getFileById()` (requires `drive.readonly`) with Drive REST API via `UrlFetchApp`, fixing "No accessible JPEG/PNG/WebP files found" error when importing Picker-selected files.
+- **Duplicate images in Picker** — Added client-side deduplication of file IDs before sending to server.
+- **Context boundary detection** — `getContextFromDocument()` now uses `getContextRange()` for proper boundary detection, stopping at HEADING2 elements and page breaks instead of reading into image sections.
+- **Extra blank lines after context extraction** — Stale list items (from template defaults with more entries than extracted data) are now removed instead of set to a space character. All blank paragraphs in the context block are cleaned up after upsert.
+
+### 📚 Documentation
+
+- **USER_GUIDE.md** — Added "Template Gallery" section covering template selection, review, and per-document behavior.
+- **PRIVACY_POLICY.md** — Updated to accurately disclose operational telemetry (event types, latency, token usage, anonymized user IDs) per Google OAuth verification feedback.
+
 ## [0.9.1] — 2026-04-04
 
 ### ✨ Added

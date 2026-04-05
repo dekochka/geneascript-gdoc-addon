@@ -47,13 +47,19 @@ The add-on does **not** send data to any other third-party service.
   - [Google AI for Developers terms](https://ai.google.dev/terms)
   - [Google Cloud terms](https://cloud.google.com/terms)
 
-## Analytics and Tracking
+## Operational Telemetry
 
-The add-on does **not** collect analytics, telemetry, usage metrics, or tracking data of any kind.
+The add-on logs lightweight operational telemetry to **Google Cloud Logging** (part of the developer's Google Cloud project) for error diagnosis and quality monitoring. These logs include:
 
-## Cookies
+- **Event type** (e.g. transcription started, import completed, error occurred)
+- **Timing and latency** (e.g. how long a transcription took)
+- **Token usage and estimated cost** for Gemini API calls
+- **Error codes and sanitized error messages** (truncated to 300 characters, no user content)
+- **Anonymized user identifier** — a SHA-256 hash of a temporary session key; this cannot be reversed to identify a specific user
 
-The add-on does **not** use cookies.
+Telemetry logs do **not** contain document text, image data, file names, API keys, or any personally identifiable information. Logs are retained according to the developer's Google Cloud Logging retention settings.
+
+The add-on does **not** use cookies, browser analytics, or any third-party tracking service.
 
 ## Data Sharing
 
