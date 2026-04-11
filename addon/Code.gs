@@ -1399,7 +1399,7 @@ function getStoredModel() {
   return (stored && stored.trim()) ? stored.trim() : MODEL_ID;
 }
 
-var HELP_URL = 'https://geneascript.com/USER_GUIDE.html';
+var HELP_URL = 'https://geneascript.com/en/USER_GUIDE.html';
 var ISSUE_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/issues';
 
 function showHelp() {
@@ -2514,7 +2514,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.1.0</div>',
+    '<div class="footer">v1.1.1</div>',
 
     '<script>',
     'var SI=', siJson, ';',

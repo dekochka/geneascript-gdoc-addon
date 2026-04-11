@@ -6,7 +6,7 @@ Use a GeneaScript logo here and in the manifest if you enable the add-on’s sid
 
 - **File:** `GeneaScript_logo_med.png` (1000×1000 px) is suitable; Google scales it. For a crisper Extensions menu icon, you can use 48×48 or 128×128 px.
 - **Current setup:** This project’s `appsscript.json` has **no** `addOns` block so the add-on runs as an **Editor add-on** via Test deployments. The menu appears in the doc, but there is no sidebar and no `logoUrl` in use.
-- **If you add a logo later:** `logoUrl` in `appsscript.json` must be a **public HTTPS URL** (e.g. GitHub raw URL or Cloud Storage). See [INSTALLATION.md](../../docs/INSTALLATION.md) and the example below.
+- **If you add a logo later:** `logoUrl` in `appsscript.json` must be a **public HTTPS URL** (e.g. GitHub raw URL or Cloud Storage). See [INSTALLATION.md](../../docs/en/INSTALLATION.md) and the example below.
 
 Example manifest snippet:
 
@@ -29,4 +29,4 @@ Screenshots for the user guide live in the **docs** folder:
 - `docs/Step3_TranscriptionFinished.jpg` — Dialog / transcription finished
 - `docs/Step4_ReviewTranscriptionResults.jpg` — Review transcription results
 
-They are referenced from [USER_GUIDE.md](../../docs/USER_GUIDE.md).
+They are referenced from [USER_GUIDE.md](../../docs/en/USER_GUIDE.md).

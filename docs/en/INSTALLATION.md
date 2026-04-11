@@ -1,6 +1,13 @@
 ---
 layout: default
+lang: en
+locale_section: true
+title: Installation — Metric Book Transcriber
+permalink: /en/INSTALLATION.html
+redirect_from:
+  - /INSTALLATION.html
 ---
+
 # ⚙️ Installation — Metric Book Transcriber Add-On
 
 This add-on runs in Google Docs™ and uses the **Google™ AI (Gemini™)** API to transcribe metric book images. Choose one of the installation options below. The API key can be entered the first time you run **Transcribe Image** (the add-on will prompt you), or set manually in Script properties.
@@ -58,7 +65,7 @@ flowchart LR
 3. **📄** Open any Google Doc. You should see the menu **Extensions** → **Metric Book Transcriber** with **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Setup AI**, and more. You can also click the add-on icon in the right-side panel to open the sidebar.
 4. **🔑** The first time you run **Transcribe Image**, the add-on prompts you to enter a [Google AI (Gemini) API key](https://aistudio.google.com/api-keys) and choose a model (default: Gemini Flash Latest, free tier ~20 requests/day). Get a key, paste it, pick a model, and click **Save & Continue**. Your key and model are stored privately (per user). To change them later, use **Setup AI**. In the same dialog you can set **Interface language** (English, Ukrainian, Russian, or Auto to follow your Google account). See [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) for model and token cost details.
 
-That's it — you can now import images from Drive and transcribe them. See the [User Guide](USER_GUIDE.md) for step-by-step usage.
+That's it — you can now import images from Drive and transcribe them. See the [User Guide](USER_GUIDE.html) for step-by-step usage.
 
 ---
 
@@ -299,4 +306,4 @@ Each developer's keys are private to their test environment. Production keys are
 | **API errors / 403** | Confirm the API key is valid and the Generative Language API is enabled. Check [Google AI Studio API Keys](https://aistudio.google.com/api-keys) or Cloud Console. |
 | **Timeout** | The script uses a 60-second timeout. Try a smaller image or try again. |
 
-For usage (document structure, Context section, step-by-step with screenshots), see [USER_GUIDE.md](USER_GUIDE.md).
+For usage (document structure, Context section, step-by-step with screenshots), see [USER_GUIDE.html](USER_GUIDE.html).

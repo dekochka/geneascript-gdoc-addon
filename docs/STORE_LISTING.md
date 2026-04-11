@@ -95,9 +95,9 @@ Use **geneascript.support@gmail.com** for all public communications (support, fe
 | Field | URL |
 |-------|-----|
 | Terms of Service | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/TERMS_OF_SERVICE.md` |
-| Privacy Policy | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/PRIVACY_POLICY.md` |
+| Privacy Policy | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/en/PRIVACY_POLICY.md` |
 | Support | `https://github.com/dekochka/geneascript-gdoc-addon/issues` or `mailto:geneascript.support@gmail.com` |
-| Help (Learn more) | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/USER_GUIDE.md` |
+| Help (Learn more) | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/en/USER_GUIDE.md` |
 | Report an issue | `https://github.com/dekochka/geneascript-gdoc-addon/issues` |
 
 ## Developer Information

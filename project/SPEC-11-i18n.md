@@ -26,8 +26,8 @@ End users are often Ukrainian-speaking genealogists. The add-on UI (menus, dialo
 | Locale resolution + string tables | `addon/I18n.gs` | `getEffectiveLocale()`, `t()`, User Property `UI_LOCALE` |
 | Menus, alerts, modals, sidebar | `addon/Code.gs` | Uses `t()`; client strings injected as JSON |
 | Template gallery UI + display metadata | `addon/TemplateGallery.gs` | Dialog chrome + localized template **labels/descriptions** for cards |
-| User guide / install notes | `docs/USER_GUIDE.md`, `docs/INSTALLATION.md` | Short “Interface language” section |
-| Privacy | `docs/PRIVACY_POLICY.md` | Optional UI language preference stored in User Properties |
+| User guide / install notes | `docs/en/USER_GUIDE.md`, `docs/en/INSTALLATION.md` (+ `docs/uk/`, `docs/ru/` for site) | Short “Interface language” section |
+| Privacy | `docs/en/PRIVACY_POLICY.md` (+ uk/ru) | Optional UI language preference stored in User Properties |
 
 **Out of scope**
 

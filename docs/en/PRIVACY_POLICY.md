@@ -1,6 +1,13 @@
 ---
 layout: default
+lang: en
+locale_section: true
+title: Privacy Policy — GeneaScript
+permalink: /en/PRIVACY_POLICY.html
+redirect_from:
+  - /PRIVACY_POLICY.html
 ---
+
 # Privacy Policy — GeneaScript Metric Book Transcriber
 
 **Last updated:** 2026-04-04

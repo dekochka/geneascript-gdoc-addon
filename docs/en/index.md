@@ -1,8 +1,12 @@
 ---
 layout: default
+lang: en
+locale_section: true
 title: GeneaScript — Metric Book Transcriber
+permalink: /en/
 ---
-<img src="GeneaScript_logo_128.png" alt="GeneaScript" width="128" height="128" />
+
+<img src="/GeneaScript_logo_128.png" alt="GeneaScript" width="128" height="128" />
 <h1>GeneaScript Metric Book Transcriber</h1>
 <p>Free Google Docs™ add-on for transcribing metric book images (birth, marriage, death registers) using Gemini™ (Google™ AI). For genealogists and archivists working with 19th/20th-century vital records from Eastern Europe — Galicia (Austrian Empire) and the Russian Empire.</p>
 <ul>

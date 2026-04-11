@@ -1,6 +1,13 @@
 ---
 layout: default
+lang: en
+locale_section: true
+title: Terms of Service — Metric Book Transcriber
+permalink: /en/TERMS_OF_SERVICE.html
+redirect_from:
+  - /TERMS_OF_SERVICE.html
 ---
+
 # Terms of Service — Metric Book Transcriber
 
 **Last updated:** 2026-03-14
@@ -37,7 +44,7 @@ IN NO EVENT SHALL THE DEVELOPER BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
 
 ## 7. Data Handling
 
-See the [Privacy Policy](PRIVACY_POLICY.md) for details on what data the Add-on accesses, how it is used, and how it is stored.
+See the [Privacy Policy](PRIVACY_POLICY.html) for details on what data the Add-on accesses, how it is used, and how it is stored.
 
 ## 8. Modifications
 

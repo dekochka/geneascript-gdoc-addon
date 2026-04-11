@@ -8,9 +8,9 @@ A Google Docs add-on that helps transcribe images of metric books (birth, marria
 
 ## 📥 Install
 
-**Recommended:** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any Google Doc. See [Installation](docs/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
+**Recommended:** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any Google Doc. See [Installation](docs/en/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
 
-## 📸 Current UI (v1.1.0 — EN / UK / RU)
+## 📸 Current UI (v1.1.1 — EN / UK / RU)
 
 **Main workflow with sidebar:**
 
@@ -69,9 +69,9 @@ flowchart LR
 
 ## 📚 Documentation
 
-- **[📘 User Guide](docs/USER_GUIDE.md)** — Import from Drive, document structure (Context + images), how to transcribe step-by-step, output format, tips, and troubleshooting.
-- **[⚙️ Installation](docs/INSTALLATION.md)** — Marketplace install (recommended), test deployment, container-bound, or clasp.
-- **[🔒 Privacy Policy](docs/PRIVACY_POLICY.md)** — What data the add-on accesses and how it is handled.
+- **[📘 User Guide](docs/en/USER_GUIDE.md)** — Import from Drive, document structure (Context + images), how to transcribe step-by-step, output format, tips, and troubleshooting. ([Українська](docs/uk/USER_GUIDE.md) · [Русский](docs/ru/USER_GUIDE.md))
+- **[⚙️ Installation](docs/en/INSTALLATION.md)** — Marketplace install (recommended), test deployment, container-bound, or clasp. ([UK](docs/uk/INSTALLATION.md) · [RU](docs/ru/INSTALLATION.md))
+- **[🔒 Privacy Policy](docs/en/PRIVACY_POLICY.md)** — What data the add-on accesses and how it is handled. ([UK](docs/uk/PRIVACY_POLICY.md) · [RU](docs/ru/PRIVACY_POLICY.md))
 - **[📄 Terms of Service](docs/TERMS_OF_SERVICE.md)**
 - **[📈 Observability Setup](observability/README.md)** — Complete metrics catalog, dashboard architecture, provisioning flow, and Google Cloud apply/verify steps.
 

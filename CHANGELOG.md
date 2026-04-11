@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-04-11
+
+### ✨ Added
+
+- **Localized documentation site (geneascript.com)** — User Guide, Installation, Privacy Policy, and Terms are published under **`/en/`**, **`/uk/`**, and **`/ru/`** with a language hub at **`/`**. Chrome (nav, footer, language switcher, `hreflang`) is driven by `docs/_data/site_i18n.yml`.
+- **`jekyll-redirect-from`** — Legacy URLs (`/USER_GUIDE.html`, `/INSTALLATION.html`, `/PRIVACY_POLICY.html`, `/TERMS_OF_SERVICE.html`) redirect to the English locale pages.
+
+### 🔧 Changed
+
+- **Repository doc paths** — Canonical Markdown sources for the public guides live under **`docs/en/`** (plus **`docs/uk/`** and **`docs/ru/`** translations). **`README.md`**, **`STORE_LISTING.md`**, and **`HELP_URL`** in the add-on point to the new locations.
+- **`docs/DESIGN.md`** — Uses the default layout with **`lang: en`** for consistent navigation.
+- **Sidebar footer** — Shows version **v1.1.1**; **Help** link targets **`https://geneascript.com/en/USER_GUIDE.html`**.
+
+### 📚 Documentation
+
+- **Ukrainian and Russian** site pages mirror the English structure; UK/RU User Guide and Installation are concise editions; Privacy and Terms are fully translated for the site.
+
 ## [1.1.0] — 2026-04-11
 
 ### ✨ Added
@@ -331,6 +348,7 @@ Initial proof-of-concept release.
 - **📋 Project specs** — SPEC.md (transcription spec), SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md (Drive Folder Importer spec).
 - **🔐 OAuth** — `drive.readonly` scope in manifest for folder access; API key stored in Script Properties only (not in code).
 
+[1.1.1]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.1
 [1.1.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.0
 [1.0.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.0.0
 [0.1-poc]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.1-poc

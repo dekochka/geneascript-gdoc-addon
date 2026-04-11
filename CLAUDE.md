@@ -41,7 +41,7 @@ cd observability/scripts
   - `Observability.gs` — Structured logging helpers for telemetry (logObsEvent, error classification, cost estimation)
   - `appsscript.json` — Add-on manifest: OAuth scopes, add-on config, runtime settings
 
-- **`docs/`** — User documentation (USER_GUIDE, INSTALLATION, PRIVACY_POLICY, TERMS_OF_SERVICE, STORE_LISTING)
+- **`docs/`** — User documentation: **`docs/en/`** (plus **`docs/uk/`**, **`docs/ru/`** for the site), STORE_LISTING, DESIGN; GitHub Pages uses Jekyll under **`docs/`**
 - **`project/`** — Specs (SPEC.md, SPEC-1 through SPEC-8, TEMPLATE-SPEC.md)
 - **`observability/`** — GCP monitoring config, metrics apply script, dashboards JSON
 
@@ -144,7 +144,7 @@ Follow `.cursor/rules/release-change-management.mdc`:
 **Scope changes require:**
 - Update `addon/appsscript.json`
 - Review `project/SPEC-4-PUBLISH-MARKETPLACE.md` for privacy/verification implications
-- Update `docs/PRIVACY_POLICY.md` if data access changes
+- Update `docs/en/PRIVACY_POLICY.md` (and uk/ru site copies if needed) if data access changes
 
 ## Observability
 
@@ -202,4 +202,4 @@ Follow `.cursor/rules/release-change-management.mdc`:
 - **Model changes:** Update constants in `Code.gs` (MODEL_ID, etc.) and model list in setup dialog
 - **New scopes:** Update `addon/appsscript.json` + review privacy/Marketplace implications
 - **New metrics:** Add to `observability/scripts/apply.sh` + update dashboard JSON
-- **Docs updates:** Keep `docs/USER_GUIDE.md` and `docs/INSTALLATION.md` in sync with UI/behavior changes
+- **Docs updates:** Keep `docs/en/USER_GUIDE.md` and `docs/en/INSTALLATION.md` in sync with UI/behavior changes (and localized site pages when applicable)

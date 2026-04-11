@@ -1,6 +1,13 @@
 ---
 layout: default
+lang: en
+locale_section: true
+title: User Guide — Metric Book Transcriber
+permalink: /en/USER_GUIDE.html
+redirect_from:
+  - /USER_GUIDE.html
 ---
+
 # 📖 User Guide — Metric Book Transcriber Add-On
 
 This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google™ AI (Gemini™)**. You can **import scan images from Google Drive™ file links/IDs that you select** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
@@ -246,7 +253,7 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Cannot access some files** | Each file must be owned by you or shared with you. If you changed access recently, re-authorize and run import again. |
 | **No images found in selection** | Only JPEG, PNG, and WebP are imported. Ensure selected files are images in one of these formats. |
 | **Some images skipped** | Very large or invalid images may be skipped; the add-on reports how many. Resize or re-export large scans if needed. |
-| **"Set API Key" dialog / API key prompt** | The add-on prompts for a key and model on first use of **Transcribe Image**. Create a key at [Google AI Studio API Keys](https://aistudio.google.com/api-keys), paste it, choose a model, and click **Save & Continue**. To change key or model later, use **Extensions** → **Metric Book Transcriber** → **Setup AI**. See [INSTALLATION.md](INSTALLATION.md). |
+| **"Set API Key" dialog / API key prompt** | The add-on prompts for a key and model on first use of **Transcribe Image**. Create a key at [Google AI Studio API Keys](https://aistudio.google.com/api-keys), paste it, choose a model, and click **Save & Continue**. To change key or model later, use **Extensions** → **Metric Book Transcriber** → **Setup AI**. See [INSTALLATION.html](INSTALLATION.html). |
 | **Setup dialog validation error** | Check request fields in **Setup AI**. **Transcription strictness** must be `0..2`; **Max text length** must be an integer `1..65536`; and reasoning options depend on the selected model. |
 | **"Authorisation is required to perform that action"** | Usually means you are a collaborator on the doc and haven’t authorized the add-on for your account. Open **Extensions** → **Metric Book Transcriber** and complete the authorization when prompted. |
 | **Quota exceeded / 429 / rate limit** | Free tier has limited requests per day. The add-on shows the error in the dialog. Check [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing) and your quota/billing setup; switch model or billing settings via **Setup AI** if needed. |
@@ -261,4 +268,4 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Context extraction returns unusable text** | Try a clearer cover image, rerun extraction, then edit fields manually before apply. |
 | **"No homepage card" on right panel icon** | Ensure the latest code is deployed. The right-side icon shows a Card with an "Open Transcriber Sidebar" button. If you see this error, redeploy via `clasp push --force` or update the test deployment. |
 
-For installation and API key setup, see [INSTALLATION.md](INSTALLATION.md).
+For installation and API key setup, see [INSTALLATION.html](INSTALLATION.html).

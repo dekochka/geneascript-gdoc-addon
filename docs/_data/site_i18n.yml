@@ -1,0 +1,53 @@
+# GitHub Pages chrome strings (geneascript.com). Page body lives in en/ uk/ ru/.
+locales: [en, uk, ru]
+en:
+  html_lang: en
+  nav_home: Home
+  nav_user_guide: User Guide
+  nav_installation: Installation
+  nav_privacy: Privacy
+  nav_terms: Terms
+  nav_github: GitHub
+  home_title: GeneaScript
+  home_heading: Metric Book Transcriber
+  home_intro: "Choose a language for the documentation site."
+  home_btn_en: English
+  home_btn_uk: "Українська"
+  home_btn_ru: "Русский"
+  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio, and Gemini are trademarks of Google LLC."
+  footer_support_label: "Support:"
+  lang_switch: Language
+uk:
+  html_lang: uk
+  nav_home: Головна
+  nav_user_guide: Посібник
+  nav_installation: Встановлення
+  nav_privacy: Конфіденційність
+  nav_terms: Умови
+  nav_github: GitHub
+  home_title: GeneaScript
+  home_heading: Транскриптор метричних книг
+  home_intro: "Оберіть мову сайту документації."
+  home_btn_en: English
+  home_btn_uk: "Українська"
+  home_btn_ru: "Русский"
+  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio та Gemini є торговими марками Google LLC."
+  footer_support_label: "Підтримка:"
+  lang_switch: Мова
+ru:
+  html_lang: ru
+  nav_home: Главная
+  nav_user_guide: Руководство
+  nav_installation: Установка
+  nav_privacy: Конфиденциальность
+  nav_terms: Условия
+  nav_github: GitHub
+  home_title: GeneaScript
+  home_heading: Транскрибатор метрических книг
+  home_intro: "Выберите язык сайта документации."
+  home_btn_en: English
+  home_btn_uk: "Українська"
+  home_btn_ru: "Русский"
+  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio и Gemini являются товарными знаками Google LLC."
+  footer_support_label: "Поддержка:"
+  lang_switch: Язык
