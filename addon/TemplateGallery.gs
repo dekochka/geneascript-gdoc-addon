@@ -494,14 +494,14 @@ function getTemplateGalleryHtml() {
 
   var cardsHtml = '';
   for (var i = 0; i < templates.length; i++) {
-    var t = templates[i];
-    var checked = t.isSelected ? ' checked' : '';
-    cardsHtml += '<label class="card' + (t.isSelected ? ' selected' : '') + '" data-id="' + esc(t.id) + '">' +
-      '<input type="radio" name="template" value="' + esc(t.id) + '"' + checked + '>' +
+    var tpl = templates[i];
+    var checked = tpl.isSelected ? ' checked' : '';
+    cardsHtml += '<label class="card' + (tpl.isSelected ? ' selected' : '') + '" data-id="' + esc(tpl.id) + '">' +
+      '<input type="radio" name="template" value="' + esc(tpl.id) + '"' + checked + '>' +
       '<div class="card-body">' +
-      '<div class="card-title">' + esc(t.label) + '</div>' +
-      '<div class="card-meta">' + esc(t.region) + ' &middot; ' + esc(t.religion) + ' &middot; ' + esc(t.recordTypes) + '</div>' +
-      '<div class="card-desc">' + esc(t.description) + '</div>' +
+      '<div class="card-title">' + esc(tpl.label) + '</div>' +
+      '<div class="card-meta">' + esc(tpl.region) + ' &middot; ' + esc(tpl.religion) + ' &middot; ' + esc(tpl.recordTypes) + '</div>' +
+      '<div class="card-desc">' + esc(tpl.description) + '</div>' +
       '</div>' +
       '</label>';
   }
