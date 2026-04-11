@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### ✨ Added
+
+- **Interface localization (EN / UK / RU)** — Menus, dialogs, sidebar, Drive picker, template gallery, and homepage card use translations. Language follows the Google account locale by default, with an explicit override (**Interface language**) in **Setup AI** and **Settings** (stored in User Properties as `UI_LOCALE`). Unsupported account locales fall back to English.
+- **`addon/I18n.gs`** — Central string tables, `t()`, `getEffectiveLocale()`, and client JSON helpers for `HtmlService` injection.
+- **`project/SPEC-11-i18n.md`** — Product and technical spec for i18n scope and testing.
+
+### 📚 Documentation
+
+- **USER_GUIDE.md** / **INSTALLATION.md** — Interface language subsection.
+- **PRIVACY_POLICY.md** — Discloses optional UI language preference stored in User Properties.
+
 ## [1.0.0] — 2026-04-05
 
 ### ✨ Added
