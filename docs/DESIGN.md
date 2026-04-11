@@ -113,7 +113,7 @@ The Template Gallery provides **domain-specific transcription templates** that c
 - Selected template ID stored in **Document Properties** (`SELECTED_TEMPLATE_ID`) — per-document, persists across sessions
 - Default template: `galicia_gc` (Galician Greek Catholic 19th c.)
 
-**Available templates (v1.0.0)**
+**Available templates (v1.1.0 — Template Gallery + localized UI)**
 1. **Galician Greek Catholic (`galicia_gc`)** — Latin/Polish/Ukrainian registers with Latinized names, Polish orthography
 2. **Russian Imperial Orthodox (`russian_orthodox`)** — Pre-reform Russian Cyrillic registers with Church Slavonic, patronymics, Julian calendar
 

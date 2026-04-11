@@ -10,7 +10,7 @@ A Google Docs add-on that helps transcribe images of metric books (birth, marria
 
 **Recommended:** Install from the [Google Workspace Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any Google Doc. See [Installation](docs/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
 
-## 📸 Current UI (v1.0)
+## 📸 Current UI (v1.1.0 — EN / UK / RU)
 
 **Main workflow with sidebar:**
 

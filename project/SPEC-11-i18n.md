@@ -1,7 +1,7 @@
 # Feature specification: Interface localization (i18n)
 
 **Status:** Approved (implementation in progress)  
-**Target version:** Next minor release after merge  
+**Target version:** v1.1.0  
 **Related:** [SPEC.md](SPEC.md) (prompt/output language is separate from UI); [SPEC-3-APIKEY-SETUP.md](SPEC-3-APIKEY-SETUP.md); [SPEC-5-SIDEBAR-BATCH.md](SPEC-5-SIDEBAR-BATCH.md); [SPEC-10-PROMPT-TEMPLATE-GALLERY.md](SPEC-10-PROMPT-TEMPLATE-GALLERY.md)
 
 ---
