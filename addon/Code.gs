@@ -2370,9 +2370,10 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
       'var locked=' + JSON.stringify(lockedSelection) + ';' +
       'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}' +
       'function el(id){return document.getElementById(id);}' +
+      'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}' +
       'function setStatus(kind,msg){ var s=el("status"); if(kind==="error"){s.style.color="#c62828"; s.textContent="\\u274c "+msg;} else if(kind==="success"){s.style.color="#2e7d32"; s.textContent="\\u2705 "+msg;} else if(kind==="progress"){s.style.color="#1a73e8"; s.textContent=msg;} else {s.style.color="#666"; s.textContent=msg||"";} }' +
       'function currentImageLabel(idx){if(preselectedLabel)return preselectedLabel;for(var i=0;i<images.length;i++){if(Number(images[i].index)===Number(idx))return images[i].label||(sub(EX.imageFallback,{n:String(i+1)}));}return EX.selectedImage;}' +
-      'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">"+EX.noImages+"</option>"; el("extractBtn").disabled=true; setStatus("error",EX.importFirst); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; h+="<option value=\\""+m.index+"\\""+sel+">"+(m.label||(sub(EX.imageFallback,{n:String(i+1)})))+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
+      'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">"+esc(EX.noImages)+"</option>"; el("extractBtn").disabled=true; setStatus("error",EX.importFirst); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; var optLabel=m.label?esc(m.label):sub(EX.imageFallback,{n:String(i+1)}); h+="<option value=\\""+m.index+"\\""+sel+">"+optLabel+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
       'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
       'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
       'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
@@ -2464,16 +2465,16 @@ function getSidebarHtml() {
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
 
     '<div class="section">',
-    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; ', t('sidebar.btn_import'), '</button>',
-    '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; ', t('sidebar.btn_setup'), '</button>',
-    '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; ', t('sidebar.btn_extract'), '</button>',
-    '  <button class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; ', t('sidebar.template_prefix'), ' <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
+    '  <button id="importBtn" type="button" data-testid="geneascript-import" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; ', t('sidebar.btn_import'), '</button>',
+    '  <button id="setupBtn" type="button" data-testid="geneascript-setup-ai" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; ', t('sidebar.btn_setup'), '</button>',
+    '  <button id="extractBtnSidebar" type="button" data-testid="geneascript-extract" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; ', t('sidebar.btn_extract'), '</button>',
+    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; ', t('sidebar.template_prefix'), ' <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
     '</div>',
 
     '<div class="section">',
     '  <div class="section-header">',
     '    <span class="section-title">', t('sidebar.section_images'), ' (<span id="imgCount">0</span>)</span>',
-    '    <button class="btn btn-sm" onclick="refreshImages()" title="', t('sidebar.refresh_title'), '">&#8635; ', t('sidebar.refresh_button'), '</button>',
+    '    <button id="refreshImgBtn" type="button" data-testid="geneascript-refresh" class="btn btn-sm" onclick="refreshImages()" title="', t('sidebar.refresh_title'), '">&#8635; ', t('sidebar.refresh_button'), '</button>',
     '  </div>',
     '  <div class="select-all">',
     '    <input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">',
@@ -2485,8 +2486,8 @@ function getSidebarHtml() {
     '</div>',
 
     '<div class="section">',
-    '  <button id="goBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; ', t('sidebar.transcribe'), '</button>',
-    '  <button id="stopBtn" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; ', t('sidebar.stop'), '</button>',
+    '  <button id="goBtn" type="button" data-testid="geneascript-transcribe" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; ', t('sidebar.transcribe'), '</button>',
+    '  <button id="stopBtn" type="button" data-testid="geneascript-stop" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; ', t('sidebar.stop'), '</button>',
     '</div>',
 
     '<div id="progress" class="progress section">',

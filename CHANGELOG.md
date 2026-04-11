@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Template Gallery** — Renamed inner loop variable in `getTemplateGalleryHtml` so it no longer shadows the global `t()` i18n helper (fixes dialog failing to open).
 - **Template Gallery RPC errors** — Failure handlers use localized fallback text when `google.script.run` returns an error without `message` (avoids **Ошибка: undefined** / similar).
+- **Extract Context dialog** — Image `<option>` labels (from document headings) are HTML-escaped before `innerHTML` assignment so markup in titles cannot break the dialog DOM.
 
 ### 📚 Documentation
 
