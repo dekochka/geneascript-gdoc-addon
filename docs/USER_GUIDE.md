@@ -47,6 +47,10 @@ flowchart LR
 
 The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
+### Interface language
+
+The add-on UI is available in **English**, **Ukrainian**, and **Russian**. By default it follows your **Google account language**. To override, open **Setup AI** or **Settings** and set **Interface language** to **Auto**, **English**, **Українська**, or **Русский**. The choice is saved for your account; reopen the document (or refresh the menu) to see menu labels update. Document content such as the **Context** heading is unchanged so automatic context detection keeps working.
+
 ![v0.8 main page with sidebar and document](app-screenshots/v0.8-main-page.jpg)
 
 ---

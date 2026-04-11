@@ -33,24 +33,44 @@ function onInstall(e) {
 }
 
 /**
+ * Builds the custom Docs menu. Pass onOpen's `e` so labels respect Editor add-on AuthMode.NONE
+ * (cannot read UI_LOCALE until the add-on is enabled in this doc). Pass null after user interaction
+ * to apply stored UI_LOCALE. See getLocaleForOpenEvent in I18n.gs.
+ */
+function buildAddonMenu_(openEvent) {
+  DocumentApp.getUi()
+    .createMenu(t('menu.title', null, openEvent))
+    .addItem(t('menu.open_sidebar', null, openEvent), 'showTranscribeSidebar')
+    .addItem(t('menu.transcribe_image', null, openEvent), 'transcribeSelectedImage')
+    .addItem(t('menu.import_drive', null, openEvent), 'showDrivePickerDialog')
+    .addItem(t('menu.extract_context', null, openEvent), 'openExtractContextDialog')
+    .addItem(t('menu.select_template', null, openEvent), 'showTemplateGalleryDialog')
+    .addSeparator()
+    .addItem(t('menu.setup_ai', null, openEvent), 'showSetupApiKeyAndModelDialog')
+    .addItem(t('menu.help', null, openEvent), 'showHelp')
+    .addItem(t('menu.report_issue', null, openEvent), 'reportIssue')
+    .addToUi();
+}
+
+/**
+ * Rebuild menu in AuthMode.FULL so UI_LOCALE applies (call from menu handlers / after saving language).
+ */
+function refreshAddonMenuForCurrentLocale() {
+  try {
+    buildAddonMenu_(null);
+  } catch (e) {
+    Logger.log('refreshAddonMenuForCurrentLocale: ' + e.message);
+  }
+}
+
+/**
  * Runs when the document is opened. Adds a custom menu.
  * Uses createMenu() for a top-level menu (Metric Book Transcriber) next to Help for reliable visibility.
  * When run from the script editor (no document UI), getUi() throws; we catch and skip.
  */
 function onOpen(e) {
   try {
-    DocumentApp.getUi()
-      .createMenu('GeneaScript Metric Book Transcriber')
-      .addItem('Open Sidebar', 'showTranscribeSidebar')
-      .addItem('Transcribe Image', 'transcribeSelectedImage')
-      .addItem('Import Book from Drive Files', 'showDrivePickerDialog')
-      .addItem('Extract Context from Cover Image', 'openExtractContextDialog')
-      .addItem('Select Template', 'showTemplateGalleryDialog')
-      .addSeparator()
-      .addItem('Setup AI', 'showSetupApiKeyAndModelDialog')
-      .addItem('Help / User Guide', 'showHelp')
-      .addItem('Report an issue', 'reportIssue')
-      .addToUi();
+    buildAddonMenu_(e);
     Logger.log('onOpen: menu added.');
   } catch (e) {
     Logger.log('onOpen: skipped menu (no UI context, e.g. run from script editor). ' + e.message);
@@ -215,8 +235,8 @@ function importFromDriveFolder() {
   Logger.log('importFromDriveFolder: manual fallback start');
   var ui = DocumentApp.getUi();
   var response = ui.prompt(
-    'Drive Files',
-    'Paste one or more Google Drive image file URLs or IDs (JPEG, PNG, WebP), separated by commas or new lines.',
+    t('dialog.drive_files.title'),
+    t('dialog.drive_files.prompt'),
     ui.ButtonSet.OK_CANCEL
   );
   if (response.getSelectedButton() !== ui.Button.OK) return;
@@ -259,8 +279,8 @@ function importFromDriveFileIds(fileIds) {
       errorCode: 'UNKNOWN',
       errorMessage: 'invalid drive file links'
     });
-    ui.alert('Invalid input', 'No valid Drive file IDs found. Please provide file links or IDs.', ui.ButtonSet.OK);
-    return { ok: false, message: 'No valid Drive file IDs found' };
+    ui.alert(t('alert.invalid_input.title'), t('alert.invalid_input.body'), ui.ButtonSet.OK);
+    return { ok: false, message: t('msg.no_valid_file_ids') };
   }
 
   var imageFiles = [];
@@ -298,8 +318,8 @@ function importFromDriveFileIds(fileIds) {
       count: 0,
       importLatencyMs: Date.now() - operationStartMs
     });
-    ui.alert('No images', 'No accessible JPEG/PNG/WebP files found in your selection.', ui.ButtonSet.OK);
-    return { ok: false, message: 'No accessible JPEG/PNG/WebP files found' };
+    ui.alert(t('alert.no_images.title'), t('alert.no_images.body'), ui.ButtonSet.OK);
+    return { ok: false, message: t('msg.no_accessible_images') };
   }
   imageFiles = naturalSortFiles(imageFiles);
   var truncated = false;
@@ -309,7 +329,7 @@ function importFromDriveFileIds(fileIds) {
   }
   var count = imageFiles.length;
   Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
-  ui.alert('Importing', 'Ready to import ' + count + ' image(s) from your selected files. Click OK to start — this may take a minute.', ui.ButtonSet.OK);
+  ui.alert(t('alert.importing.title'), t('alert.importing.body', { count: String(count) }), ui.ButtonSet.OK);
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
@@ -355,7 +375,7 @@ function importFromDriveFileIds(fileIds) {
       skippedFiles.push({
         name: file.getName(),
         sizeMB: sizeMB,
-        reason: bytesForError > 0 ? 'Too large (' + sizeMB + ' MB)' : 'Invalid or inaccessible'
+        reason: bytesForError > 0 ? t('import.skip_large', { sizeMB: sizeMB }) : t('import.skip_invalid')
       });
       Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + sizeMB + ' error=' + (e.message || String(e)));
       Logger.log('importFromDriveFileIds: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
@@ -419,7 +439,7 @@ function getDrivePickerConfig() {
     Logger.log('getDrivePickerConfig: configuration incomplete');
     return {
       ok: false,
-      message: 'Picker is not configured. Set script properties GOOGLE_PICKER_API_KEY and GOOGLE_PICKER_APP_ID (Cloud project number).'
+      message: t('picker.config_error')
     };
   }
 
@@ -462,12 +482,13 @@ function getDrivePickerConfig() {
  * Shows a minimal loading dialog that auto-closes when Picker opens.
  */
 function showDrivePickerDialog() {
+  refreshAddonMenuForCurrentLocale();
   Logger.log('showDrivePickerDialog: start');
   var html = HtmlService.createHtmlOutput(getDrivePickerHtml())
     .setWidth(1100)
     .setHeight(700);
   Logger.log('showDrivePickerDialog: showing modal dialog');
-  DocumentApp.getUi().showModalDialog(html, 'Import Drive Images');
+  DocumentApp.getUi().showModalDialog(html, t('dialog.import_drive.title'));
   Logger.log('showDrivePickerDialog: dialog shown');
 }
 
@@ -477,22 +498,29 @@ function showDrivePickerDialog() {
  */
 function showImportError(errorMessage) {
   var ui = DocumentApp.getUi();
-  ui.alert('Import Failed', errorMessage || 'An error occurred during import. Please try again.', ui.ButtonSet.OK);
+  ui.alert(t('alert.import_failed.title'), errorMessage || t('alert.import_failed.body'), ui.ButtonSet.OK);
 }
 
 function getDrivePickerHtml() {
+  var piJson = stringifyForHtmlScript(getPickerClientI18n());
+  var loadMsg = t('picker.loading').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  var i1 = t('picker.instr_line1').replace(/</g, '&lt;');
+  var i2 = t('picker.instr_line2').replace(/</g, '&lt;');
+  var i3 = t('picker.instr_line3').replace(/</g, '&lt;');
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     '<script src="https://apis.google.com/js/api.js"></script>',
     '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px;white-space:pre-wrap;text-align:left;max-width:600px;margin-left:auto;margin-right:auto}.error{color:#d93025}</style>',
     '</head><body>',
-    '<div id="status">Loading Google Picker...</div>',
+    '<div id="status">', loadMsg, '</div>',
     '<div id="instructions" style="font-size:12px;color:#5f6368;margin-top:10px;display:none;">',
-    '  <strong>Images tab:</strong> All accessible images<br>',
-    '  <strong>Folders tab:</strong> Browse folders (images only)<br>',
-    '  Use search to find files by name',
+    '  ', i1, '<br>',
+    '  ', i2, '<br>',
+    '  ', i3,
     '</div>',
     '<script>',
+    'var PI=', piJson, ';',
+    'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}',
     'var pickerConfig=null;',
     'function setStatus(msg,isError){',
     '  var el=document.getElementById("status");',
@@ -522,7 +550,7 @@ function getDrivePickerHtml() {
     '      pickerConfig=cfg;',
     '      if(!cfg||!cfg.ok){',
     '        console.error("init: config invalid", {ok: cfg.ok, message: cfg.message});',
-    '        showError((cfg&&cfg.message)||"Picker is not configured. Contact your administrator.");',
+    '        showError((cfg&&cfg.message)||PI.notConfigured);',
     '        return;',
     '      }',
     '      console.log("init: config valid, calling openPicker");',
@@ -530,13 +558,13 @@ function getDrivePickerHtml() {
     '    })',
     '    .withFailureHandler(function(e){',
     '      console.error("init: failed to get config", e);',
-    '      showError("Failed to load Picker configuration: "+(e.message||String(e)));',
+    '      showError(PI.loadConfigFail+" "+(e.message||String(e)));',
     '    })',
     '    .getDrivePickerConfig();',
     '}',
     'function openPicker(){',
     '  console.log("openPicker: starting");',
-    '  setStatus("Opening Google Picker...");',
+    '  setStatus(PI.opening);',
     '  console.log("openPicker: loading gapi picker");',
     '  gapi.load("picker",{',
     '    callback:function(){',
@@ -577,7 +605,7 @@ function getDrivePickerHtml() {
     '    },',
     '    onerror:function(e){',
     '      console.error("openPicker: gapi load error", e);',
-    '      showError("Failed to load Google Picker API. Check your network connection.");',
+    '      showError(PI.loadApiFail);',
     '    }',
     '  });',
     '}',
@@ -609,7 +637,7 @@ function getDrivePickerHtml() {
     '    }',
     '  }',
     '  if(!ids.length){',
-    '    var msg=skipped>0?"Only image files (JPEG, PNG, WebP) can be imported.":"No files selected.";',
+    '    var msg=skipped>0?PI.onlyImages:PI.noneSelected;',
     '    console.warn("onPicked: no valid images, skipped="+skipped);',
     '    showError(msg);',
     '    return;',
@@ -618,27 +646,28 @@ function getDrivePickerHtml() {
     '    console.log("onPicked: skipped "+skipped+" non-image files");',
     '  }',
     '  console.log("onPicked: starting import for", ids.length, "files");',
-    '  var statusMsg="Importing " + ids.length + " image"+(ids.length>1?"s":"")+"...";',
-    '  if(skipped>0)statusMsg+=" (skipped "+skipped+" non-image file"+(skipped>1?"s":"")+")";',
+    '  var impKey=ids.length===1?"importing_one":"importing_many";',
+    '  var statusMsg=sub(PI[impKey]||PI.importing_many,{n:ids.length});',
+    '  if(skipped>0)statusMsg+=sub(skipped===1?PI.skipped_one:PI.skipped_many,{n:skipped});',
     '  showStatus(statusMsg);',
     '  google.script.run',
     '    .withSuccessHandler(function(result){',
     '      console.log("onPicked: import completed", result);',
     '      if(!result||!result.ok){',
-    '        showError(result&&result.message?result.message:"Import failed");',
+    '        showError(result&&result.message?result.message:PI.importFailed);',
     '        return;',
     '      }',
-    '      var msg="Import complete!\\n\\n";',
-    '      msg+="✓ "+result.added+" image"+(result.added===1?"":"s")+" added successfully\\n";',
+    '      var msg=PI.complete+"\\n\\n";',
+    '      msg+=PI.checkmark+" "+sub(PI.addedLine,{n:result.added})+"\\n";',
     '      if(result.skipped>0){',
-    '        msg+="✗ "+result.skipped+" failed (too large or invalid)\\n\\n";',
-    '        msg+="Failed files:\\n";',
-    '        for(var i=0;i<result.skippedFiles.length&&i<5;i++){',
-    '          var sf=result.skippedFiles[i];',
+    '        msg+=PI.crossmark+" "+sub(PI.failedLine,{n:result.skipped})+"\\n\\n";',
+    '        msg+=PI.failedFiles+"\\n";',
+    '        for(var j=0;j<result.skippedFiles.length&&j<5;j++){',
+    '          var sf=result.skippedFiles[j];',
     '          msg+="• "+sf.name+" - "+sf.reason+"\\n";',
     '        }',
     '        if(result.skippedFiles.length>5){',
-    '          msg+="...and "+(result.skippedFiles.length-5)+" more\\n";',
+    '          msg+=sub(PI.more,{n:result.skippedFiles.length-5})+"\\n";',
     '        }',
     '      }',
     '      showStatus(msg);',
@@ -646,7 +675,7 @@ function getDrivePickerHtml() {
     '    })',
     '    .withFailureHandler(function(e){',
     '      console.error("onPicked: import failed", e);',
-    '      showError("Import failed: " + (e.message||String(e)));',
+    '      showError(PI.importFailed+": " + (e.message||String(e)));',
     '    })',
     '    .importFromDriveFileIds(ids);',
     '}',
@@ -660,6 +689,7 @@ function getDrivePickerHtml() {
  * If the API key is not set, shows a dialog for the user to enter it first.
  */
 function transcribeSelectedImage() {
+  refreshAddonMenuForCurrentLocale();
   Logger.log('transcribeSelectedImage: start');
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   if (!apiKey || apiKey.trim() === '') {
@@ -679,9 +709,9 @@ function transcribeSelectedImage() {
 /** Model options for the dropdown (id = API model id). Use exact IDs from https://ai.google.dev/gemini-api/docs/models */
 function getModelOptions() {
   return [
-    { id: 'gemini-flash-latest', label: 'Gemini Flash Latest (default, free tier ~20/day)' },
-    { id: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite (lower quality, 500 requests/day)' },
-    { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview (best quality, billing)' }
+    { id: 'gemini-flash-latest', label: t('model.gemini_flash_latest') },
+    { id: 'gemini-3.1-flash-lite-preview', label: t('model.gemini_31_flash_lite') },
+    { id: 'gemini-3.1-pro-preview', label: t('model.gemini_31_pro') }
   ];
 }
 
@@ -739,43 +769,43 @@ function validateRequestConfig(input, modelId) {
   var tempRaw = (input.temperature !== undefined && input.temperature !== null && input.temperature !== '') ? input.temperature : defaults.temperature;
   var tempNum = Number(tempRaw);
   if (!isFinite(tempNum)) {
-    return { ok: false, message: 'Temperature must be a number.' };
+    return { ok: false, message: t('msg.temperature_number') };
   }
   if (tempNum < REQUEST_MIN_TEMPERATURE || tempNum > REQUEST_MAX_TEMPERATURE) {
-    return { ok: false, message: 'Temperature must be between ' + REQUEST_MIN_TEMPERATURE + ' and ' + REQUEST_MAX_TEMPERATURE + '.' };
+    return { ok: false, message: t('msg.temperature_range', { min: REQUEST_MIN_TEMPERATURE, max: REQUEST_MAX_TEMPERATURE }) };
   }
   result.temperature = Number(tempNum.toFixed(2));
 
   var maxTokensRaw = (input.maxOutputTokens !== undefined && input.maxOutputTokens !== null && input.maxOutputTokens !== '') ? input.maxOutputTokens : defaults.maxOutputTokens;
   var maxTokens = parseOptionalInteger(maxTokensRaw);
   if (maxTokens === null) {
-    return { ok: false, message: 'Max output tokens must be an integer.' };
+    return { ok: false, message: t('msg.max_tokens_int') };
   }
   if (maxTokens < REQUEST_MIN_MAX_OUTPUT_TOKENS || maxTokens > REQUEST_MAX_MAX_OUTPUT_TOKENS) {
-    return { ok: false, message: 'Max output tokens must be between ' + REQUEST_MIN_MAX_OUTPUT_TOKENS + ' and ' + REQUEST_MAX_MAX_OUTPUT_TOKENS + '.' };
+    return { ok: false, message: t('msg.max_tokens_range', { min: REQUEST_MIN_MAX_OUTPUT_TOKENS, max: REQUEST_MAX_MAX_OUTPUT_TOKENS }) };
   }
   result.maxOutputTokens = maxTokens;
 
   var modeRaw = (input.thinkingMode || defaults.thinkingMode);
   var mode = String(modeRaw).trim().toLowerCase();
   if (capability.thinkingModes.indexOf(mode) === -1) {
-    return { ok: false, message: 'Thinking mode "' + mode + '" is not supported for the selected model.' };
+    return { ok: false, message: t('msg.thinking_mode_unsupported', { mode: mode }) };
   }
   result.thinkingMode = mode;
   if (mode === 'off' && !capability.supportsThinkingOff) {
-    return { ok: false, message: 'Thinking off mode is not supported for the selected model.' };
+    return { ok: false, message: t('msg.thinking_off_unsupported') };
   }
 
   var budget = parseOptionalInteger(input.thinkingBudget);
   if (budget === null) {
     result.thinkingBudget = null;
   } else if (!capability.supportsThinkingBudget) {
-    return { ok: false, message: 'Thinking budget is not supported for the selected model.' };
+    return { ok: false, message: t('msg.thinking_budget_unsupported') };
   } else {
     var minBudget = capability.minBudget;
     var maxBudget = capability.maxBudget;
     if (budget < minBudget || budget > maxBudget) {
-      return { ok: false, message: 'Thinking budget must be between ' + minBudget + ' and ' + maxBudget + '.' };
+      return { ok: false, message: t('msg.thinking_budget_range', { min: minBudget, max: maxBudget }) };
     }
     result.thinkingBudget = budget;
   }
@@ -802,9 +832,16 @@ function getSetupDialogState(modelId) {
   var resolvedModel = modelId || getStoredModel();
   var capability = getThinkingCapabilityByModel(resolvedModel);
   var config = getStoredRequestConfig(resolvedModel);
+  var thinkingLabels = {};
+  var allModes = ['auto', 'off', 'minimal', 'standard', 'high'];
+  for (var ti = 0; ti < allModes.length; ti++) {
+    var mv = allModes[ti];
+    thinkingLabels[mv] = thinkingModeLabel(mv);
+  }
   return {
     config: config,
-    capability: capability
+    capability: capability,
+    thinkingLabels: thinkingLabels
   };
 }
 
@@ -853,105 +890,124 @@ function showApiKeyDialog(forUpdate) {
     return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
   }).join('');
   var introHtml = forUpdate
-    ? '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">Fine tune AI for Image Transcription. Set API Key and Model.</p>'
-    : '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">To transcribe images, this add-on needs a <b>Google AI (Gemini) API key</b>.</p>' +
-      '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.35;">Create a key at ' +
-      '<a href="https://aistudio.google.com/api-keys" target="_blank">Google AI Studio API Keys</a> ' +
-      '(sign in, click <b>Create API key</b>, then paste it below).</p>';
-  var btnLabel = forUpdate ? 'Save' : 'Save &amp; Continue';
-  var dialogTitle = forUpdate ? 'Setup AI' : 'Set API Key';
+    ? '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">' + t('setup.intro_update') + '</p>'
+    : '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">' + t('setup.intro_key') + '</p>' +
+      '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.35;">' + t('setup.intro_key2') + '</p>';
+  var btnLabel = forUpdate ? t('setup.btn_save') : t('setup.btn_save_continue');
+  var dialogTitle = forUpdate ? t('dialog.setup_ai.title') : t('dialog.setup_key.title');
   var stateJson = JSON.stringify(setupState).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  var vcJson = stringifyForHtmlScript(getSetupClientValidationI18n());
+  var authEsc = getAuthRequiredMessage().replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
+  var clearConfirmEsc = t('setup.clear_confirm').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+  var storedUi = (getUiLocaleRaw() || '').trim().toLowerCase();
+  var selAuto = !storedUi || (storedUi !== 'en' && storedUi !== 'uk' && storedUi !== 'ru');
+  var selEn = storedUi === 'en';
+  var selUk = storedUi === 'uk';
+  var selRu = storedUi === 'ru';
+  var langBlock =
+    '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.lang_label') + '</label>' +
+    '<select id="uiLocale" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px; margin-bottom:8px;">' +
+    '<option value="auto"' + (selAuto ? ' selected' : '') + '>' + t('setup.lang_auto') + '</option>' +
+    '<option value="en"' + (selEn ? ' selected' : '') + '>' + t('setup.lang_en') + '</option>' +
+    '<option value="uk"' + (selUk ? ' selected' : '') + '>' + t('setup.lang_uk') + '</option>' +
+    '<option value="ru"' + (selRu ? ' selected' : '') + '>' + t('setup.lang_ru') + '</option>' +
+    '</select>';
   var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
     '<body style="font-family: Arial, sans-serif; padding: 14px;">' +
     introHtml +
-    '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.3;">' +
-    'See <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank">Gemini API pricing</a> for cost details by model and token usage. Token usage impacts cost.</p>' +
-    '<label style="display:block; margin-bottom:3px; font-weight:bold;">AI model for Image Transcription</label>' +
+    langBlock +
+    '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.3;">' + t('setup.pricing') + '</p>' +
+    '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.model_label') + '</label>' +
     '<select id="model" onchange="onModelChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px; margin-bottom:8px;">' + optionsHtml + '</select>' +
     '<div style="border:1px solid #DADCE0; border-radius:8px; padding:10px; margin:6px 0 8px;">' +
-      '<p style="margin:0 0 6px; font-size:12px; font-weight:bold; color:#3C4043;">Transcription behavior</p>' +
+      '<p style="margin:0 0 6px; font-size:12px; font-weight:bold; color:#3C4043;">' + t('setup.behavior_title') + '</p>' +
       '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
         '<div>' +
-          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Transcription strictness</label>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.strictness_label') + '</label>' +
           '<input id="temperature" type="number" step="0.1" min="0" max="2" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
         '</div>' +
-        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher strictness keeps output closer to visible text; lower strictness allows more interpretation.</p>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">' + t('setup.strictness_hint') + '</p>' +
       '</div>' +
       '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
         '<div>' +
-          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Max text length</label>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.max_tokens_label') + '</label>' +
           '<input id="maxOutputTokens" type="number" step="1" min="1" max="65536" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
         '</div>' +
-        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher values reduce truncation risk on dense pages, but can increase cost and response size.</p>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">' + t('setup.max_tokens_hint') + '</p>' +
       '</div>' +
       '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
         '<div>' +
-          '<label style="display:block; margin-bottom:3px; font-weight:bold;">Reasoning depth</label>' +
+          '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.reasoning_label') + '</label>' +
           '<select id="thinkingMode" onchange="onThinkingModeChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;"></select>' +
         '</div>' +
-        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Higher thinking can improve difficult handwriting interpretation, but usually increases latency and token use.</p>' +
+        '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">' + t('setup.reasoning_hint') + '</p>' +
       '</div>' +
       '<div id="thinkingBudgetRow" style="display:none;">' +
         '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start;">' +
           '<div>' +
-            '<label id="thinkingBudgetLabel" style="display:block; margin-bottom:3px; font-weight:bold;">Reasoning effort limit (optional)</label>' +
+            '<label id="thinkingBudgetLabel" style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.budget_label') + '</label>' +
             '<input id="thinkingBudget" type="number" step="1" min="-1" max="32768" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" />' +
           '</div>' +
-          '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">Larger budgets allow deeper reasoning on hard pages, but can increase latency and cost.</p>' +
+          '<p style="margin:19px 0 0; font-size:11px; color:#5f6368; line-height:1.25;">' + t('setup.budget_hint') + '</p>' +
         '</div>' +
       '</div>' +
     '</div>' +
-    '<label style="display:block; margin-bottom:3px; font-weight:bold;">API Key:</label>' +
-    '<input id="apiKey" type="text" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" placeholder="' + (forUpdate ? 'Leave blank to keep current key' : 'Paste your API key here') + '" />' +
-    '<p style="margin:4px 0 0; font-size:11px; color:#5f6368; line-height:1.3;">Need a key? Create one at <a href="https://aistudio.google.com/api-keys" target="_blank">aistudio.google.com/api-keys</a>.</p>' +
+    '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.api_key_label') + '</label>' +
+    '<input id="apiKey" type="text" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px;" placeholder="' +
+    (forUpdate ? t('setup.placeholder_keep') : t('setup.placeholder_paste')).replace(/"/g, '&quot;') + '" />' +
+    '<p style="margin:4px 0 0; font-size:11px; color:#5f6368; line-height:1.3;">' + t('setup.key_hint') + '</p>' +
     '<div id="status" style="color:#C62828; margin-top:5px; font-size:12px;"></div>' +
-    (forUpdate ? '<p style="margin:6px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'Clear stored API key? You will be asked for it again on next Transcribe.\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">Clear stored API key</a></p>' : '') +
+    (forUpdate ? '<p style="margin:6px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'' + clearConfirmEsc + '\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">' + t('setup.clear_link') + '</a></p>' : '') +
     '<div style="text-align:right; margin-top:8px;">' +
     '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer; border:0; border-radius:4px; color:#fff; background:#1A73E8;">' + btnLabel + '</button></div>' +
     '<script>' +
     'var forUpdate=' + (forUpdate ? 'true' : 'false') + ';' +
+    'var VC=' + vcJson + ';' +
     'var setupState=JSON.parse("' + stateJson + '");' +
     'function getCapability(modelId){ if(!modelId) return setupState.capability; var m=String(modelId).toLowerCase(); if(m.indexOf("gemini-3")===0||m==="gemini-flash-latest"){ return { configType:"level", supportsThinkingBudget:false, supportsThinkingOff:false, thinkingModes:["auto","minimal","standard","high"] }; } return { configType:"budget", supportsThinkingBudget:true, supportsThinkingOff:true, thinkingModes:["auto","off","minimal","standard","high"], minBudget:-1, maxBudget:32768 }; }' +
     'function populateFromState(){ document.getElementById("temperature").value=setupState.config.temperature; document.getElementById("maxOutputTokens").value=setupState.config.maxOutputTokens; onModelChange(); if(setupState.config.thinkingBudget!==null&&setupState.config.thinkingBudget!==undefined){ document.getElementById("thinkingBudget").value=setupState.config.thinkingBudget; } }' +
-    'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=v.charAt(0).toUpperCase()+v.slice(1); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); }' +
+    'function labelForMode(v){ var tl=setupState.thinkingLabels||{}; return tl[v]||v; }' +
+    'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=labelForMode(v); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); }' +
     'function onThinkingModeChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var mode=document.getElementById("thinkingMode").value; var budgetEl=document.getElementById("thinkingBudget"); var budgetLabel=document.getElementById("thinkingBudgetLabel"); var budgetRow=document.getElementById("thinkingBudgetRow"); var modelSupportsBudget=!!cap.supportsThinkingBudget; var enabled=modelSupportsBudget&&(mode==="minimal"||mode==="standard"||mode==="high"); budgetRow.style.display=modelSupportsBudget?"block":"none"; budgetEl.disabled=!enabled; budgetLabel.style.color=enabled?"#202124":"#9AA0A6"; if(!enabled){ budgetEl.value=""; } }' +
-    'function validateConfig(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var temp=Number(document.getElementById("temperature").value); if(!isFinite(temp)){ return { ok:false, message:"Temperature must be a number." }; } if(temp<0||temp>2){ return { ok:false, message:"Temperature must be between 0 and 2." }; } var maxOut=Number(document.getElementById("maxOutputTokens").value); if(!Number.isInteger(maxOut)){ return { ok:false, message:"Max output tokens must be an integer." }; } if(maxOut<1||maxOut>65536){ return { ok:false, message:"Max output tokens must be between 1 and 65536." }; } var mode=document.getElementById("thinkingMode").value; if(cap.thinkingModes.indexOf(mode)===-1){ return { ok:false, message:"Thinking mode is not supported for selected model." }; } var budgetRaw=document.getElementById("thinkingBudget").value; var budget=null; if(budgetRaw!==null&&budgetRaw!==undefined&&String(budgetRaw).trim()!==""){ if(!/^-?\\d+$/.test(String(budgetRaw).trim())){ return { ok:false, message:"Thinking budget must be an integer." }; } budget=parseInt(String(budgetRaw).trim(),10); if(!cap.supportsThinkingBudget){ return { ok:false, message:"Thinking budget is not supported for selected model." }; } if(budget<cap.minBudget||budget>cap.maxBudget){ return { ok:false, message:"Thinking budget must be between "+cap.minBudget+" and "+cap.maxBudget+"." }; } } return { ok:true, value:{ temperature:temp, maxOutputTokens:maxOut, thinkingMode:mode, thinkingBudget:budget } }; }' +
+    'function validateConfig(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var temp=Number(document.getElementById("temperature").value); if(!isFinite(temp)){ return { ok:false, message:VC.temperatureNumber }; } if(temp<0||temp>2){ return { ok:false, message:VC.temperatureRange }; } var maxOut=Number(document.getElementById("maxOutputTokens").value); if(!Number.isInteger(maxOut)){ return { ok:false, message:VC.maxTokensInt }; } if(maxOut<1||maxOut>65536){ return { ok:false, message:VC.maxTokensRange }; } var mode=document.getElementById("thinkingMode").value; if(cap.thinkingModes.indexOf(mode)===-1){ return { ok:false, message:VC.thinkingUnsupported }; } var budgetRaw=document.getElementById("thinkingBudget").value; var budget=null; if(budgetRaw!==null&&budgetRaw!==undefined&&String(budgetRaw).trim()!==""){ if(!/^-?\\d+$/.test(String(budgetRaw).trim())){ return { ok:false, message:VC.budgetInt }; } budget=parseInt(String(budgetRaw).trim(),10); if(!cap.supportsThinkingBudget){ return { ok:false, message:VC.thinkingUnsupported }; } if(budget<cap.minBudget||budget>cap.maxBudget){ return { ok:false, message:VC.budgetRange }; } } return { ok:true, value:{ temperature:temp, maxOutputTokens:maxOut, thinkingMode:mode, thinkingBudget:budget } }; }' +
     'function save(){' +
       'var key=document.getElementById("apiKey").value;' +
       'var modelId=document.getElementById("model").value;' +
+      'var uiLoc=document.getElementById("uiLocale").value;' +
       'var cfg=validateConfig();' +
-      'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="Please enter an API key.";return;}' +
+      'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="' + t('setup.enter_key').replace(/"/g, '\\"') + '";return;}' +
       'if(!cfg.ok){document.getElementById("status").innerText=cfg.message;return;}' +
-      'document.getElementById("status").innerText="Saving\\u2026";' +
+      'document.getElementById("status").innerText="' + t('setup.saving').replace(/"/g, '\\"') + '";' +
       'document.getElementById("saveBtn").disabled=true;' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
-          'if(r&&r.ok){ if(forUpdate){ document.getElementById("status").innerText="Saved."; document.getElementById("status").style.color="green"; setTimeout(function(){ google.script.host.close(); }, 800); } else { startTranscription(); } }' +
-          'else{ document.getElementById("status").innerText=(r&&r.message)||"Failed to save."; document.getElementById("saveBtn").disabled=false; }' +
+          'if(r&&r.ok){ if(forUpdate){ document.getElementById("status").innerText="' + t('setup.saved').replace(/"/g, '\\"') + '"; document.getElementById("status").style.color="green"; setTimeout(function(){ google.script.host.close(); }, 800); } else { startTranscription(); } }' +
+          'else{ document.getElementById("status").innerText=(r&&r.message)||"' + t('setup.save_failed').replace(/"/g, '\\"') + '"; document.getElementById("saveBtn").disabled=false; }' +
         '})' +
         '.withFailureHandler(function(err){ document.getElementById("status").innerText=err.message||String(err); document.getElementById("saveBtn").disabled=false; })' +
-        '.saveApiKeyAndModel(key, modelId, cfg.value);' +
+        '.saveApiKeyAndModel(key, modelId, cfg.value, uiLoc);' +
     '}' +
     'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
-    'var AUTH_MSG="' + (AUTH_REQUIRED_MSG.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')) + '";' +
-    'function showErr(msg){ var m=(msg&&(msg.indexOf("Authorisation is required")!==-1||msg.indexOf("Authorization is required")!==-1))?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">Close</button>\'; }' +
+    'var AUTH_MSG="' + authEsc + '";' +
+    'function showErr(msg){ var m=(msg&&(msg.indexOf("Authorisation is required")!==-1||msg.indexOf("Authorization is required")!==-1))?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">' + t('setup.close').replace(/'/g, "\\'") + '</button>\'; }' +
     'function startTranscription(){' +
-      'document.body.innerHTML=\'<p style="font-family:Arial,sans-serif;padding:16px;margin:0;">Awaiting response from Gemini API\\u2026 This may take up to 1 minute. Please wait \\u2014 this dialog will close automatically.</p>\';' +
+      'document.body.innerHTML=\'<p style="font-family:Arial,sans-serif;padding:16px;margin:0;">' + t('setup.awaiting').replace(/'/g, "\\'") + '</p>\';' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
           'if(r&&r.ok){ google.script.host.close(); google.script.run.showDoneAlert(); }' +
-          'else{ showErr((r&&r.message)||"Unknown error"); }' +
+          'else{ showErr((r&&r.message)||"' + t('setup.unknown_error').replace(/"/g, '\\"') + '"); }' +
         '})' +
         '.withFailureHandler(function(err){ showErr(err.message||String(err)); })' +
         '.runTranscribeWorker();' +
     '}' +
     'populateFromState();' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(500), dialogTitle);
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(560), dialogTitle);
 }
 
 /** Opens Setup AI dialog from the Extension menu (key optional, save and close). */
 function showSetupApiKeyAndModelDialog() {
+  refreshAddonMenuForCurrentLocale();
   showApiKeyDialog(true);
 }
 
@@ -964,8 +1020,9 @@ function saveApiKey(key) {
 
 /**
  * Saves API key and/or model ID. Key or modelId can be null to leave unchanged.
+ * Optional uiLocaleOpt: 'auto' | 'en' | 'uk' | 'ru' — persisted via applyUiLocalePreference when provided (4th argument).
  */
-function saveApiKeyAndModel(key, modelId, requestConfig) {
+function saveApiKeyAndModel(key, modelId, requestConfig, uiLocaleOpt) {
   var modelSelected = (modelId && typeof modelId === 'string' && modelId.trim() !== '') ? modelId.trim() : null;
   var props = PropertiesService.getUserProperties();
   var effectiveModel = modelSelected || getStoredModel();
@@ -989,6 +1046,9 @@ function saveApiKeyAndModel(key, modelId, requestConfig) {
     props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
     Logger.log('saveApiKeyAndModel: model saved ' + modelId.trim());
   }
+  if (arguments.length > 3 && uiLocaleOpt !== undefined && uiLocaleOpt !== null) {
+    applyUiLocalePreference(String(uiLocaleOpt));
+  }
   props.setProperty(REQUEST_TEMPERATURE_PROPERTY, String(validatedConfig.value.temperature));
   props.setProperty(REQUEST_MAX_OUTPUT_TOKENS_PROPERTY, String(validatedConfig.value.maxOutputTokens));
   props.setProperty(REQUEST_THINKING_MODE_PROPERTY, String(validatedConfig.value.thinkingMode));
@@ -1008,6 +1068,7 @@ function saveApiKeyAndModel(key, modelId, requestConfig) {
     thinkingMode: validatedConfig.value.thinkingMode,
     thinkingBudget: validatedConfig.value.thinkingBudget
   });
+  refreshAddonMenuForCurrentLocale();
   return { ok: true };
 }
 
@@ -1023,7 +1084,7 @@ function saveModel(modelId) {
       errorCode: 'UNKNOWN',
       errorMessage: 'model missing'
     });
-    return { ok: false, message: 'Please select a model.' };
+    return { ok: false, message: t('msg.select_model') };
   }
   PropertiesService.getUserProperties().setProperty(MODEL_ID_PROPERTY, modelId.trim());
   Logger.log('saveModel: model saved ' + modelId.trim());
@@ -1034,6 +1095,17 @@ function saveModel(modelId) {
     modelSelected: modelId.trim()
   });
   return { ok: true };
+}
+
+/**
+ * Saves model and interface language (Settings dialog). uiLocale: 'auto' | 'en' | 'uk' | 'ru'.
+ */
+function saveModelAndUiLocale(modelId, uiLocale) {
+  var r = saveModel(modelId);
+  if (!r.ok) return r;
+  applyUiLocalePreference(uiLocale === undefined || uiLocale === null ? 'auto' : String(uiLocale));
+  refreshAddonMenuForCurrentLocale();
+  return { ok: true, message: t('settings.saved_all') };
 }
 
 /**
@@ -1061,30 +1133,42 @@ function showSettingsDialog() {
     var sel = (o.id === currentModel) ? ' selected' : '';
     return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
   }).join('');
+  var storedUi = (getUiLocaleRaw() || '').trim().toLowerCase();
+  var selAuto = !storedUi || (storedUi !== 'en' && storedUi !== 'uk' && storedUi !== 'ru');
+  var langBlock =
+    '<label style="display:block; margin-bottom:4px; font-weight:bold;">' + t('setup.lang_label') + '</label>' +
+    '<select id="uiLocale" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' +
+    '<option value="auto"' + (selAuto ? ' selected' : '') + '>' + t('setup.lang_auto') + '</option>' +
+    '<option value="en"' + (storedUi === 'en' ? ' selected' : '') + '>' + t('setup.lang_en') + '</option>' +
+    '<option value="uk"' + (storedUi === 'uk' ? ' selected' : '') + '>' + t('setup.lang_uk') + '</option>' +
+    '<option value="ru"' + (storedUi === 'ru' ? ' selected' : '') + '>' + t('setup.lang_ru') + '</option>' +
+    '</select>';
   var html = '<!DOCTYPE html><html><head><base target="_top"></head>' +
     '<body style="font-family: Arial, sans-serif; padding: 16px;">' +
-    '<p style="margin:0 0 12px;">Change the Gemini model or clear your API key.</p>' +
-    '<label style="display:block; margin-bottom:4px; font-weight:bold;">Model:</label>' +
+    '<p style="margin:0 0 12px;">' + t('settings.intro') + '</p>' +
+    '<label style="display:block; margin-bottom:4px; font-weight:bold;">' + t('settings.model_label') + '</label>' +
     '<select id="model" style="width:100%; padding:6px; box-sizing:border-box; font-size:13px; margin-bottom:12px;">' + optionsHtml + '</select>' +
+    langBlock +
     '<div id="status" style="color:#C62828; margin-bottom:8px; font-size:12px;"></div>' +
-    '<div style="display:flex; justify-content:space-between; margin-top:12px;">' +
-    '<button type="button" onclick="clearKey()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Clear API key</button>' +
-    '<button type="button" onclick="saveModel()" style="padding:8px 16px; font-size:13px; cursor:pointer;">Save model</button></div>' +
+    '<div style="display:flex; justify-content:space-between; margin-top:12px; flex-wrap:wrap; gap:8px;">' +
+    '<button type="button" onclick="clearKey()" style="padding:8px 16px; font-size:13px; cursor:pointer;">' + t('settings.clear_key') + '</button>' +
+    '<button type="button" onclick="saveAll()" style="padding:8px 16px; font-size:13px; cursor:pointer;">' + t('settings.save') + '</button></div>' +
     '<script>' +
-    'function saveModel(){' +
+    'function saveAll(){' +
       'var modelId=document.getElementById("model").value;' +
+      'var uiLoc=document.getElementById("uiLocale").value;' +
       'document.getElementById("status").innerText="";' +
       'google.script.run.withSuccessHandler(function(r){' +
-        'if(r&&r.ok){ document.getElementById("status").style.color="green"; document.getElementById("status").innerText="Model saved."; }' +
-        'else{ document.getElementById("status").style.color="#C62828"; document.getElementById("status").innerText=(r&&r.message)||"Failed."; }' +
+        'if(r&&r.ok){ document.getElementById("status").style.color="green"; document.getElementById("status").innerText=(r&&r.message)||""; }' +
+        'else{ document.getElementById("status").style.color="#C62828"; document.getElementById("status").innerText=(r&&r.message)||""; }' +
       '}).withFailureHandler(function(err){ document.getElementById("status").style.color="#C62828"; document.getElementById("status").innerText=err.message||String(err); })' +
-      '.saveModel(modelId);' +
+      '.saveModelAndUiLocale(modelId, uiLoc);' +
     '}' +
     'function clearKey(){' +
       'google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey();' +
     '}' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(420).setHeight(220), 'Settings');
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(440).setHeight(320), t('dialog.settings.title'));
 }
 
 /**
@@ -1099,21 +1183,21 @@ function doTranscribeFlow() {
   var selection = doc.getSelection();
   if (!selection) {
     Logger.log('doTranscribeFlow: no selection');
-    ui.alert('Selection required', 'Please select a single image (metric book scan) and run Transcribe Image again.', ui.ButtonSet.OK);
+    ui.alert(t('alert.selection_required.title'), t('alert.selection_single.body'), ui.ButtonSet.OK);
     return;
   }
 
   var rangeElements = selection.getRangeElements();
   if (!rangeElements || rangeElements.length !== 1) {
     Logger.log('doTranscribeFlow: selection count=' + (rangeElements ? rangeElements.length : 0));
-    ui.alert('Selection required', 'Please select exactly one image.', ui.ButtonSet.OK);
+    ui.alert(t('alert.selection_required.title'), t('alert.selection_one.body'), ui.ButtonSet.OK);
     return;
   }
 
   var element = rangeElements[0].getElement();
   Logger.log('doTranscribeFlow: element type=' + element.getType());
   if (element.getType() !== DocumentApp.ElementType.INLINE_IMAGE) {
-    ui.alert('Image required', 'Please click on the metric book image to select it, then run Transcribe Image.', ui.ButtonSet.OK);
+    ui.alert(t('alert.image_required.title'), t('alert.image_required.body'), ui.ButtonSet.OK);
     return;
   }
 
@@ -1136,25 +1220,25 @@ function doTranscribeFlow() {
  * Shows a modal dialog with status message and runs the transcription worker.
  * On error, shows the error message in the dialog with a Close button (so user always sees it).
  */
-/** User-facing message when Apps Script throws authorisation error (e.g. collaborator has not installed add-on). */
-var AUTH_REQUIRED_MSG = 'The add-on needs your permission to run.\n\n' +
-  'If you are a collaborator on this document (not the person who added the add-on): install the add-on for your account — open Extensions → Metric Book Transcriber and complete the authorization when prompted.\n\n' +
-  'If you already use the add-on: try Extensions → Metric Book Transcriber → Settings, or remove and re-add the add-on to sign in again.';
-
 function showAwaitingDialog(ui) {
-  var authMsgJs = AUTH_REQUIRED_MSG.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  var authMsgJs = getAuthRequiredMessage().replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
+  var closeEsc = t('setup.close').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  var unknownEsc = t('setup.unknown_error').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family: Arial, sans-serif; padding: 16px;">' +
-    '<p style="margin:0;">Awaiting response from Gemini API… This may take up to 1 minute. Please wait — this dialog will close automatically.</p>' +
+    '<p style="margin:0;">' + t('setup.awaiting') + '</p>' +
     '<script>' +
     'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
     'var AUTH_MSG="' + authMsgJs + '";' +
-    'function showErr(msg){ var m=(msg&&(msg.indexOf("Authorisation is required")!==-1||msg.indexOf("Authorization is required")!==-1))?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">Close</button>\'; }' +
+    'var CLOSE_LBL="' + closeEsc + '";' +
+    'var UNKNOWN_ERR="' + unknownEsc + '";' +
+    'function isAuthErr(msg){ if(!msg) return false; var s=String(msg); return s.indexOf("Authorisation is required")!==-1||s.indexOf("Authorization is required")!==-1||s.indexOf("Требуется авторизация")!==-1||s.indexOf("Потрібна авторизація")!==-1; }' +
+    'function showErr(msg){ var m=isAuthErr(msg)?AUTH_MSG:msg; document.body.innerHTML=\'<div style="max-height:280px; overflow:auto; margin:0 0 12px;"><p style="margin:0; color:#c62828; white-space:pre-wrap; font-size:13px;">\'+esc(m)+\'</p></div><button onclick="google.script.host.close()" style="padding:8px 16px;">\'+esc(CLOSE_LBL)+\'</button>\'; }' +
     'google.script.run.withSuccessHandler(function(r){' +
     '  if(r&&r.ok){ google.script.host.close(); google.script.run.showDoneAlert(); }' +
-    '  else{ showErr((r&&r.message)||"Unknown error"); }' +
+    '  else{ showErr((r&&r.message)||UNKNOWN_ERR); }' +
     '}).withFailureHandler(function(err){ showErr(err.message||String(err)); })' +
     '.runTranscribeWorker();</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(480).setHeight(320), 'Transcribing');
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(480).setHeight(320), t('dialog.transcribing.title'));
 }
 
 /**
@@ -1179,7 +1263,7 @@ function runTranscribeWorker() {
       errorCode: 'UNKNOWN',
       errorMessage: 'API key not set'
     });
-    return { ok: false, message: 'API key not set. Run Transcribe Image to set your key.' };
+    return { ok: false, message: t('msg.api_key_menu') };
   }
   logObsEvent('transcribe_image_start', {
     operation: operation,
@@ -1199,7 +1283,7 @@ function runTranscribeWorker() {
       errorCode: 'DOC_SELECTION_INVALID',
       errorMessage: 'no selection'
     });
-    return { ok: false, message: 'Please select a single image and run Transcribe Image again.' };
+    return { ok: false, message: t('msg.select_single_again') };
   }
   var rangeElements = selection.getRangeElements();
   if (!rangeElements || rangeElements.length !== 1) {
@@ -1212,7 +1296,7 @@ function runTranscribeWorker() {
       errorCode: 'DOC_SELECTION_INVALID',
       errorMessage: 'selection must contain exactly one range element'
     });
-    return { ok: false, message: 'Please select exactly one image.' };
+    return { ok: false, message: t('msg.select_exactly_one') };
   }
   var element = rangeElements[0].getElement();
   if (element.getType() !== DocumentApp.ElementType.INLINE_IMAGE) {
@@ -1225,7 +1309,7 @@ function runTranscribeWorker() {
       errorCode: 'DOC_SELECTION_INVALID',
       errorMessage: 'selected element is not inline image'
     });
-    return { ok: false, message: 'Please click on the metric book image to select it, then run Transcribe Image.' };
+    return { ok: false, message: t('msg.click_metric_image') };
   }
   var inlineImage = element.asInlineImage();
   var blob = inlineImage.getBlob();
@@ -1252,7 +1336,7 @@ function runTranscribeWorker() {
       errorCode: classifyErrorCode(e.message || String(e)),
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
-    return { ok: false, message: 'Request failed: ' + (e.message || String(e)) };
+    return { ok: false, message: t('msg.request_failed', { detail: e.message || String(e) }) };
   }
   var transcription = geminiResult.text;
   if (!transcription || transcription.trim() === '') {
@@ -1265,7 +1349,7 @@ function runTranscribeWorker() {
       errorCode: 'API_EMPTY_CANDIDATES',
       errorMessage: 'API returned no text'
     });
-    return { ok: false, message: 'The API returned no text. Try again or check the image.' };
+    return { ok: false, message: t('msg.api_no_text') };
   }
   var elementContainingImage = inlineImage.getParent();
   while (elementContainingImage.getType() !== DocumentApp.ElementType.PARAGRAPH &&
@@ -1300,11 +1384,13 @@ function runTranscribeWorker() {
 }
 
 function showDoneAlert() {
-  DocumentApp.getUi().alert('Done', 'Transcription inserted below the image.', DocumentApp.getUi().ButtonSet.OK);
+  var ui = DocumentApp.getUi();
+  ui.alert(t('alert.done.title'), t('alert.done.body'), ui.ButtonSet.OK);
 }
 
 function showErrorAlert(message) {
-  DocumentApp.getUi().alert('Error', message, DocumentApp.getUi().ButtonSet.OK);
+  var ui = DocumentApp.getUi();
+  ui.alert(t('alert.error.title'), message, ui.ButtonSet.OK);
 }
 
 /** Returns the model ID to use (stored or default). */
@@ -1317,24 +1403,26 @@ var HELP_URL = 'https://geneascript.com/USER_GUIDE.html';
 var ISSUE_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/issues';
 
 function showHelp() {
+  refreshAddonMenuForCurrentLocale();
   var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
-    '<p style="margin:0 0 8px;">Open the User Guide for step-by-step instructions, tips, and troubleshooting:</p>' +
-    '<p style="margin:0;"><a href="' + HELP_URL + '" target="_blank" style="font-size:14px;">User Guide on GitHub</a></p>' +
+    '<p style="margin:0 0 8px;">' + t('help.modeless.body') + '</p>' +
+    '<p style="margin:0;"><a href="' + HELP_URL + '" target="_blank" style="font-size:14px;">' + t('help.modeless.link') + '</a></p>' +
     '</body>';
   DocumentApp.getUi().showModelessDialog(
     HtmlService.createHtmlOutput(html).setWidth(360).setHeight(100),
-    'Help'
+    t('help.modeless.title')
   );
 }
 
 function reportIssue() {
+  refreshAddonMenuForCurrentLocale();
   var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
-    '<p style="margin:0 0 8px;">Report a bug or request a feature on GitHub:</p>' +
-    '<p style="margin:0;"><a href="' + ISSUE_URL + '" target="_blank" style="font-size:14px;">Open GitHub Issues</a></p>' +
+    '<p style="margin:0 0 8px;">' + t('report.modeless.body') + '</p>' +
+    '<p style="margin:0;"><a href="' + ISSUE_URL + '" target="_blank" style="font-size:14px;">' + t('report.modeless.link') + '</a></p>' +
     '</body>';
   DocumentApp.getUi().showModelessDialog(
     HtmlService.createHtmlOutput(html).setWidth(360).setHeight(100),
-    'Report an issue'
+    t('report.modeless.title')
   );
 }
 
@@ -1658,7 +1746,7 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
   var doc = DocumentApp.getActiveDocument();
   var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
-  if (!apiKey || apiKey.trim() === '') return { ok: false, message: 'API key not set. Use Setup AI first.' };
+  if (!apiKey || apiKey.trim() === '') return { ok: false, message: t('msg.api_key_sidebar') };
 
   logObsEvent('context_extract_start', {
     operation: 'context_extract',
@@ -1677,7 +1765,7 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
       hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
     }
   }
-  if (!hit) return { ok: false, message: 'No image found at body index ' + bodyIndex + '.' };
+  if (!hit) return { ok: false, message: t('msg.no_image_at_index', { index: bodyIndex }) };
   var blob = hit.inlineImage.getBlob();
   var mimeType = blob.getContentType() || 'image/png';
   if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
@@ -1716,7 +1804,7 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
       errorCode: classifyErrorCode(message),
       errorMessage: sanitizeErrorMessage(message)
     });
-    return { ok: false, message: message };
+    return { ok: false, message: t('msg.request_failed', { detail: message }) };
   }
 }
 
@@ -1745,7 +1833,7 @@ function applyExtractedContext(extracted) {
       errorCode: classifyErrorCode(message),
       errorMessage: sanitizeErrorMessage(message)
     });
-    return { ok: false, message: message };
+    return { ok: false, message: t('msg.request_failed', { detail: message }) };
   }
 }
 
@@ -2017,14 +2105,13 @@ function insertFormattedText(body, startIndex, text) {
 function buildHomepageCard() {
   var action = CardService.newAction().setFunctionName('openSidebarFromCard');
   var button = CardService.newTextButton()
-    .setText('Open Transcriber Sidebar')
+    .setText(t('card.button'))
     .setOnClickAction(action);
   var section = CardService.newCardSection()
-    .addWidget(CardService.newTextParagraph().setText(
-      'Use the sidebar for batch transcription, import, and setup.'))
+    .addWidget(CardService.newTextParagraph().setText(t('card.blurb')))
     .addWidget(button);
   return CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader().setTitle('GeneaScript Metric Book Transcriber'))
+    .setHeader(CardService.newCardHeader().setTitle(t('card.title')))
     .addSection(section)
     .build();
 }
@@ -2108,7 +2195,7 @@ function getImageList() {
         imageCounter++;
         images.push({
           index: i,
-          label: lastHeading2 || ('Image ' + imageCounter),
+          label: lastHeading2 || t('sidebar.image_fallback', { n: imageCounter }),
           hasTranscription: hasTranscriptionBelow(doc, i)
         });
         break;
@@ -2144,7 +2231,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       errorCode: 'UNKNOWN',
       errorMessage: 'API key not set'
     });
-    return { ok: false, message: 'API key not set. Use Setup AI first.' };
+    return { ok: false, message: t('msg.api_key_sidebar') };
   }
   logObsEvent('transcribe_image_start', {
     operation: operation,
@@ -2174,7 +2261,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       errorCode: 'DOC_IMAGE_NOT_FOUND',
       errorMessage: 'No image found at provided body index'
     });
-    return { ok: false, message: 'No image found at body index ' + bodyIndex + '. Refresh the image list and try again.' };
+    return { ok: false, message: t('msg.no_image_refresh', { index: bodyIndex }) };
   }
 
   var blob = hit.inlineImage.getBlob();
@@ -2204,7 +2291,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       errorCode: classifyErrorCode(e.message || String(e)),
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
-    return { ok: false, message: 'API error: ' + (e.message || String(e)) };
+    return { ok: false, message: t('msg.api_error', { detail: e.message || String(e) }) };
   }
 
   var transcription = geminiResult.text;
@@ -2219,7 +2306,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       errorCode: 'API_EMPTY_CANDIDATES',
       errorMessage: 'The API returned no text'
     });
-    return { ok: false, message: 'The API returned no text (finishReason=' + geminiResult.finishReason + ').' };
+    return { ok: false, message: t('msg.api_no_text_reason', { reason: geminiResult.finishReason }) };
   }
 
   var insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
@@ -2250,52 +2337,57 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
 }
 
 function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
+  refreshAddonMenuForCurrentLocale();
   var imagesResponse = getImageList();
   var images = (imagesResponse && imagesResponse.ok && imagesResponse.images) ? imagesResponse.images : [];
   var selected = (typeof preselectedBodyIndex === 'number') ? preselectedBodyIndex : '';
   var selectedLabel = String(preselectedLabel || '');
   var lockedSelection = (typeof preselectedBodyIndex === 'number' && !isNaN(preselectedBodyIndex));
+  var exJson = stringifyForHtmlScript(getExtractDialogClientI18n());
   var html = '<!DOCTYPE html><html><head><base target="_top"></head><body style="font-family:Arial,sans-serif;padding:16px;">' +
-    '<p style="margin:0 0 10px;font-size:12px;color:#444;">Extract metadata with AI, review fields, then apply updates to the Context section.</p>' +
-    '<div id="imgWrap" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label style="font-weight:bold;white-space:nowrap;">Cover Image</label><select id="imgSel" style="flex:1;padding:6px;"></select><div id="imgLabel" style="display:none;flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fafafa;font-size:12px;"></div></div>' +
+    '<p style="margin:0 0 10px;font-size:12px;color:#444;">' + t('extract.intro') + '</p>' +
+    '<div id="imgWrap" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><label style="font-weight:bold;white-space:nowrap;">' + t('extract.cover_label') + '</label><select id="imgSel" style="flex:1;padding:6px;"></select><div id="imgLabel" style="display:none;flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;background:#fafafa;font-size:12px;"></div></div>' +
     '<div style="display:flex;gap:8px;justify-content:flex-start;align-items:center;margin-bottom:6px;">' +
-      '<button id="extractBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;">Extract</button>' +
-      '<button onclick="google.script.host.close()" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">Cancel</button>' +
-      '<button id="applyBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;" disabled>Apply Context</button>' +
+      '<button id="extractBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;">' + t('extract.extract_btn') + '</button>' +
+      '<button onclick="google.script.host.close()" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;border:1px solid #ccc;background:#fff;border-radius:4px;cursor:pointer;">' + t('extract.cancel') + '</button>' +
+      '<button id="applyBtn" style="min-height:34px;height:34px;padding:6px 12px;font-size:12px;background:#1a73e8;color:#fff;border:1px solid #1a73e8;border-radius:4px;cursor:pointer;" disabled>' + t('extract.apply') + '</button>' +
     '</div>' +
     '<div id="status" style="font-size:14px;font-weight:600;color:#1a73e8;margin-bottom:10px;min-height:20px;"></div>' +
     '<div id="form" style="display:none;">' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Archive name</label><input id="archiveName" style="width:100%;padding:6px;">' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Archive reference</label><input id="archiveReference" style="width:100%;padding:6px;">' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Document description</label><textarea id="documentDescription" style="width:100%;min-height:54px;padding:6px;"></textarea>' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Date range</label><input id="dateRange" style="width:100%;padding:6px;">' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Villages (one per line)</label><textarea id="villages" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Common surnames (one per line)</label><textarea id="commonSurnames" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
-      '<label style="display:block;font-size:12px;margin-top:8px;">Notes</label><textarea id="notes" style="width:100%;min-height:52px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.archive_name') + '</label><input id="archiveName" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.archive_ref') + '</label><input id="archiveReference" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.doc_desc') + '</label><textarea id="documentDescription" style="width:100%;min-height:54px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.date_range') + '</label><input id="dateRange" style="width:100%;padding:6px;">' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.villages') + '</label><textarea id="villages" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.surnames') + '</label><textarea id="commonSurnames" style="width:100%;min-height:70px;padding:6px;"></textarea>' +
+      '<label style="display:block;font-size:12px;margin-top:8px;">' + t('extract.notes') + '</label><textarea id="notes" style="width:100%;min-height:52px;padding:6px;"></textarea>' +
     '</div>' +
     '<script>' +
+      'var EX=' + exJson + ';' +
       'var images=' + JSON.stringify(images) + ';' +
       'var preselected=' + JSON.stringify(selected) + ';' +
       'var preselectedLabel=' + JSON.stringify(selectedLabel) + ';' +
       'var locked=' + JSON.stringify(lockedSelection) + ';' +
+      'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}' +
       'function el(id){return document.getElementById(id);}' +
-      'function setStatus(kind,msg){ var s=el("status"); if(kind==="error"){s.style.color="#c62828"; s.textContent="❌ "+msg;} else if(kind==="success"){s.style.color="#2e7d32"; s.textContent="✅ "+msg;} else if(kind==="progress"){s.style.color="#1a73e8"; s.textContent="🔄 "+msg;} else {s.style.color="#666"; s.textContent=msg||"";} }' +
-      'function currentImageLabel(idx){if(preselectedLabel)return preselectedLabel;for(var i=0;i<images.length;i++){if(Number(images[i].index)===Number(idx))return images[i].label||("Image "+(i+1));}return "Selected image";}' +
-      'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">No images found</option>"; el("extractBtn").disabled=true; setStatus("error","Import images first."); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; h+="<option value=\\""+m.index+"\\""+sel+">"+(m.label||("Image "+(i+1)))+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
+      'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}' +
+      'function setStatus(kind,msg){ var s=el("status"); if(kind==="error"){s.style.color="#c62828"; s.textContent="\\u274c "+msg;} else if(kind==="success"){s.style.color="#2e7d32"; s.textContent="\\u2705 "+msg;} else if(kind==="progress"){s.style.color="#1a73e8"; s.textContent=msg;} else {s.style.color="#666"; s.textContent=msg||"";} }' +
+      'function currentImageLabel(idx){if(preselectedLabel)return preselectedLabel;for(var i=0;i<images.length;i++){if(Number(images[i].index)===Number(idx))return images[i].label||(sub(EX.imageFallback,{n:String(i+1)}));}return EX.selectedImage;}' +
+      'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">"+esc(EX.noImages)+"</option>"; el("extractBtn").disabled=true; setStatus("error",EX.importFirst); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; var optLabel=m.label?esc(m.label):sub(EX.imageFallback,{n:String(i+1)}); h+="<option value=\\""+m.index+"\\""+sel+">"+optLabel+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
       'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
       'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
-      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error","Select a cover image."); return;} setStatus("progress","Extracting context..."); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success","Extraction complete. Review and apply."); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||"Extraction failed."); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
+      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
       'el("extractBtn").onclick=runExtract;' +
-      'el("applyBtn").onclick=function(){ var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress","Applying context updates..."); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success","Context updated."); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; setStatus("error",(r&&r.message)||"Apply failed."); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload); };' +
+      'el("applyBtn").onclick=function(){ var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload); };' +
       'fillSelect(); if(locked){runExtract();}' +
     '</script>' +
     '</body></html>';
-  DocumentApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(680), 'Extract Context from Cover Image');
+  DocumentApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(680), t('dialog.extract_context.title'));
 }
 
 function openExtractContextDialogFromSidebar(bodyIndex) {
   if (typeof bodyIndex !== 'number' || isNaN(bodyIndex)) {
-    return { ok: false, message: 'Select exactly one image first.' };
+    return { ok: false, message: t('msg.select_one_image_first') };
   }
   var label = arguments.length > 1 ? arguments[1] : '';
   openExtractContextDialog(bodyIndex, label);
@@ -2304,8 +2396,9 @@ function openExtractContextDialogFromSidebar(bodyIndex) {
 
 /** Opens the sidebar panel. */
 function showTranscribeSidebar() {
+  refreshAddonMenuForCurrentLocale();
   var html = HtmlService.createHtmlOutput(getSidebarHtml())
-    .setTitle('GeneaScript Metric Book Transcriber');
+    .setTitle(t('menu.title'));
   DocumentApp.getUi().showSidebar(html);
 }
 
@@ -2313,6 +2406,7 @@ function showTranscribeSidebar() {
 function getSidebarHtml() {
   var helpUrl = HELP_URL;
   var issueUrl = ISSUE_URL;
+  var siJson = stringifyForHtmlScript(getSidebarClientI18n());
   return [
     '<!DOCTYPE html>',
     '<html><head><base target="_top">',
@@ -2360,69 +2454,71 @@ function getSidebarHtml() {
     '</head><body>',
 
     '<div class="banner" style="background:#fffde7;border:1px solid #fff9c4;color:#6d4c00;font-size:11px;line-height:1.4">',
-    '  AI transcription provides a best-guess result and may not be accurate. Always review and cross-check output against the original image.',
+    '  ', t('sidebar.disclaimer'),
     '</div>',
 
     '<div id="keyBanner" class="banner banner-warn" style="display:none">',
-    '  Set up your API key to start transcribing.',
-    '  <a href="#" onclick="setupKey();return false" style="display:block;margin-top:4px">Setup AI</a>',
+    '  ', t('sidebar.key_banner'),
+    '  <a href="#" onclick="setupKey();return false" style="display:block;margin-top:4px">', t('sidebar.key_setup'), '</a>',
     '</div>',
 
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
 
     '<div class="section">',
-    '  <button id="importBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; Import from Drive Files</button>',
-    '  <button id="setupBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; Setup AI</button>',
-    '  <button id="extractBtnSidebar" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; Extract Context from Selected Image</button>',
-    '  <button class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; Template: <span id="templateLabel" style="color:#1a73e8;font-weight:bold">Loading\u2026</span></button>',
+    '  <button id="importBtn" type="button" data-testid="geneascript-import" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; ', t('sidebar.btn_import'), '</button>',
+    '  <button id="setupBtn" type="button" data-testid="geneascript-setup-ai" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; ', t('sidebar.btn_setup'), '</button>',
+    '  <button id="extractBtnSidebar" type="button" data-testid="geneascript-extract" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; ', t('sidebar.btn_extract'), '</button>',
+    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; ', t('sidebar.template_prefix'), ' <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
     '</div>',
 
     '<div class="section">',
     '  <div class="section-header">',
-    '    <span class="section-title">Images (<span id="imgCount">0</span>)</span>',
-    '    <button class="btn btn-sm" onclick="refreshImages()" title="Refresh image list">&#8635; Refresh</button>',
+    '    <span class="section-title">', t('sidebar.section_images'), ' (<span id="imgCount">0</span>)</span>',
+    '    <button id="refreshImgBtn" type="button" data-testid="geneascript-refresh" class="btn btn-sm" onclick="refreshImages()" title="', t('sidebar.refresh_title'), '">&#8635; ', t('sidebar.refresh_button'), '</button>',
     '  </div>',
     '  <div class="select-all">',
     '    <input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">',
-    '    <label for="selAll">Select All</label>',
+    '    <label for="selAll">', t('sidebar.select_all'), '</label>',
     '  </div>',
     '  <div id="imgList" class="image-list">',
-    '    <div class="empty-state">Loading\u2026</div>',
+    '    <div class="empty-state">', t('sidebar.loading'), '</div>',
     '  </div>',
     '</div>',
 
     '<div class="section">',
-    '  <button id="goBtn" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; Transcribe Selected</button>',
-    '  <button id="stopBtn" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; Stop</button>',
+    '  <button id="goBtn" type="button" data-testid="geneascript-transcribe" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; ', t('sidebar.transcribe'), '</button>',
+    '  <button id="stopBtn" type="button" data-testid="geneascript-stop" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; ', t('sidebar.stop'), '</button>',
     '</div>',
 
     '<div id="progress" class="progress section">',
-    '  <div id="progText">Transcribing\u2026</div>',
+    '  <div id="progText">', t('sidebar.transcribing'), '</div>',
     '  <div class="bar"><div class="bar-fill" id="progBar" style="width:0%"></div></div>',
     '  <div id="progDetail"></div>',
     '  <div id="progTime" style="font-size:11px;color:#666;margin-top:2px"></div>',
     '</div>',
 
     '<div class="section" style="font-size:12px">',
-    '  <a class="action-link" href="' + helpUrl + '" target="_blank">Help / User Guide &#8599;</a>',
-    '  <a class="action-link" href="' + issueUrl + '" target="_blank">Report an issue &#8599;</a>',
+    '  <a class="action-link" href="' + helpUrl + '" target="_blank">', t('menu.help'), ' &#8599;</a>',
+    '  <a class="action-link" href="' + issueUrl + '" target="_blank">', t('menu.report_issue'), ' &#8599;</a>',
     '</div>',
 
     '<div id="confirmModal" class="modal-overlay" style="display:none">',
     '  <div class="modal">',
-    '    <div class="modal-title">Replace existing transcriptions?</div>',
+    '    <div class="modal-title">', t('sidebar.modal_title'), '</div>',
     '    <div id="confirmBody"></div>',
-    '    <div class="modal-note">Previous text below these images will be replaced.</div>',
+    '    <div class="modal-note">', t('sidebar.modal_note'), '</div>',
     '    <div class="modal-actions">',
-    '      <button class="btn" id="confirmNo">Cancel</button>',
-    '      <button class="btn btn-primary" id="confirmYes">Continue</button>',
+    '      <button class="btn" id="confirmNo">', t('sidebar.cancel'), '</button>',
+    '      <button class="btn btn-primary" id="confirmYes">', t('sidebar.continue'), '</button>',
     '    </div>',
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.0.1</div>',
+    '<div class="footer">v1.1.0</div>',
 
     '<script>',
+    'var SI=', siJson, ';',
+    'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}',
     'var imgs=[],stopReq=false,running=false;',
 
     'var lastImageCount=0;',
@@ -2437,9 +2533,9 @@ function getSidebarHtml() {
     '        if(list[i].isSelected){document.getElementById("templateLabel").textContent=list[i].label;return;}',
     '      }',
     '    }',
-    '    document.getElementById("templateLabel").textContent="(none)";',
+    '    document.getElementById("templateLabel").textContent=SI.tplNone;',
     '  }).withFailureHandler(function(){',
-    '    document.getElementById("templateLabel").textContent="(error)";',
+    '    document.getElementById("templateLabel").textContent=SI.tplError;',
     '  }).getTemplateListForClient();',
     '}',
 
@@ -2454,7 +2550,7 @@ function getSidebarHtml() {
     'function refreshImages(){',
     '  var prev={};',
     '  for(var i=0;i<imgs.length;i++){if(imgs[i]._s)prev[imgs[i].index]={s:imgs[i]._s,e:imgs[i]._e};}',
-    '  document.getElementById("imgList").innerHTML=\'<div class="empty-state">Loading\\u2026</div>\';',
+    '  document.getElementById("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.loading)+\'</div>\';',
     '  document.getElementById("imgCount").textContent="0";',
     '  el("goBtn").disabled=true;',
     '  google.script.run',
@@ -2464,10 +2560,10 @@ function getSidebarHtml() {
     '        lastImageCount=imgs.length;',
     '        for(var j=0;j<imgs.length;j++){var p=prev[imgs[j].index];if(p){imgs[j]._s=p.s;imgs[j]._e=p.e;}}',
     '        renderList();',
-    '      }else el("imgList").innerHTML=\'<div class="empty-state">Failed to load images.</div>\';',
+    '      }else el("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.failLoad)+\'</div>\';',
     '    })',
     '    .withFailureHandler(function(e){',
-    '      el("imgList").innerHTML=\'<div class="empty-state">Error: \'+esc(e.message||String(e))+\'</div>\';',
+    '      el("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.errPrefix)+" "+esc(e.message||String(e))+\'</div>\';',
     '    })',
     '    .getImageList();',
     '}',
@@ -2475,15 +2571,15 @@ function getSidebarHtml() {
     'function renderList(){',
     '  var c=el("imgList");',
     '  el("imgCount").textContent=imgs.length;',
-    '  if(!imgs.length){c.innerHTML=\'<div class="empty-state">No images found. Import scans or paste images first.</div>\';el("goBtn").disabled=true;return;}',
+    '  if(!imgs.length){c.innerHTML=\'<div class="empty-state">\'+esc(SI.noImages)+\'</div>\';el("goBtn").disabled=true;return;}',
     '  var h="";',
     '  for(var i=0;i<imgs.length;i++){',
     '    var m=imgs[i],st="";',
     '    if(m._s==="done")st=\'<span class="status st-done">\\u2713</span>\';',
-    '    else if(m._s==="fail")st=\'<span class="status st-fail" title="\'+esc(m._e||"Failed")+\'">\\u2717</span>\';',
-    '    else if(m._s==="warn")st=\'<span class="status st-warn" title="Output may be truncated">\\u26A0</span>\';',
+    '    else if(m._s==="fail")st=\'<span class="status st-fail" title="\'+esc(m._e||SI.statusFail)+\'">\\u2717</span>\';',
+    '    else if(m._s==="warn")st=\'<span class="status st-warn" title="\'+esc(SI.truncTitle)+\'">\\u26A0</span>\';',
     '    else if(m._s==="active")st=\'<span class="status st-active">\\u231B</span>\';',
-    '    else if(m.hasTranscription)st=\'<span class="status st-done" title="Already transcribed">\\u2713</span>\';',
+    '    else if(m.hasTranscription)st=\'<span class="status st-done" title="\'+esc(SI.doneTitle)+\'">\\u2713</span>\';',
     '    h+=\'<div class="image-row"><input type="checkbox" class="ic" data-i="\'+i+\'" onchange="updBtn()"\'+',
     '      (running?" disabled":"")+\'><label>\'+esc(m.label)+\'</label>\'+st+\'</div>\';',
     '  }',
@@ -2501,7 +2597,7 @@ function getSidebarHtml() {
     '  var n=checked().length,hasKey=el("keyBanner").style.display==="none";',
     '  var b=el("goBtn");',
     '  b.disabled=n===0||!hasKey||running;',
-    '  b.textContent=n>1?"\\u25B6 Transcribe Selected ("+n+")":"\\u25B6 Transcribe Selected";',
+    '  b.textContent=n>1?("\\u25B6 "+sub(SI.transcribeN,{n:String(n)})):("\\u25B6 "+SI.transcribe);',
     '  var e=el("extractBtnSidebar");',
     '  e.disabled=n!==1||!hasKey||running;',
     '}',
@@ -2550,9 +2646,9 @@ function getSidebarHtml() {
     '  function tickTime(num,total){',
     '    var elapsed=(Date.now()-_start)/1000;',
     '    var eta="";',
-    '    if(avgSec>0){var rem=avgSec*(total-num+1);eta=" \\u00B7 ~"+fmtSec(rem)+" left";}',
-    '    else{eta=" \\u00B7 ~30s per image";}',
-    '    el("progTime").textContent="Elapsed: "+fmtSec(elapsed)+eta;',
+    '    if(avgSec>0){var rem=avgSec*(total-num+1);eta=" \\u00B7 ~"+fmtSec(rem)+" "+SI.left;}',
+    '    else{eta=" \\u00B7 "+SI.perImage;}',
+    '    el("progTime").textContent=SI.elapsed+" "+fmtSec(elapsed)+eta;',
     '  }',
 
     '  function startTick(num,total){',
@@ -2563,10 +2659,10 @@ function getSidebarHtml() {
 
     '  function next(ti){',
     '    if(stopReq||ti>=tasks.length){clearInterval(_timer);finish(done,fail,stopReq);return;}',
-    '    var t=tasks[ti],m=imgs[t.di];',
+    '    var task=tasks[ti],m=imgs[task.di];',
     '    m._s="active";renderList();',
     '    var num=ti+1;',
-    '    el("progText").textContent="Transcribing "+num+" of "+total+"\\u2026";',
+    '    el("progText").textContent=sub(SI.progTranscribing,{n:String(num),total:String(total)});',
     '    el("progDetail").textContent=m.label;',
     '    el("progBar").style.width=((num-1)/total*100)+"%";',
     '    startTick(num,total);',
@@ -2578,14 +2674,14 @@ function getSidebarHtml() {
     '        if(r&&r.ok){',
     '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
     '          shift+=(r.insertedCount||0);',
-    '        }else{m._s="fail";m._e=(r&&r.message)||"Unknown error";fail++;}',
+    '        }else{m._s="fail";m._e=(r&&r.message)||SI.unknownError;fail++;}',
     '        renderList();next(ti+1);',
     '      })',
     '      .withFailureHandler(function(e){',
     '        m._s="fail";m._e=e.message||String(e);fail++;',
     '        renderList();next(ti+1);',
     '      })',
-    '      .transcribeImageByIndex(t.bi+shift, m.label);',
+    '      .transcribeImageByIndex(task.bi+shift, m.label);',
     '  }',
     '  next(0);',
     '}',
@@ -2593,19 +2689,19 @@ function getSidebarHtml() {
     'function stopBatch(){',
     '  stopReq=true;',
     '  el("stopBtn").disabled=true;',
-    '  el("stopBtn").textContent="\\u25A0 Stopping\\u2026";',
+    '  el("stopBtn").textContent="\\u25A0 "+SI.stopping;',
     '}',
 
     'function finish(done,fail,stopped){',
     '  running=false;',
     '  el("stopBtn").style.display="none";',
     '  el("stopBtn").disabled=false;',
-    '  el("stopBtn").textContent="\\u25A0 Stop";',
+    '  el("stopBtn").textContent="\\u25A0 "+SI.stop;',
     '  var elapsed=fmtSec((Date.now()-_start)/1000);',
-    '  var s="Done: "+done+" succeeded";',
-    '  if(fail>0)s+=", "+fail+" failed";',
-    '  if(stopped)s+=" (stopped)";',
-    '  s+=" in "+elapsed;',
+    '  var s=sub(SI.doneLine,{done:String(done)});',
+    '  if(fail>0)s+=", "+sub(SI.doneFailed,{n:String(fail)});',
+    '  if(stopped)s+=" "+SI.doneStopped;',
+    '  s+=" "+sub(SI.doneIn,{time:elapsed});',
     '  el("progText").textContent=s;',
     '  el("progDetail").textContent="";',
     '  el("progTime").textContent="";',
@@ -2622,7 +2718,7 @@ function getSidebarHtml() {
 
     'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
     'function doImport(){google.script.run.withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; }).showDrivePickerDialog();}',
-    'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent="Select exactly one image to extract context."; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||"Unable to open extract dialog."; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
+    'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent=SI.extractNeedOne; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||SI.extractOpenFail; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
 

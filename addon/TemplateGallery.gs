@@ -91,15 +91,16 @@ function getTemplateListForClient() {
   var list = [];
   for (var key in TEMPLATES) {
     if (!TEMPLATES.hasOwnProperty(key)) continue;
-    var t = TEMPLATES[key];
+    var tpl = TEMPLATES[key];
+    var tid = tpl.id;
     list.push({
-      id: t.id,
-      label: t.label,
-      region: t.region,
-      religion: t.religion,
-      recordTypes: t.recordTypes,
-      description: t.description,
-      isSelected: t.id === selectedId
+      id: tid,
+      label: t('template.' + tid + '.label'),
+      region: t('template.' + tid + '.region'),
+      religion: t('template.' + tid + '.religion'),
+      recordTypes: t('template.' + tid + '.recordTypes'),
+      description: t('template.' + tid + '.description'),
+      isSelected: tid === selectedId
     });
   }
   return list;
@@ -109,7 +110,7 @@ function getTemplateListForClient() {
  * Returns the full prompt text for preview in the dialog.
  */
 function getPromptPreviewForClient(templateId) {
-  if (!TEMPLATES[templateId]) return '(Unknown template)';
+  if (!TEMPLATES[templateId]) return t('template.preview_unknown');
   return getPromptForTemplate(templateId);
 }
 
@@ -168,11 +169,11 @@ function getTemplateSectionsForClient(templateId) {
 function applyTemplate(templateId, updateContext) {
   try {
     if (!TEMPLATES[templateId]) {
-      return { ok: false, message: 'Unknown template: ' + templateId };
+      return { ok: false, message: t('template.unknown', { id: templateId }) };
     }
     setSelectedTemplateId(templateId);
-    var label = TEMPLATES[templateId].label;
-    var msg = "Template '" + label + "' applied.";
+    var locLabel = t('template.' + templateId + '.label');
+    var msg = t('template.applied', { name: locLabel });
 
     if (updateContext) {
       var doc = DocumentApp.getActiveDocument();
@@ -181,13 +182,13 @@ function applyTemplate(templateId, updateContext) {
         var contextRange = getContextRange(body);
         if (!contextRange || contextRange.end <= contextRange.start) {
           ensureContextBlock(doc);
-          msg += ' Context block created with template defaults.';
+          msg += t('template.context_created');
         } else {
           var added = mergeTemplateLabelScaffold(body, contextRange, templateId);
           if (added.length > 0) {
-            msg += ' Added missing fields: ' + added.join(', ') + '.';
+            msg += t('template.fields_added', { fields: added.join(', ') });
           } else {
-            msg += ' Context already has all template fields.';
+            msg += t('template.fields_none');
           }
         }
       }
@@ -197,7 +198,7 @@ function applyTemplate(templateId, updateContext) {
     return { ok: true, message: msg };
   } catch (e) {
     Logger.log('applyTemplate error: ' + e.message);
-    return { ok: false, message: 'Error applying template: ' + e.message };
+    return { ok: false, message: t('template.apply_error', { detail: e.message }) };
   }
 }
 
@@ -476,28 +477,31 @@ function getRussianOrthodoxContextDefaults() {
 // ---------------------------------------------------------------------------
 
 function showTemplateGalleryDialog() {
+  refreshAddonMenuForCurrentLocale();
   var html = getTemplateGalleryHtml();
   var ui = DocumentApp.getUi();
   ui.showModalDialog(
     HtmlService.createHtmlOutput(html).setWidth(620).setHeight(700),
-    'Template Gallery'
+    t('gallery.title')
   );
 }
 
 function getTemplateGalleryHtml() {
   var templates = getTemplateListForClient();
   var selectedId = getSelectedTemplateId();
+  var giJson = stringifyForHtmlScript(getGalleryClientI18n());
+  var curLabel = t('template.' + selectedId + '.label');
 
   var cardsHtml = '';
   for (var i = 0; i < templates.length; i++) {
-    var t = templates[i];
-    var checked = t.isSelected ? ' checked' : '';
-    cardsHtml += '<label class="card' + (t.isSelected ? ' selected' : '') + '" data-id="' + esc(t.id) + '">' +
-      '<input type="radio" name="template" value="' + esc(t.id) + '"' + checked + '>' +
+    var tpl = templates[i];
+    var checked = tpl.isSelected ? ' checked' : '';
+    cardsHtml += '<label class="card' + (tpl.isSelected ? ' selected' : '') + '" data-id="' + esc(tpl.id) + '">' +
+      '<input type="radio" name="template" value="' + esc(tpl.id) + '"' + checked + '>' +
       '<div class="card-body">' +
-      '<div class="card-title">' + esc(t.label) + '</div>' +
-      '<div class="card-meta">' + esc(t.region) + ' &middot; ' + esc(t.religion) + ' &middot; ' + esc(t.recordTypes) + '</div>' +
-      '<div class="card-desc">' + esc(t.description) + '</div>' +
+      '<div class="card-title">' + esc(tpl.label) + '</div>' +
+      '<div class="card-meta">' + esc(tpl.region) + ' &middot; ' + esc(tpl.religion) + ' &middot; ' + esc(tpl.recordTypes) + '</div>' +
+      '<div class="card-desc">' + esc(tpl.description) + '</div>' +
       '</div>' +
       '</label>';
   }
@@ -539,29 +543,30 @@ function getTemplateGalleryHtml() {
     '.status.error { display: block; background: #fce8e6; color: #c5221f; }',
     '</style>',
     '</head><body>',
-    '<div class="current">Currently using: <span id="currentLabel">' + esc(TEMPLATES[selectedId].label) + '</span></div>',
+    '<div class="current">' + t('gallery.currently') + ' <span id="currentLabel">' + esc(curLabel) + '</span></div>',
     '<div class="cards" id="cards">' + cardsHtml + '</div>',
-    '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; Review Template</button>',
+    '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; ' + t('gallery.review') + '</button>',
     '<div class="preview-wrap" id="previewWrap">',
     '  <div class="tab-bar">',
-    '    <button class="tab-btn active" data-tab="context" onclick="switchTab(this)">Context</button>',
-    '    <button class="tab-btn" data-tab="role" onclick="switchTab(this)">Role</button>',
-    '    <button class="tab-btn" data-tab="columns" onclick="switchTab(this)">Columns</button>',
-    '    <button class="tab-btn" data-tab="output" onclick="switchTab(this)">Output Format</button>',
-    '    <button class="tab-btn" data-tab="instructions" onclick="switchTab(this)">Instructions</button>',
+    '    <button class="tab-btn active" data-tab="context" onclick="switchTab(this)">' + t('gallery.tab.context') + '</button>',
+    '    <button class="tab-btn" data-tab="role" onclick="switchTab(this)">' + t('gallery.tab.role') + '</button>',
+    '    <button class="tab-btn" data-tab="columns" onclick="switchTab(this)">' + t('gallery.tab.columns') + '</button>',
+    '    <button class="tab-btn" data-tab="output" onclick="switchTab(this)">' + t('gallery.tab.output') + '</button>',
+    '    <button class="tab-btn" data-tab="instructions" onclick="switchTab(this)">' + t('gallery.tab.instructions') + '</button>',
     '  </div>',
-    '  <div class="tab-content" id="tabContent">Select a tab to preview...</div>',
+    '  <div class="tab-content" id="tabContent">' + t('gallery.select_tab') + '</div>',
     '</div>',
     '<div class="options">',
-    '  <label><input type="checkbox" id="updateContext"> Scaffold missing Context fields from template</label>',
+    '  <label><input type="checkbox" id="updateContext"> ' + t('gallery.scaffold') + '</label>',
     '  <div class="hint" id="contextHint"></div>',
     '</div>',
     '<div id="statusMsg" class="status"></div>',
     '<div class="actions">',
-    '<button class="btn" onclick="google.script.host.close()">Cancel</button>',
-    '<button class="btn btn-primary" id="applyBtn" onclick="doApply()">Apply</button>',
+    '<button class="btn" onclick="google.script.host.close()">' + t('gallery.cancel') + '</button>',
+    '<button class="btn btn-primary" id="applyBtn" onclick="doApply()">' + t('gallery.apply') + '</button>',
     '</div>',
     '<script>',
+    'var GI=', giJson, ';',
     'function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}',
     '',
     'var cards=document.querySelectorAll(".card");',
@@ -587,11 +592,11 @@ function getTemplateGalleryHtml() {
     '  var btn=document.getElementById("previewToggle");',
     '  if(w.classList.contains("open")){',
     '    w.classList.remove("open");',
-    '    btn.innerHTML="&#9654; Review Template";',
+    '    btn.innerHTML="&#9654; "+GI.review;',
     '  }else{',
     '    loadSections(function(){ showTab(currentTab); });',
     '    w.classList.add("open");',
-    '    btn.innerHTML="&#9660; Hide Template Review";',
+    '    btn.innerHTML="&#9660; "+GI.hideReview;',
     '  }',
     '}',
     '',
@@ -599,13 +604,13 @@ function getTemplateGalleryHtml() {
     'function loadSections(cb){',
     '  var id=getSelectedId();',
     '  if(!id)return;',
-    '  document.getElementById("tabContent").textContent="Loading...";',
+    '  document.getElementById("tabContent").textContent=GI.loadingTab;',
     '  google.script.run.withSuccessHandler(function(s){',
     '    cachedSections=s;',
     '    if(!contextCheckboxInitialized){initContextCheckbox(s.hasDocumentContext);contextCheckboxInitialized=true;}',
     '    if(cb)cb();',
     '  }).withFailureHandler(function(err){',
-    '    document.getElementById("tabContent").textContent="Error: "+err.message;',
+    '    document.getElementById("tabContent").textContent=GI.errorPrefix+" "+((err&&err.message)||GI.loadPreviewFailed);',
     '  }).getTemplateSectionsForClient(id);',
     '}',
     'loadSections();',
@@ -620,26 +625,26 @@ function getTemplateGalleryHtml() {
     '',
     'function showTab(tab){',
     '  var el=document.getElementById("tabContent");',
-    '  if(!cachedSections){el.textContent="Loading...";return;}',
+    '  if(!cachedSections){el.textContent=GI.loadingTab;return;}',
     '  var map={role:cachedSections.role,columns:cachedSections.columns,output:cachedSections.outputFormat,instructions:cachedSections.instructions};',
     '  if(tab==="context"){',
     '    el.innerHTML="";',
     '    var docCtx=cachedSections.documentContext;',
     '    var defCtx=cachedSections.contextDefaults;',
     '    if(docCtx){',
-    '      var lbl1=document.createElement("div");lbl1.style.cssText="font-weight:bold;font-size:11px;color:#1a73e8;margin-bottom:4px";lbl1.textContent="Current document context:";el.appendChild(lbl1);',
+    '      var lbl1=document.createElement("div");lbl1.style.cssText="font-weight:bold;font-size:11px;color:#1a73e8;margin-bottom:4px";lbl1.textContent=GI.currentDocCtx;el.appendChild(lbl1);',
     '      var s1=document.createElement("span");s1.style.whiteSpace="pre-wrap";s1.textContent=docCtx;el.appendChild(s1);',
     '    }else{',
-    '      var lbl2=document.createElement("div");lbl2.style.cssText="font-weight:bold;font-size:11px;color:#5f6368;margin-bottom:4px";lbl2.textContent="Template defaults (no document context found):";el.appendChild(lbl2);',
+    '      var lbl2=document.createElement("div");lbl2.style.cssText="font-weight:bold;font-size:11px;color:#5f6368;margin-bottom:4px";lbl2.textContent=GI.defaultsNoCtx;el.appendChild(lbl2);',
     '      var s2=document.createElement("span");s2.style.whiteSpace="pre-wrap";s2.textContent=defCtx;el.appendChild(s2);',
     '    }',
     '    var sep=document.createElement("div");sep.style.cssText="margin-top:12px;border-top:1px solid #dadce0;padding-top:10px";el.appendChild(sep);',
     '    var btn=document.createElement("button");btn.className="btn";btn.style.cssText="width:100%";',
-    '    btn.innerHTML="&#9998; Extract Context from Cover Image\\u2026";',
+    '    btn.textContent=GI.extractCover;',
     '    btn.onclick=function(){google.script.run.openExtractContextDialog();google.script.host.close();};',
     '    sep.appendChild(btn);',
     '  }else{',
-    '    el.textContent=map[tab]||"(empty)";',
+    '    el.textContent=map[tab]||GI.emptySection;',
     '  }',
     '}',
     '',
@@ -648,19 +653,19 @@ function getTemplateGalleryHtml() {
     '  var hint=document.getElementById("contextHint");',
     '  if(hasCtx){',
     '    cb.checked=false;',
-    '    hint.textContent="Adds any missing field labels (e.g. VILLAGES, COMMON_SURNAMES) without overwriting existing values.";',
+    '    hint.textContent=GI.hintMerge;',
     '  }else{',
     '    cb.checked=true;',
-    '    hint.textContent="No context found in document. Will create Context block with template sample data.";',
+    '    hint.textContent=GI.hintCreate;',
     '  }',
     '}',
     '',
     'function doApply(){',
     '  var id=getSelectedId();',
-    '  if(!id){showStatus("error","Please select a template.");return;}',
+    '  if(!id){showStatus("error",GI.selectTemplate);return;}',
     '  var uc=document.getElementById("updateContext").checked;',
     '  document.getElementById("applyBtn").disabled=true;',
-    '  document.getElementById("applyBtn").textContent="Applying...";',
+    '  document.getElementById("applyBtn").textContent=GI.applying;',
     '  google.script.run.withSuccessHandler(function(r){',
     '    if(r.ok){',
     '      showStatus("success",r.message);',
@@ -668,12 +673,12 @@ function getTemplateGalleryHtml() {
     '    }else{',
     '      showStatus("error",r.message);',
     '      document.getElementById("applyBtn").disabled=false;',
-    '      document.getElementById("applyBtn").textContent="Apply";',
+    '      document.getElementById("applyBtn").textContent=GI.apply;',
     '    }',
     '  }).withFailureHandler(function(err){',
-    '    showStatus("error","Error: "+err.message);',
+    '    showStatus("error",GI.errorPrefix+" "+((err&&err.message)||GI.applyFailed));',
     '    document.getElementById("applyBtn").disabled=false;',
-    '    document.getElementById("applyBtn").textContent="Apply";',
+    '    document.getElementById("applyBtn").textContent=GI.apply;',
     '  }).applyTemplate(id,uc);',
     '}',
     '',

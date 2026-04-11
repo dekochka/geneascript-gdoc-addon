@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-11
+
+### ✨ Added
+
+- **Interface localization (EN / UK / RU)** — Menus, dialogs, sidebar, Drive picker, template gallery, and homepage card use translations. Language follows the Google account locale by default, with an explicit override (**Interface language**) in **Setup AI** and **Settings** (stored in User Properties as `UI_LOCALE`). Unsupported account locales fall back to English.
+- **`addon/I18n.gs`** — Central string tables, `t()`, `getEffectiveLocale()`, and client JSON helpers for `HtmlService` injection.
+- **`project/SPEC-11-i18n.md`** — Product and technical spec for i18n scope and testing.
+
+### 🔧 Changed
+
+- **Extensions menu locale** — Menu labels align with **Interface language** / account locale after Editor add-on auth (`AuthMode.NONE` vs `LIMITED`); handlers refresh the custom menu when locale context is available.
+
+### 🐛 Fixed
+
+- **Template Gallery** — Renamed inner loop variable in `getTemplateGalleryHtml` so it no longer shadows the global `t()` i18n helper (fixes dialog failing to open).
+- **Template Gallery RPC errors** — Failure handlers use localized fallback text when `google.script.run` returns an error without `message` (avoids **Ошибка: undefined** / similar).
+- **Extract Context dialog** — Image `<option>` labels (from document headings) are HTML-escaped before `innerHTML` assignment so markup in titles cannot break the dialog DOM.
+
+### 📚 Documentation
+
+- **USER_GUIDE.md** / **INSTALLATION.md** — Interface language subsection.
+- **PRIVACY_POLICY.md** — Discloses optional UI language preference stored in User Properties.
+
 ## [1.0.0] — 2026-04-05
 
 ### ✨ Added
@@ -308,5 +331,6 @@ Initial proof-of-concept release.
 - **📋 Project specs** — SPEC.md (transcription spec), SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md (Drive Folder Importer spec).
 - **🔐 OAuth** — `drive.readonly` scope in manifest for folder access; API key stored in Script Properties only (not in code).
 
+[1.1.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.0
 [1.0.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.0.0
 [0.1-poc]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.1-poc
