@@ -923,6 +923,26 @@ function getEffectiveLocale() {
 }
 
 /**
+ * Locale for DocumentApp menus during onOpen(e). Editor add-ons: in AuthMode.NONE
+ * (installed but not yet enabled in this doc) User Properties are blocked — only
+ * Session.getActiveUserLocale() is available. After user interaction, onOpen uses
+ * LIMITED/FULL and UI_LOCALE applies. See:
+ * https://developers.google.com/workspace/add-ons/concepts/addon-authorization
+ *
+ * @param {GoogleAppsScript.Events.BaseEvent|null|undefined} e - onOpen event, or null after FULL auth
+ */
+function getLocaleForOpenEvent(e) {
+  if (e && e.authMode === ScriptApp.AuthMode.NONE) {
+    try {
+      return normalizeLocale(Session.getActiveUserLocale());
+    } catch (err) {
+      return 'en';
+    }
+  }
+  return getEffectiveLocale();
+}
+
+/**
  * @param {string} code - 'auto' | 'en' | 'uk' | 'ru'
  */
 function applyUiLocalePreference(code) {
@@ -937,8 +957,13 @@ function applyUiLocalePreference(code) {
   }
 }
 
-function t(key, replacements) {
-  var loc = getEffectiveLocale();
+/**
+ * @param {string} key
+ * @param {Object=} replacements
+ * @param {GoogleAppsScript.Events.BaseEvent|null|undefined=} openEvent - if passed (3rd arg), locale from getLocaleForOpenEvent (for onOpen menus)
+ */
+function t(key, replacements, openEvent) {
+  var loc = arguments.length >= 3 ? getLocaleForOpenEvent(openEvent) : getEffectiveLocale();
   var table = I18N_STRINGS[loc] || I18N_STRINGS.en;
   var fallback = I18N_STRINGS.en;
   var str = (table && table[key]) || (fallback && fallback[key]) || key;

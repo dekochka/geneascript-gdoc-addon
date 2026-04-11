@@ -477,6 +477,7 @@ function getRussianOrthodoxContextDefaults() {
 // ---------------------------------------------------------------------------
 
 function showTemplateGalleryDialog() {
+  refreshAddonMenuForCurrentLocale();
   var html = getTemplateGalleryHtml();
   var ui = DocumentApp.getUi();
   ui.showModalDialog(

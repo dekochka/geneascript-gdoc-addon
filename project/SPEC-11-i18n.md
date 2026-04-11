@@ -113,6 +113,8 @@ End users are often Ukrainian-speaking genealogists. The add-on UI (menus, dialo
 
 **Pre-check:** `clasp push`, test in Google Doc.
 
+**Editor add-on note:** Google may run `onOpen` in `AuthMode.NONE` until the add-on is *enabled* in the document; in that mode **User Properties (including `UI_LOCALE`) are unavailable**, so menu labels follow `Session.getActiveUserLocale()` only. After any menu action or opening the sidebar, the script runs in full auth and **`refreshAddonMenuForCurrentLocale()`** rebuilds the menu so `UI_LOCALE` matches the sidebar. See [Editor add-on authorization](https://developers.google.com/workspace/add-ons/concepts/addon-authorization).
+
 ---
 
 ## 8. CardService (homepage)

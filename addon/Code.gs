@@ -33,24 +33,44 @@ function onInstall(e) {
 }
 
 /**
+ * Builds the custom Docs menu. Pass onOpen's `e` so labels respect Editor add-on AuthMode.NONE
+ * (cannot read UI_LOCALE until the add-on is enabled in this doc). Pass null after user interaction
+ * to apply stored UI_LOCALE. See getLocaleForOpenEvent in I18n.gs.
+ */
+function buildAddonMenu_(openEvent) {
+  DocumentApp.getUi()
+    .createMenu(t('menu.title', null, openEvent))
+    .addItem(t('menu.open_sidebar', null, openEvent), 'showTranscribeSidebar')
+    .addItem(t('menu.transcribe_image', null, openEvent), 'transcribeSelectedImage')
+    .addItem(t('menu.import_drive', null, openEvent), 'showDrivePickerDialog')
+    .addItem(t('menu.extract_context', null, openEvent), 'openExtractContextDialog')
+    .addItem(t('menu.select_template', null, openEvent), 'showTemplateGalleryDialog')
+    .addSeparator()
+    .addItem(t('menu.setup_ai', null, openEvent), 'showSetupApiKeyAndModelDialog')
+    .addItem(t('menu.help', null, openEvent), 'showHelp')
+    .addItem(t('menu.report_issue', null, openEvent), 'reportIssue')
+    .addToUi();
+}
+
+/**
+ * Rebuild menu in AuthMode.FULL so UI_LOCALE applies (call from menu handlers / after saving language).
+ */
+function refreshAddonMenuForCurrentLocale() {
+  try {
+    buildAddonMenu_(null);
+  } catch (e) {
+    Logger.log('refreshAddonMenuForCurrentLocale: ' + e.message);
+  }
+}
+
+/**
  * Runs when the document is opened. Adds a custom menu.
  * Uses createMenu() for a top-level menu (Metric Book Transcriber) next to Help for reliable visibility.
  * When run from the script editor (no document UI), getUi() throws; we catch and skip.
  */
 function onOpen(e) {
   try {
-    DocumentApp.getUi()
-      .createMenu(t('menu.title'))
-      .addItem(t('menu.open_sidebar'), 'showTranscribeSidebar')
-      .addItem(t('menu.transcribe_image'), 'transcribeSelectedImage')
-      .addItem(t('menu.import_drive'), 'showDrivePickerDialog')
-      .addItem(t('menu.extract_context'), 'openExtractContextDialog')
-      .addItem(t('menu.select_template'), 'showTemplateGalleryDialog')
-      .addSeparator()
-      .addItem(t('menu.setup_ai'), 'showSetupApiKeyAndModelDialog')
-      .addItem(t('menu.help'), 'showHelp')
-      .addItem(t('menu.report_issue'), 'reportIssue')
-      .addToUi();
+    buildAddonMenu_(e);
     Logger.log('onOpen: menu added.');
   } catch (e) {
     Logger.log('onOpen: skipped menu (no UI context, e.g. run from script editor). ' + e.message);
@@ -462,6 +482,7 @@ function getDrivePickerConfig() {
  * Shows a minimal loading dialog that auto-closes when Picker opens.
  */
 function showDrivePickerDialog() {
+  refreshAddonMenuForCurrentLocale();
   Logger.log('showDrivePickerDialog: start');
   var html = HtmlService.createHtmlOutput(getDrivePickerHtml())
     .setWidth(1100)
@@ -668,6 +689,7 @@ function getDrivePickerHtml() {
  * If the API key is not set, shows a dialog for the user to enter it first.
  */
 function transcribeSelectedImage() {
+  refreshAddonMenuForCurrentLocale();
   Logger.log('transcribeSelectedImage: start');
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   if (!apiKey || apiKey.trim() === '') {
@@ -985,6 +1007,7 @@ function showApiKeyDialog(forUpdate) {
 
 /** Opens Setup AI dialog from the Extension menu (key optional, save and close). */
 function showSetupApiKeyAndModelDialog() {
+  refreshAddonMenuForCurrentLocale();
   showApiKeyDialog(true);
 }
 
@@ -1045,6 +1068,7 @@ function saveApiKeyAndModel(key, modelId, requestConfig, uiLocaleOpt) {
     thinkingMode: validatedConfig.value.thinkingMode,
     thinkingBudget: validatedConfig.value.thinkingBudget
   });
+  refreshAddonMenuForCurrentLocale();
   return { ok: true };
 }
 
@@ -1080,6 +1104,7 @@ function saveModelAndUiLocale(modelId, uiLocale) {
   var r = saveModel(modelId);
   if (!r.ok) return r;
   applyUiLocalePreference(uiLocale === undefined || uiLocale === null ? 'auto' : String(uiLocale));
+  refreshAddonMenuForCurrentLocale();
   return { ok: true, message: t('settings.saved_all') };
 }
 
@@ -1378,6 +1403,7 @@ var HELP_URL = 'https://geneascript.com/USER_GUIDE.html';
 var ISSUE_URL = 'https://github.com/dekochka/geneascript-gdoc-addon/issues';
 
 function showHelp() {
+  refreshAddonMenuForCurrentLocale();
   var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
     '<p style="margin:0 0 8px;">' + t('help.modeless.body') + '</p>' +
     '<p style="margin:0;"><a href="' + HELP_URL + '" target="_blank" style="font-size:14px;">' + t('help.modeless.link') + '</a></p>' +
@@ -1389,6 +1415,7 @@ function showHelp() {
 }
 
 function reportIssue() {
+  refreshAddonMenuForCurrentLocale();
   var html = '<body style="font-family:Arial,sans-serif;padding:12px;">' +
     '<p style="margin:0 0 8px;">' + t('report.modeless.body') + '</p>' +
     '<p style="margin:0;"><a href="' + ISSUE_URL + '" target="_blank" style="font-size:14px;">' + t('report.modeless.link') + '</a></p>' +
@@ -2310,6 +2337,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
 }
 
 function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
+  refreshAddonMenuForCurrentLocale();
   var imagesResponse = getImageList();
   var images = (imagesResponse && imagesResponse.ok && imagesResponse.images) ? imagesResponse.images : [];
   var selected = (typeof preselectedBodyIndex === 'number') ? preselectedBodyIndex : '';
@@ -2367,6 +2395,7 @@ function openExtractContextDialogFromSidebar(bodyIndex) {
 
 /** Opens the sidebar panel. */
 function showTranscribeSidebar() {
+  refreshAddonMenuForCurrentLocale();
   var html = HtmlService.createHtmlOutput(getSidebarHtml())
     .setTitle(t('menu.title'));
   DocumentApp.getUi().showSidebar(html);
