@@ -1,3 +1,9 @@
+---
+layout: default
+lang: en
+title: Design — Metric Book Transcriber
+permalink: /DESIGN.html
+---
 # GDoc Metric Book Transcriber Add-On — Design Document
 
 ## 1. Overview
@@ -333,9 +339,9 @@ After implementation, the repo layout is:
 
 - **docs/**  
   - **DESIGN.md** (this file)  
-  - **INSTALLATION.md** — how to install and configure the add-on and API key  
-  - **USER_GUIDE.md** — how to structure the doc and use “Transcribe Image”
-  - **PRIVACY_POLICY.md** — privacy policy and data handling
+  - **docs/en/INSTALLATION.md** — how to install and configure the add-on and API key (also **docs/uk/**, **docs/ru/**)
+  - **docs/en/USER_GUIDE.md** — how to structure the doc and use “Transcribe Image”
+  - **docs/en/PRIVACY_POLICY.md** — privacy policy and data handling
   - **TERMS_OF_SERVICE.md** — terms of service
   - **STORE_LISTING.md** — Google Workspace Marketplace listing copy
 - **project/**  

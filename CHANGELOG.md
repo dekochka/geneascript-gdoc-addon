@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-04-11
+
+### ✨ Added
+
+- **Localized documentation site (geneascript.com)** — User Guide, Installation, Privacy Policy, and Terms are published under **`/en/`**, **`/uk/`**, and **`/ru/`** with a language hub at **`/`**. Chrome (nav, footer, language switcher, `hreflang`) is driven by `docs/_data/site_i18n.yml`.
+- **`jekyll-redirect-from`** — Legacy URLs (`/USER_GUIDE.html`, `/INSTALLATION.html`, `/PRIVACY_POLICY.html`, `/TERMS_OF_SERVICE.html`) redirect to the English locale pages.
+- **Template Gallery — Generic verbatim template (`generic_plain`)** — Third profile for non–metric-book images: handwritten letters, typescript, diaries, and similar text. Prompt instructs a literal transcription in the **original language and script** (no modernization of spelling in the body). Output is **Transcription** plus short **`original` / `en` / `ru` / `uk`** summary lines; **Quality Metrics** and **Assessment** are not requested for this template. Labels and descriptions are localized (EN / UK / RU) in **`addon/I18n.gs`**; context defaults use the same Context field scaffold as other templates.
+
+### 🔧 Changed
+
+- **Repository doc paths** — Canonical Markdown sources for the public guides live under **`docs/en/`** (plus **`docs/uk/`** and **`docs/ru/`** translations). **`README.md`**, **`STORE_LISTING.md`**, and **`HELP_URL`** in the add-on point to the new locations.
+- **`docs/DESIGN.md`** — Uses the default layout with **`lang: en`** for consistent navigation.
+- **Sidebar footer** — Shows version **v1.1.1**; **Help** link targets **`https://geneascript.com/en/USER_GUIDE.html`**.
+
+### 📚 Documentation
+
+- **Ukrainian and Russian** site pages mirror the English structure; UK/RU User Guide and Installation are concise editions; Privacy and Terms are fully translated for the site.
+- **Google™ trademark attribution (Workspace Marketplace compliance)** — **™** added for Google product names in **`docs/STORE_LISTING.md`** (short + detailed descriptions and footnote), **`README.md`**, English guides (**`USER_GUIDE`**, **`INSTALLATION`**, **`PRIVACY_POLICY`**, **`TERMS_OF_SERVICE`**), site chrome (**`_config.yml`**, **`site_i18n.yml`**, **`home.html`**, hub pages), and UK/RU Privacy/Terms footers; **`TERMS_OF_SERVICE`** (EN) adds a **Trademarks** section. **`SPEC-4`** and this changelog reference **`docs/en/TERMS_OF_SERVICE.md`**.
+
 ## [1.1.0] — 2026-04-11
 
 ### ✨ Added
@@ -267,7 +286,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`addOns` block in manifest** — Added `addOns.common` (name, logoUrl) and `addOns.docs` sections to `appsscript.json` for proper Editor add-on registration.
 - **Help menu items** — Added "Help / User Guide" and "Report an issue" items to the add-on menu (open GitHub pages).
 - **Privacy Policy** (`docs/PRIVACY_POLICY.md`) — Describes data access, storage, third-party API usage, and user controls. Required for Marketplace listing.
-- **Terms of Service** (`docs/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
+- **Terms of Service** (`docs/en/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
 - **Store listing copy** (`docs/STORE_LISTING.md`) — Drafted application name, short/detailed descriptions, category, support links, and graphic asset checklist for the Marketplace SDK console.
 - **Model selection** — Users can choose the Gemini model in the API key dialog and change it anytime: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). Model choice stored per user. Rate limits link in dialogs and docs.
 - **Setup API key & model menu** — New menu item **Extensions → Metric Book Transcriber → Setup API key & model** opens a dialog to update API key and/or model (key optional — leave blank to keep current). Option to clear stored API key.
@@ -331,6 +350,7 @@ Initial proof-of-concept release.
 - **📋 Project specs** — SPEC.md (transcription spec), SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md (Drive Folder Importer spec).
 - **🔐 OAuth** — `drive.readonly` scope in manifest for folder access; API key stored in Script Properties only (not in code).
 
+[1.1.1]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.1
 [1.1.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.0
 [1.0.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.0.0
 [0.1-poc]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v0.1-poc

@@ -20,7 +20,7 @@
 | Document | Action |
 |----------|--------|
 | `docs/PRIVACY_POLICY.md` | **New.** Privacy policy covering data access (API key, document content, images), storage (User Properties), third-party API (Gemini), no analytics/tracking. Required for Marketplace listing. |
-| `docs/TERMS_OF_SERVICE.md` | **New.** Terms of service: provided as-is, no warranty, user responsible for API key/costs, open-source. Required for Marketplace listing. |
+| `docs/en/TERMS_OF_SERVICE.md` | **New.** Terms of service: provided as-is, no warranty, user responsible for API key/costs, open-source. Required for Marketplace listing. |
 | `docs/STORE_LISTING.md` | **New.** Drafted store listing copy (app name, short/detailed descriptions, category, support links, graphic assets checklist) for copy-paste into the Marketplace SDK console. |
 | `docs/INSTALLATION.md` | **Updated.** Added "Option 0: Install from Marketplace" as the recommended path for end users. Updated installation path diagram and logo section. |
 | `docs/USER_GUIDE.md` | No changes needed (already complete). |
@@ -100,7 +100,7 @@ flowchart TD
 | `addon/appsscript.json` | Added `addOns` block. |
 | `addon/Code.gs` | Added Help and Report Issue menu items and handlers. |
 | `docs/PRIVACY_POLICY.md` | New file. |
-| `docs/TERMS_OF_SERVICE.md` | New file. |
+| `docs/en/TERMS_OF_SERVICE.md` | New file. |
 | `docs/STORE_LISTING.md` | New file. |
 | `docs/INSTALLATION.md` | Added Marketplace option, updated diagram and logo section. |
 | `README.md` | Added Marketplace install, policy links, fixed broken image ref. |
