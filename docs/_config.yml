@@ -1,5 +1,5 @@
 title: GeneaScript — Metric Book Transcriber
-description: Free Google Docs™ add-on for transcribing metric book images using Gemini™
+description: Free Google Docs™ add-on for transcribing metric book images using Google™ AI (Gemini™)
 url: https://geneascript.com
 plugins:
   - jekyll-redirect-from

@@ -19,21 +19,21 @@ permalink: /ru/TERMS_OF_SERVICE.html
 
 ## 3. Требования
 
-- Учётная запись Google.
-- Ключ API Google™ AI (Gemini™), который вы получаете и ведёте самостоятельно в [Google AI Studio™](https://aistudio.google.com/app/apikey).
-- Google Doc с изображениями метрических книг.
+- **Google Account™**.
+- Ключ **API Google™ AI (Gemini™)**, который вы получаете и ведёте самостоятельно в [Google AI Studio™](https://aistudio.google.com/app/apikey).
+- Документ **Google Docs™** с изображениями метрических книг.
 
 ## 4. Ключ API и расходы
 
-- Вы несёте полную ответственность за ключ API, его безопасность и любые расходы и квоты.
-- Дополнение хранит ключ в User Properties Apps Script (приватно для вашего аккаунта). Разработчик не имеет доступа к вашему ключу.
-- Google может взимать плату за Gemini API в зависимости от тарифа и объёма. Актуальные условия: [Google AI pricing](https://ai.google.dev/pricing).
+- Вы несёте полную ответственность за ключ **API Google™ AI (Gemini™)**, его безопасность и любые расходы и квоты.
+- Дополнение хранит ключ в **User Properties Google Apps Script™** (приватно для вашего **Google Account™**). Разработчик не имеет доступа к вашему ключу.
+- Google может взимать плату за **API Gemini™** в зависимости от тарифа и объёма. Актуальные условия: [Google™ AI pricing](https://ai.google.dev/pricing).
 
 ## 5. Отказ от гарантий
 
 ДОПОЛНЕНИЕ ПРЕДОСТАВЛЯЕТСЯ «КАК ЕСТЬ» БЕЗ КАКИХ-ЛИБО ГАРАНТИЙ, ЯВНЫХ ИЛИ ПОДРАЗУМЕВАЕМЫХ, ВКЛЮЧАЯ ТОВАРНУЮ ПРИГОДНОСТЬ, СООТВЕТСТВИЕ ЦЕЛИ И НЕНАРУШЕНИЕ ПРАВ.
 
-Разработчик не гарантирует точность, полноту или надёжность расшифровки. Результат зависит от модели Google AI (Gemini), качества изображений и контекста. Всегда проверяйте результат перед использованием.
+Разработчик не гарантирует точность, полноту или надёжность расшифровки. Результат зависит от модели **Google™ AI (Gemini™)**, качества изображений и контекста. Всегда проверяйте результат перед использованием.
 
 ## 6. Ограничение ответственности
 
@@ -58,3 +58,7 @@ permalink: /ru/TERMS_OF_SERVICE.html
 ## 11. Контакты
 
 Вопросы по Условиям: [issues на GitHub](https://github.com/dekochka/geneascript-gdoc-addon/issues).
+
+## 12. Товарные знаки
+
+Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Google Cloud™, Google Apps Script™, Google Account™, Gemini™ и Google Picker™ являются товарными знаками Google LLC.

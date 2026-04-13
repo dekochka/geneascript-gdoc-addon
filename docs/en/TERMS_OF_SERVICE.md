@@ -22,21 +22,21 @@ The Add-on is a free, open-source Google Docs™ Editor add-on that assists user
 
 ## 3. Requirements
 
-- A Google account.
-- A Google™ AI (Gemini™) API key, which you obtain and manage yourself at [Google AI Studio™](https://aistudio.google.com/app/apikey).
-- A Google Doc containing metric book images.
+- A **Google Account™**.
+- A **Google™ AI (Gemini™) API key**, which you obtain and manage yourself at [Google AI Studio™](https://aistudio.google.com/app/apikey).
+- A **Google Docs™** document containing metric book images.
 
 ## 4. API Key and Costs
 
-- You are solely responsible for your Google AI API key, its security, and any costs or quota usage associated with it.
-- The Add-on stores your API key in Google Apps Script User Properties (private to your Google account). The Add-on developer does not have access to your key.
-- Google may charge for Gemini API usage depending on your plan and volume. Check [Google AI pricing](https://ai.google.dev/pricing) for current terms.
+- You are solely responsible for your **Google™ AI (Gemini™) API key**, its security, and any costs or quota usage associated with it.
+- The Add-on stores your API key in **Google Apps Script™** User Properties (private to your **Google Account™**). The Add-on developer does not have access to your key.
+- Google may charge for **Gemini™** API usage depending on your plan and volume. Check [Google™ AI pricing](https://ai.google.dev/pricing) for current terms.
 
 ## 5. Disclaimer of Warranty
 
 THE ADD-ON IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
 
-The developer does not guarantee the accuracy, completeness, or reliability of any transcription produced by the Add-on. Transcription output depends on the Google AI (Gemini) model and the quality of the input images and context. Always review and verify results before relying on them.
+The developer does not guarantee the accuracy, completeness, or reliability of any transcription produced by the Add-on. Transcription output depends on the **Google™ AI (Gemini™)** model and the quality of the input images and context. Always review and verify results before relying on them.
 
 ## 6. Limitation of Liability
 
@@ -61,3 +61,7 @@ You may stop using the Add-on and uninstall it at any time. The developer reserv
 ## 11. Contact
 
 For questions about these Terms, open an issue at [github.com/dekochka/geneascript-gdoc-addon/issues](https://github.com/dekochka/geneascript-gdoc-addon/issues).
+
+## 12. Trademarks
+
+Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Google Cloud™, Google Apps Script™, Google Account™, Gemini™, and Google Picker™ are trademarks of Google LLC.

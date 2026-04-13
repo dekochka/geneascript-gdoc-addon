@@ -1,6 +1,6 @@
-# Google Workspace Marketplace — Store Listing Copy
+# Google Workspace™ Marketplace — Store Listing Copy
 
-Use the text below when filling out the Store Listing page in the Google Workspace Marketplace SDK console.
+Use the text below when filling out the Store Listing page in the **Google Workspace™ Marketplace** SDK console. Per [Google Workspace™ Marketplace branding guidelines](https://developers.google.com/workspace/marketplace/terms/branding#giving_proper_attribution), use the **™** symbol with Google trademarks in **short description**, **detailed description**, and the **trademark footnote** at the end of the detailed description.
 
 ---
 
@@ -22,7 +22,7 @@ Transcribe metric book images (birth, marriage, death registers) using Google™
 
 ## Detailed Description
 
-Emojis are used for scannability; the Google Workspace Marketplace™ accepts Unicode. If a field strips or rejects them, remove the emoji prefixes (✨ 📁 🤖 📋 🎯 🔑 📖 ✅) and keep the rest.
+Emojis are used for scannability; the **Google Workspace™ Marketplace** accepts Unicode. If a field strips or rejects them, remove the emoji prefixes (✨ 📁 🤖 📋 🎯 🔑 📖 ✅) and keep the rest.
 
 ```
 Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealogists and archivists working with 19th and early 20th-century vital records (metric books). It uses the Google™ AI (Gemini™) API to read handwritten text from scanned images and insert a structured transcription directly into your document.
@@ -30,10 +30,10 @@ Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealo
 ✨ FEATURES
 
 📁 Import from Google Drive™
-Open a Google Docs™ document, run "Import Book from Drive Files," and paste one or more Drive file links/IDs. The add-on inserts a Context template and up to 30 images (JPEG, PNG, WebP), natural-sorted by filename, each with a heading and source link.
+Open a Google Docs™ document, run "Import Book from Drive Files," and select images in the **Google Picker™** dialog (or use supported file links/IDs where applicable). The add-on inserts a Context template and up to 30 images (JPEG, PNG, WebP), natural-sorted by filename, each with a heading and source link.
 
 🤖 AI-Powered Transcription
-Open the Sidebar, select one or more images, and click "Transcribe Selected." The add-on sends each image and your document's Context section to Gemini™ and inserts the transcription below the image — no copy-pasting required. Batch transcription processes multiple images with live progress, elapsed time, and estimated time remaining. You can also transcribe a single image via the menu.
+Open the Sidebar, select one or more images, and click "Transcribe Selected." The add-on sends each image and your document's Context section to the **Gemini™** API and inserts the transcription below the image — no copy-pasting required. Batch transcription processes multiple images with live progress, elapsed time, and estimated time remaining. You can also transcribe a single image via the menu.
 
 📋 Structured Output
 Each transcription includes:
@@ -47,7 +47,7 @@ Each transcription includes:
 Add a Context section at the top of your document with archive name, reference numbers, date range, village names, and common surnames. The add-on uses this to improve transcription accuracy and name normalization.
 
 🔑 API Key & Model Setup
-On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key (link to Google AI Studio™) and choose a model: Gemini Flash Latest (default, free tier ~20 requests/day), Gemini 3.1 Flash Lite (500 requests/day), or Gemini 3.1 Pro Preview (best quality, billing). Your key and model choice are stored privately (per user). Update them anytime via Extensions > Metric Book Transcriber > Setup API key & model. See aistudio.google.com/rate-limit for free tier and billing.
+On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key (link to **Google AI Studio™**) and choose a model: **Gemini™ Flash Latest** (default, free tier ~20 requests/day), **Gemini™ 3.1 Flash Lite** (500 requests/day), or **Gemini™ 3.1 Pro Preview** (best quality, billing). Your key and model choice are stored privately (per user). Update them anytime via Extensions > Metric Book Transcriber > Setup API key & model. See aistudio.google.com/rate-limit for free tier and billing.
 
 📖 HOW TO USE
 
@@ -56,7 +56,7 @@ On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key
 3. Edit the Context section to match your source archive and locality.
 4. Open the Sidebar (Extensions > Metric Book Transcriber > Open Sidebar, or click the add-on icon in the right panel).
 5. Select images and click "Transcribe Selected" to batch-transcribe, or select a single image and use "Transcribe Image" from the menu.
-6. Review the transcriptions inserted below each image. Use Setup API key & model to change your API key or Gemini model when needed.
+6. Review the transcriptions inserted below each image. Use Setup API key & model to change your API key or **Gemini™** model when needed.
 
 ✅ REQUIREMENTS
 
@@ -65,7 +65,7 @@ On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key
 
 This add-on is open source: github.com/dekochka/geneascript-gdoc-addon
 
-Google, Google Docs, Google Drive, Google AI Studio, and Gemini are trademarks of Google LLC.
+Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Gemini™, and Google Picker™ are trademarks of Google LLC.
 ```
 
 ## Category
@@ -94,7 +94,7 @@ Use **geneascript.support@gmail.com** for all public communications (support, fe
 
 | Field | URL |
 |-------|-----|
-| Terms of Service | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/TERMS_OF_SERVICE.md` |
+| Terms of Service | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/en/TERMS_OF_SERVICE.md` |
 | Privacy Policy | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/en/PRIVACY_POLICY.md` |
 | Support | `https://github.com/dekochka/geneascript-gdoc-addon/issues` or `mailto:geneascript.support@gmail.com` |
 | Help (Learn more) | `https://github.com/dekochka/geneascript-gdoc-addon/blob/main/docs/en/USER_GUIDE.md` |
@@ -142,7 +142,7 @@ The Store listing requires **App details** → **Edit language** with at least o
 
 МОЖЛИВОСТІ: імпорт змінних з Google Drive™; AI-транскрипція обраного зображення; структурований вивід (заголовок сторінки, адреса, імена, батьки, хрещені/свідки, підсумки мовами: російська, українська, латина, англійська); метрики якості та оцінка. Контекст документа покращує точність. Потрібен API-ключ Gemini™ (безкоштовний ярус доступний). Відкритий вихідний код: github.com/dekochka/geneascript-gdoc-addon. Підтримка: geneascript.support@gmail.com
 
-Google, Google Docs, Google Drive, Google AI Studio та Gemini є торговими марками Google LLC.
+Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Gemini™ та Google Picker™ є торговими марками Google LLC.
 ```
 
 *(Target audience: Eastern European genealogical researchers working with Galician (Austrian Empire) Latin-script metric books or Russian Imperial Orthodox Cyrillic records, 18th–20th century; output includes Russian, Ukrainian, Latin/Original, and English summaries per template-specific prompts in addon/TemplateGallery.gs.)*
@@ -161,7 +161,7 @@ Google, Google Docs, Google Drive, Google AI Studio та Gemini є торгов�
 | Screenshot 3 — Import from Drive flow | 1280 x 800 px | Optional | Capture if desired |
 
 All icons must be square, color, with transparent backgrounds.
-Screenshots must show the add-on running inside Google Docs.
+Screenshots must show the add-on running inside **Google Docs™**.
 
 ---
 

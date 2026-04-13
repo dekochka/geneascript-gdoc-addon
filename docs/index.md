@@ -9,7 +9,7 @@ permalink: /
 
 ## Metric Book Transcriber
 
-Free Google Docs™ add-on for transcribing metric book images (birth, marriage, death registers) using Gemini™. **Choose a language for the documentation site:**
+Free **Google Docs™** add-on for transcribing metric book images (birth, marriage, death registers) using **Google™ AI (Gemini™)**. **Choose a language for the documentation site:**
 
 <p><a href="/en/" style="display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border:1px solid #0366d6;border-radius:6px;font-weight:600;">English</a>
 <a href="/uk/" style="display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border:1px solid #0366d6;border-radius:6px;font-weight:600;">Українська</a>

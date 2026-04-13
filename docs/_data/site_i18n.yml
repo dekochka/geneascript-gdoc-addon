@@ -14,7 +14,7 @@ en:
   home_btn_en: English
   home_btn_uk: "Українська"
   home_btn_ru: "Русский"
-  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio, and Gemini are trademarks of Google LLC."
+  footer_trademark: "Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Gemini™, and Google Picker™ are trademarks of Google LLC."
   footer_support_label: "Support:"
   lang_switch: Language
 uk:
@@ -31,7 +31,7 @@ uk:
   home_btn_en: English
   home_btn_uk: "Українська"
   home_btn_ru: "Русский"
-  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio та Gemini є торговими марками Google LLC."
+  footer_trademark: "Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Gemini™ та Google Picker™ є торговими марками Google LLC."
   footer_support_label: "Підтримка:"
   lang_switch: Мова
 ru:
@@ -48,6 +48,6 @@ ru:
   home_btn_en: English
   home_btn_uk: "Українська"
   home_btn_ru: "Русский"
-  footer_trademark: "Google, Google Docs, Google Drive, Google AI Studio и Gemini являются товарными знаками Google LLC."
+  footer_trademark: "Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Gemini™ и Google Picker™ являются товарными знаками Google LLC."
   footer_support_label: "Поддержка:"
   lang_switch: Язык

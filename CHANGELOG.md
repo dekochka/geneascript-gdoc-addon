@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### 📚 Documentation
 
 - **Ukrainian and Russian** site pages mirror the English structure; UK/RU User Guide and Installation are concise editions; Privacy and Terms are fully translated for the site.
+- **Google™ trademark attribution (Workspace Marketplace compliance)** — **™** added for Google product names in **`docs/STORE_LISTING.md`** (short + detailed descriptions and footnote), **`README.md`**, English guides (**`USER_GUIDE`**, **`INSTALLATION`**, **`PRIVACY_POLICY`**, **`TERMS_OF_SERVICE`**), site chrome (**`_config.yml`**, **`site_i18n.yml`**, **`home.html`**, hub pages), and UK/RU Privacy/Terms footers; **`TERMS_OF_SERVICE`** (EN) adds a **Trademarks** section. **`SPEC-4`** and this changelog reference **`docs/en/TERMS_OF_SERVICE.md`**.
 
 ## [1.1.0] — 2026-04-11
 
@@ -285,7 +286,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`addOns` block in manifest** — Added `addOns.common` (name, logoUrl) and `addOns.docs` sections to `appsscript.json` for proper Editor add-on registration.
 - **Help menu items** — Added "Help / User Guide" and "Report an issue" items to the add-on menu (open GitHub pages).
 - **Privacy Policy** (`docs/PRIVACY_POLICY.md`) — Describes data access, storage, third-party API usage, and user controls. Required for Marketplace listing.
-- **Terms of Service** (`docs/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
+- **Terms of Service** (`docs/en/TERMS_OF_SERVICE.md`) — Standard terms for the open-source add-on. Required for Marketplace listing.
 - **Store listing copy** (`docs/STORE_LISTING.md`) — Drafted application name, short/detailed descriptions, category, support links, and graphic asset checklist for the Marketplace SDK console.
 - **Model selection** — Users can choose the Gemini model in the API key dialog and change it anytime: **Gemini Flash Latest** (default, free tier ~20 requests/day), **Gemini 3.1 Flash Lite** (500 requests/day), or **Gemini 3.1 Pro Preview** (best quality, billing). Model choice stored per user. Rate limits link in dialogs and docs.
 - **Setup API key & model menu** — New menu item **Extensions → Metric Book Transcriber → Setup API key & model** opens a dialog to update API key and/or model (key optional — leave blank to keep current). Option to clear stored API key.

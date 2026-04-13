@@ -80,4 +80,4 @@ GeneaScript Metric Book Transcriber («Дополнение») — это доп
 Вопросы: [issues на GitHub](https://github.com/dekochka/geneascript-gdoc-addon/issues).  
 Конфиденциальность: **geneascript.support@gmail.com**
 
-Google, Google Docs, Google Drive, Google AI, Google Cloud, Google Apps Script и Gemini — товарные знаки Google LLC.
+Google™, Google Workspace™, Google Docs™, Google Drive™, Google AI™, Google AI Studio™, Google Cloud™, Google Apps Script™, Google Account™, Gemini™ и Google Picker™ — товарные знаки Google LLC.
