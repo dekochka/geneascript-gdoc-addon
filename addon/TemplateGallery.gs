@@ -32,6 +32,15 @@ var TEMPLATES = {
     description: 'Pre-reform Russian Cyrillic registers with Church Slavonic influence. ' +
       'Column headers in pre-reform Russian (Ѣ, І, Ѳ, ъ). Patronymics standard. ' +
       'Social estates (крестьянинъ, мещанинъ, военный поселянинъ). Julian calendar dates.'
+  },
+  generic_plain: {
+    id: 'generic_plain',
+    label: 'Generic — verbatim text (letters, typescript, etc.)',
+    region: 'Any source',
+    religion: 'N/A',
+    recordTypes: 'General manuscript or typescript',
+    description: 'Handwritten letters, typescript pages, notes, or any non-tabular text. ' +
+      'Transcribe as close to the original as possible in the original language and script; preserve details and layout cues.'
   }
 };
 
@@ -67,6 +76,8 @@ function getPromptForTemplate(templateId) {
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxPrompt();
+    case 'generic_plain':
+      return getGenericPlainPrompt();
     case 'galicia_gc':
     default:
       return getGaliciaGcPrompt();
@@ -77,6 +88,8 @@ function getContextDefaultsForTemplate(templateId) {
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxContextDefaults();
+    case 'generic_plain':
+      return getGenericPlainContextDefaults();
     case 'galicia_gc':
     default:
       return getGaliciaGcContextDefaults();
@@ -423,6 +436,67 @@ function getRussianOrthodoxPrompt() {
 }
 
 // ---------------------------------------------------------------------------
+// Generic verbatim transcription (letters, typescript, non-metric documents)
+// ---------------------------------------------------------------------------
+
+function getGenericPlainPrompt() {
+  return [
+    '#### Role',
+    '',
+    'You are an expert transcriber of historical and modern handwritten and typewritten documents. ' +
+      'Your task is to read the attached image and produce a faithful transcription. ' +
+      'The source may be a personal letter, typescript, diary page, official memo, envelope, postcard, marginal notes, or any non-tabular text — not necessarily a metric register.',
+    '',
+    '#### Context',
+    '',
+    '{{CONTEXT}}',
+    '',
+    '#### Input Template Description',
+    '',
+    '**Goal:** Transcribe the visible text **as literally as possible**, staying close to the **original language(s)** and **original spelling/orthography** (including outdated spellings, dialect forms, and errors the author made).',
+    '',
+    '**Do:**',
+    '- Preserve paragraph breaks where they are clear; use a single blank line between paragraphs.',
+    '- If the page has distinct blocks (e.g. address block, date line, body, postscript), keep that order and separate blocks with a blank line.',
+    '- For line breaks that matter in poetry, lists, or formal salutations, preserve them (you may use a line break within the paragraph).',
+    '- Transcribe letterhead, stamps, and printed form labels if they contain readable text; mark clearly as [printed] when helpful.',
+    '- For mixed languages on one page, transcribe each part in its original language and script.',
+    '',
+    '**Do not:**',
+    '- Do not modernize spelling or grammar in the main transcription.',
+    '- Do not translate the main body into another language (translation belongs only in the short summaries below).',
+    '- Do not invent text; for unreadable portions use [illegible], [torn], [faded], or [possibly: guess] when you have a weak hypothesis.',
+    '',
+    '**Typewritten text:** Preserve spacing quirks, obvious typos, and strikeouts (e.g. ~~word~~ or "struck: word").',
+    '',
+    '**Handwriting:** When a word is ambiguous, prefer marking uncertainty over guessing.',
+    '',
+    '#### Output Format',
+    '',
+    'Output must be easy to read in a Google Doc.',
+    '',
+    'Use this structure:',
+    '',
+    '**Transcription (original language / script):**',
+    '(The full verbatim transcription — this is the main deliverable. Use **bold** only for headings within the image such as printed form titles, not for every line.)',
+    '',
+    'Then provide the following bulleted lines **verbatim labels** (do not rename them):',
+    '- **original:** One-line restatement: primary language(s) and script(s) used in the document (e.g. "Polish (Latin script)", "Russian pre-reform Cyrillic", "Mixed German and Ukrainian").',
+    '- **en:** 2–4 sentences in English: what the document appears to be, approximate date or place if visible, and purpose if inferable. Do not repeat the full transcription here.',
+    '- **ru:** If the document contains Russian: 1–3 sentences in modern Russian summarizing content; if none, write exactly: Not applicable (no Russian text).',
+    '- **uk:** If the document contains Ukrainian (any stage/history): 1–3 sentences in modern Ukrainian summarizing content; if none, write exactly: Not applicable (no Ukrainian text).',
+    '',
+    '#### Instructions',
+    '',
+    'Step 1: Scan the entire image (margins, verso cues if visible, postmarks, seals with text).',
+    '',
+    'Step 2: Transcribe all readable text in original form in the **Transcription** section.',
+    '',
+    'Step 3: Add the four bullet lines **original**, **en**, **ru**, **uk** as specified.'
+  ].join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Context block defaults
 // ---------------------------------------------------------------------------
 
@@ -469,6 +543,20 @@ function getRussianOrthodoxContextDefaults() {
     '',
     '**COMMON_SURNAMES**:',
     '(Укажите распространённые фамилии)'
+  ].join('\n');
+}
+
+function getGenericPlainContextDefaults() {
+  return [
+    '**ARCHIVE_NAME**: (optional — repository or collection name if known)',
+    '**ARCHIVE_REFERENCE**: (optional — call number, box/folder)',
+    '**DOCUMENT_DESCRIPTION**: e.g. Personal letter, typescript memoir fragment, parish correspondence, field notes (describe what you are transcribing)',
+    '**DATE_RANGE**: (approximate dates of the document or correspondence, if known)',
+    '**VILLAGES**:',
+    '(places, addresses, or geographic hints helpful for reading placenames)',
+    '',
+    '**COMMON_SURNAMES**:',
+    '(family or institutional names that appear often in this file — helps disambiguate handwriting)'
   ].join('\n');
 }
 
