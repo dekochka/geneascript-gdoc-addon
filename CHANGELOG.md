@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - **Localized documentation site (geneascript.com)** — User Guide, Installation, Privacy Policy, and Terms are published under **`/en/`**, **`/uk/`**, and **`/ru/`** with a language hub at **`/`**. Chrome (nav, footer, language switcher, `hreflang`) is driven by `docs/_data/site_i18n.yml`.
 - **`jekyll-redirect-from`** — Legacy URLs (`/USER_GUIDE.html`, `/INSTALLATION.html`, `/PRIVACY_POLICY.html`, `/TERMS_OF_SERVICE.html`) redirect to the English locale pages.
+- **Template Gallery — Generic verbatim template (`generic_plain`)** — Third profile for non–metric-book images: handwritten letters, typescript, diaries, and similar text. Prompt instructs a literal transcription in the **original language and script** (no modernization of spelling in the body). Output is **Transcription** plus short **`original` / `en` / `ru` / `uk`** summary lines; **Quality Metrics** and **Assessment** are not requested for this template. Labels and descriptions are localized (EN / UK / RU) in **`addon/I18n.gs`**; context defaults use the same Context field scaffold as other templates.
 
 ### 🔧 Changed
 
