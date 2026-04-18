@@ -129,7 +129,12 @@ Follow `.cursor/rules/release-change-management.mdc`:
    git push origin main --tags
    ```
 5. **GitHub Release** — Create release for tag: `gh release create <tag> --title "..." --notes-file <file>`
-6. **Apps Script** — If requested: `clasp version "Release vX.Y.Z"`
+6. **Apps Script** — Always after GitHub release:
+   ```bash
+   clasp push --force
+   clasp version "Release vX.Y.Z"
+   clasp deploy -V <version_number> -d "Release vX.Y.Z"
+   ```
 
 **Constraints:**
 - Never tag or version without explicit confirmation
