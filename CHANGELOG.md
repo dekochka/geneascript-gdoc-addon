@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### ✨ Added
 
+- **Custom Templates** — Create, edit, duplicate, and delete personal transcription templates via the Template Gallery:
+  - Clone from official templates or create blank with starter scaffold (Output Format, Instructions, Context Defaults)
+  - Per-section "Reset to inherited" for templates based on official ones
+  - Tabbed editor dialog with Role, Input Structure, Output Format, Instructions, and Context Defaults sections
+  - Export custom templates to document for collaborator access (Shared badge, read-only)
+  - "My Templates" section in Template Gallery with Custom/Shared badges and action buttons
+  - Max 5 custom templates per user, stored in User Properties
+  - Full EN/UK/RU localization for all custom template UI (~40 new i18n keys)
+
 - **Playwright E2E test suite** — 12 serial browser tests covering all main add-on workflows against a live Google Doc with a real Google session:
   1. Blank out test document
   2. Menu and sidebar open correctly (6 core buttons)
@@ -24,8 +33,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **E2E infrastructure** — Persistent Chrome profile auth (`e2e/save-auth.ts`), Playwright fixtures, shared helpers for sidebar/modal frame discovery, Google Material Design scrim workarounds, CDP mouse events for Google Picker automation.
 - **Project spec** — Added `project/SPEC-13-E2E-PLAYWRIGHT.md` and design doc `project/designs/2026-04-18-e2e-playwright-suite-design.md`.
 
+### 🐛 Fixed
+
+- **Apply custom template** — `applyTemplate()` now accepts `custom_*` template IDs; previously rejected them as "Unknown template".
+- **Editor tab isolation** — Each section tab (Role, Input Structure, Output Format, Instructions, Context Defaults) now uses its own textarea; previously all tabs shared a single textarea causing edits to bleed across sections.
+- **Gallery scrolling** — Template Gallery content is now scrollable; previously the "Review Template" preview section was invisible because flex layout compressed it to zero height when content exceeded the dialog.
+- **Sidebar template label** — Sidebar now shows the correct template name after applying a custom template; previously showed "None" because `loadTemplateLabel` only checked OOB templates.
+
 ### 🔧 Changed
 
+- **Gallery layout** — Moved "Review Template" section above "My Templates" for easier access to OOB template content.
+- **Popup transitions** — All dialog transitions (Edit, Create, Duplicate, Delete) now show a "Loading…" indicator instead of silently closing.
+- **Confirmation dialogs** — Replaced native browser `confirm()` (which showed ugly iframe URLs) with styled inline confirmation modals for Delete, Export, and Reset actions.
+- **Removed scaffold checkbox** — Removed "Scaffold missing Context fields from template" option from Template Gallery to simplify the UI.
 - **`.gitignore`** — Added `playwright-report/` and `e2e/.auth/` exclusions.
 - **`CLAUDE.md`** — Updated spec range (SPEC-1–13), added `project/designs/` reference and project materials location rule.
 
