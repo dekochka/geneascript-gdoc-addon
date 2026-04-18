@@ -25,27 +25,8 @@ cd observability/scripts
 ./apply.sh
 ```
 
-### E2E Tests (Playwright)
-Playwright tests drive a real Google Doc with a saved session and `addon_dry_run` URL:
-```bash
-# One-time: save Google auth session (see e2e/README.md)
-npm install
-npx playwright codegen "<doc-url-with-addon_dry_run>" --save-storage=e2e/.auth/google.json
-
-# Run tests
-export PLAYWRIGHT_STORAGE_STATE=$PWD/e2e/.auth/google.json
-npm run test:e2e            # headless
-npm run test:e2e:headed     # visible browser
-npm run test:e2e:debug      # step-through debugger
-npm run test:e2e:ui         # Playwright UI mode
-```
-- `GENEASCRIPT_TEST_DOC_URL` overrides the default demo doc
-- `GENEASCRIPT_RUN_IMPORT_PICKER=1` enables the full import picker test (imports 4 images)
-- Transcribe test requires a Gemini API key saved in the test account; skipped otherwise
-- Timeout: 10 minutes per test, 90s per assertion
-
-### Manual Testing
-For changes not covered by E2E, verify manually in Google Docs:
+### Testing
+- No automated test suite. Testing requires manual verification in Google Docs:
   1. Push changes with `clasp push`
   2. Open a test Google Doc
   3. Test via Extensions → GeneaScript menu
