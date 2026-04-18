@@ -26,6 +26,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Sidebar template button** — Removed "Template:" prefix; button now shows just the template name (e.g. "📚 Galician Greek Catholic (19th c.)"), fitting on one line.
 - **Template Gallery** — Removed "Currently using: ..." line (redundant with the selected radio button).
 - **I18n** — Added `gallery.tab.full_prompt`, `gallery.copy_prompt`, `gallery.copy_to_clipboard`, `gallery.copied`, `gallery.copy_failed`, `gallery.copy_prompt_hint` in all three locales (EN/UK/RU). Updated `card.blurb`, `card.button`, `menu.title`, and `auth.required` strings.
+- **Installation docs** — Simplified to Marketplace-only path (removed developer Options 1–3). Direct link to the published listing.
+- **Site pages** — Added links to Google Workspace™ Marketplace, Telegram, YouTube, GitHub, and support email on all locale index pages and README.
 
 ## [1.1.1] — 2026-04-11
 
