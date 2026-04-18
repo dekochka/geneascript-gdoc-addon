@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>v1.4 — Custom Template Editor Dialog</title>
+<style>
+body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 16px; color: #333; display: flex; flex-direction: column; height: calc(100vh - 32px); background: #fff; max-width: 640px; }
+
+/* Header */
+.editor-header { margin-bottom: 16px; }
+.editor-header h2 { margin: 0 0 4px 0; font-size: 16px; color: #333; }
+.editor-header .subtitle { font-size: 12px; color: #5f6368; }
+.parent-info { font-size: 11px; color: #5f6368; margin-top: 4px; padding: 6px 10px; background: #f1f3f4; border-radius: 4px; display: inline-block; }
+.parent-info strong { color: #1a73e8; }
+
+/* Metadata fields */
+.field-group { margin-bottom: 12px; }
+.field-group label { display: block; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 4px; }
+.field-group label .required { color: #c5221f; }
+.field-group input[type=text],
+.field-group textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #dadce0; border-radius: 4px; font-family: Arial, sans-serif; font-size: 13px; color: #333; transition: border-color 0.15s; }
+.field-group input[type=text]:focus,
+.field-group textarea:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.15); }
+.field-group .char-count { font-size: 10px; color: #999; text-align: right; margin-top: 2px; }
+
+/* Tabs */
+.tab-bar { display: flex; border-bottom: 1px solid #dadce0; background: #f1f3f4; border-radius: 4px 4px 0 0; margin-top: 4px; }
+.tab-btn { padding: 8px 12px; font-size: 12px; border: none; background: none; cursor: pointer; color: #5f6368; white-space: nowrap; border-bottom: 2px solid transparent; }
+.tab-btn:hover { color: #1a73e8; }
+.tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; font-weight: bold; }
+
+/* Tab content */
+.tab-panel { border: 1px solid #dadce0; border-top: none; border-radius: 0 0 4px 4px; padding: 0; }
+.tab-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fafafa; border-bottom: 1px solid #f0f0f0; }
+.tab-panel-header .section-label { font-size: 11px; font-weight: bold; color: #5f6368; }
+.reset-btn { font-size: 11px; padding: 4px 10px; border: 1px solid #dadce0; border-radius: 4px; background: #fff; color: #5f6368; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.reset-btn:hover { border-color: #f9ab00; color: #e37400; background: #fef7e0; }
+.reset-btn svg { width: 12px; height: 12px; fill: currentColor; }
+
+.section-editor { padding: 0; }
+.section-editor textarea { width: 100%; box-sizing: border-box; min-height: 200px; padding: 10px 12px; border: none; border-radius: 0 0 4px 4px; font-family: "Roboto Mono", "Courier New", monospace; font-size: 11px; line-height: 1.6; color: #333; resize: vertical; }
+.section-editor textarea:focus { outline: none; background: #fafbff; }
+
+/* Scrollable body */
+.scroll-body { flex: 1; overflow-y: auto; padding-right: 4px; }
+
+/* Bottom actions */
+.actions { display: flex; gap: 8px; justify-content: space-between; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }
+.actions-left { display: flex; gap: 8px; }
+.actions-right { display: flex; gap: 8px; }
+.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }
+.btn:hover { background: #f1f3f4; }
+.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.btn-primary:hover { background: #1765cc; }
+.btn-danger { color: #c5221f; border-color: #c5221f; }
+.btn-danger:hover { background: #fce8e6; }
+
+/* Status */
+.status { font-size: 12px; margin-top: 8px; padding: 8px; border-radius: 4px; display: none; }
+.status.success { display: block; background: #e6f4ea; color: #137333; }
+.status.error { display: block; background: #fce8e6; color: #c5221f; }
+
+/* Modified indicator */
+.modified-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f9ab00; margin-left: 4px; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="editor-header">
+  <h2>Edit Custom Template</h2>
+  <div class="subtitle">Modify template sections. Changes are saved to your personal template library.</div>
+  <div class="parent-info">Based on: <strong>Galician Greek Catholic (19th c.)</strong> &mdash; use "Reset" buttons to restore individual sections</div>
+</div>
+
+<div class="scroll-body">
+  <!-- Metadata -->
+  <div class="field-group">
+    <label>Template Name <span class="required">*</span></label>
+    <input type="text" value="Polish Roman Catholic (Kielce)" placeholder="e.g. Polish Roman Catholic (Kielce)">
+  </div>
+
+  <div class="field-group">
+    <label>Description <span class="required">*</span></label>
+    <textarea rows="2" placeholder="Short description of what this template is for...">Polish-language registers from Roman Catholic parishes in Congress Poland. Column headers in Polish/Latin. Names in Polish form. Parish and gmina references.</textarea>
+    <div class="char-count">142 / 300</div>
+  </div>
+
+  <!-- Section Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active">Role</button>
+    <button class="tab-btn">Input Structure</button>
+    <button class="tab-btn">Output Format</button>
+    <button class="tab-btn">Instructions</button>
+    <button class="tab-btn">Context Defaults</button>
+  </div>
+
+  <div class="tab-panel">
+    <!-- Tab header with reset -->
+    <div class="tab-panel-header">
+      <span class="section-label">Role <span class="modified-dot" title="Modified from parent"></span></span>
+      <button class="reset-btn" title="Reset this section to the inherited value from Galician Greek Catholic">
+        <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+        Reset to inherited
+      </button>
+    </div>
+
+    <div class="section-editor">
+      <textarea>You are an expert archivist and paleographer specializing in 19th-century Polish Roman Catholic vital records from Congress Poland (Królestwo Polskie). Your task is to extract and transcribe handwritten text from the attached image of a metric book (birth, marriage, or death register).
+
+Key characteristics of this record type:
+- Primary language is Polish with Latin elements in column headers and formulaic expressions
+- Parish registers follow the Napoleonic Code civil registration format (from 1808)
+- Records are numbered sequentially within each year
+- Social status indicated in Polish: włościanin (peasant), mieszczanin (townsman), szlachcic (nobleman)
+- Given names in Polish form: Jan (not Joannes), Katarzyna (not Catharina)
+- Patronymic system: syn/córka (son/daughter of) followed by parents' names</textarea>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom actions -->
+<div class="actions">
+  <div class="actions-left">
+    <button class="btn btn-danger">Delete Template</button>
+  </div>
+  <div class="actions-right">
+    <button class="btn">Cancel</button>
+    <button class="btn btn-primary">Save</button>
+  </div>
+</div>
+
+</body>
+</html>

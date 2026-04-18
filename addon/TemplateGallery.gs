@@ -139,6 +139,22 @@ function getTemplateListForClient() {
 }
 
 /**
+ * Returns the label of the currently selected template (OOB or custom).
+ * Used by the sidebar to display the active template name.
+ */
+function getSelectedTemplateLabelForClient() {
+  var selectedId = getSelectedTemplateId();
+  if (TEMPLATES[selectedId]) {
+    return t('template.' + selectedId + '.label');
+  }
+  if (selectedId && selectedId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(selectedId);
+    if (custom && custom.label) return custom.label;
+  }
+  return '';
+}
+
+/**
  * Returns the full prompt text for preview in the dialog.
  */
 function getPromptPreviewForClient(templateId) {
@@ -242,11 +258,14 @@ function getTemplateSectionsForClient(templateId) {
  */
 function applyTemplate(templateId, updateContext) {
   try {
-    if (!TEMPLATES[templateId]) {
+    // Resolve template — OOB or custom
+    var isCustom = templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0;
+    var customTpl = isCustom ? resolveCustomTemplate(templateId) : null;
+    if (!TEMPLATES[templateId] && !customTpl) {
       return { ok: false, message: t('template.unknown', { id: templateId }) };
     }
     setSelectedTemplateId(templateId);
-    var locLabel = t('template.' + templateId + '.label');
+    var locLabel = isCustom ? (customTpl.label || templateId) : t('template.' + templateId + '.label');
     var msg = t('template.applied', { name: locLabel });
 
     if (updateContext) {
@@ -732,9 +751,6 @@ function getTemplateGalleryHtml() {
     '.tab-btn:hover { color: #1a73e8; }',
     '.tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; font-weight: bold; }',
     '.tab-content { max-height: 220px; overflow-y: auto; padding: 8px; font-family: "Roboto Mono", monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #f8f9fa; }',
-    '.options { margin-bottom: 12px; }',
-    '.options label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }',
-    '.options .hint { font-size: 11px; color: #5f6368; margin-left: 22px; margin-top: 2px; }',
     '.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }',
     '.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }',
     '.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }',
@@ -771,8 +787,17 @@ function getTemplateGalleryHtml() {
     '.create-btn:hover { border-color: #1a73e8; background: #e8f0fe; }',
     '.empty-state { text-align: center; padding: 16px; color: #5f6368; }',
     '.empty-state p { font-size: 12px; margin: 4px 0; line-height: 1.5; }',
+    '.gallery-scroll { flex: 1; overflow-y: auto; min-height: 0; }',
+    '.confirm-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }',
+    '.confirm-overlay.visible { display: flex; }',
+    '.confirm-box { background: #fff; border-radius: 8px; padding: 20px; max-width: 340px; width: 90%; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }',
+    '.confirm-box .confirm-msg { font-size: 13px; color: #333; margin-bottom: 16px; line-height: 1.5; }',
+    '.confirm-box .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }',
+    '.btn-danger { color: #fff; background: #c5221f; border-color: #c5221f; }',
+    '.btn-danger:hover { background: #a81e1b; }',
     '</style>',
     '</head><body>',
+    '<div class="gallery-scroll">',
     '<div style="text-align:right;margin-bottom:8px">',
     '  <button class="copy-icon-btn" id="cornerCopyBtn" onclick="doCopyPrompt()" title="' + esc(t('gallery.copy_prompt_hint')) + '">',
     '    <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>',
@@ -781,7 +806,6 @@ function getTemplateGalleryHtml() {
     '</div>',
     '<div class="section-label">' + esc(t('gallery.section_official')) + '</div>',
     '<div class="cards" id="cards">' + cardsHtml + '</div>',
-    myTemplatesSectionHtml,
     '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; ' + t('gallery.review') + '</button>',
     '<div class="preview-wrap" id="previewWrap">',
     '  <div class="tab-bar">',
@@ -798,14 +822,21 @@ function getTemplateGalleryHtml() {
     '  </div>',
     '  <div class="tab-content" id="tabContent">' + t('gallery.select_tab') + '</div>',
     '</div>',
-    '<div class="options">',
-    '  <label><input type="checkbox" id="updateContext"> ' + t('gallery.scaffold') + '</label>',
-    '  <div class="hint" id="contextHint"></div>',
-    '</div>',
+    myTemplatesSectionHtml,
     '<div id="statusMsg" class="status"></div>',
+    '</div>',
     '<div class="actions">',
     '<button class="btn" onclick="google.script.host.close()">' + t('gallery.cancel') + '</button>',
     '<button class="btn btn-primary" id="applyBtn" onclick="doApply()">' + t('gallery.apply') + '</button>',
+    '</div>',
+    '<div class="confirm-overlay" id="confirmOverlay">',
+    '  <div class="confirm-box">',
+    '    <div class="confirm-msg" id="confirmMsg"></div>',
+    '    <div class="confirm-actions">',
+    '      <button class="btn" id="confirmNo" onclick="closeConfirm()">' + esc(t('gallery.cancel')) + '</button>',
+    '      <button class="btn btn-danger" id="confirmYes"></button>',
+    '    </div>',
+    '  </div>',
     '</div>',
     '<script>',
     'var GI=', giJson, ';',
@@ -845,14 +876,12 @@ function getTemplateGalleryHtml() {
     '  }',
     '}',
     '',
-    'var contextCheckboxInitialized=false;',
     'function loadSections(cb){',
     '  var id=getSelectedId();',
     '  if(!id)return;',
     '  document.getElementById("tabContent").textContent=GI.loadingTab;',
     '  google.script.run.withSuccessHandler(function(s){',
     '    cachedSections=s;',
-    '    if(!contextCheckboxInitialized){initContextCheckbox(s.hasDocumentContext);contextCheckboxInitialized=true;}',
     '    if(cb)cb();',
     '  }).withFailureHandler(function(err){',
     '    document.getElementById("tabContent").textContent=GI.errorPrefix+" "+((err&&err.message)||GI.loadPreviewFailed);',
@@ -951,22 +980,9 @@ function getTemplateGalleryHtml() {
     '  setTimeout(function(){btn.innerHTML=origHTML;btn.style.borderColor="";btn.style.color="";btn.style.background="";},2000);',
     '}',
     '',
-    'function initContextCheckbox(hasCtx){',
-    '  var cb=document.getElementById("updateContext");',
-    '  var hint=document.getElementById("contextHint");',
-    '  if(hasCtx){',
-    '    cb.checked=false;',
-    '    hint.textContent=GI.hintMerge;',
-    '  }else{',
-    '    cb.checked=true;',
-    '    hint.textContent=GI.hintCreate;',
-    '  }',
-    '}',
-    '',
     'function doApply(){',
     '  var id=getSelectedId();',
     '  if(!id){showStatus("error",GI.selectTemplate);return;}',
-    '  var uc=document.getElementById("updateContext").checked;',
     '  document.getElementById("applyBtn").disabled=true;',
     '  document.getElementById("applyBtn").textContent=GI.applying;',
     '  google.script.run.withSuccessHandler(function(r){',
@@ -982,7 +998,7 @@ function getTemplateGalleryHtml() {
     '    showStatus("error",GI.errorPrefix+" "+((err&&err.message)||GI.applyFailed));',
     '    document.getElementById("applyBtn").disabled=false;',
     '    document.getElementById("applyBtn").textContent=GI.apply;',
-    '  }).applyTemplate(id,uc);',
+    '  }).applyTemplate(id,false);',
     '}',
     '',
     'function showStatus(type,msg){',
@@ -990,36 +1006,52 @@ function getTemplateGalleryHtml() {
     '  el.className="status "+type;',
     '  el.textContent=msg;',
     '}',
+    'function showLoading(msg){showStatus("success",msg||GI.loadingTab);}',
     'function doEditCustom(id){',
+    '  showLoading();',
     '  google.script.run.showCustomTemplateEditorDialog(id);',
-    '  google.script.host.close();',
     '}',
     'function doDuplicateCustom(id){',
+    '  showLoading();',
     '  google.script.run.withSuccessHandler(function(r){',
-    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
+    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); }',
     '    else{ showStatus("error",r.message); }',
     '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).duplicateCustomTemplate(id);',
     '}',
+    'var confirmCallback=null;',
+    'function showConfirm(msg,btnLabel,cb){',
+    '  document.getElementById("confirmMsg").textContent=msg;',
+    '  document.getElementById("confirmYes").textContent=btnLabel;',
+    '  confirmCallback=cb;',
+    '  document.getElementById("confirmYes").onclick=function(){closeConfirm();cb();};',
+    '  document.getElementById("confirmOverlay").classList.add("visible");',
+    '}',
+    'function closeConfirm(){document.getElementById("confirmOverlay").classList.remove("visible");confirmCallback=null;}',
     'function doExportCustom(id){',
-    '  if(!confirm(CGI.confirmExport)) return;',
-    '  google.script.run.withSuccessHandler(function(r){',
-    '    showStatus(r.ok?"success":"error",r.message);',
-    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).exportCustomTemplateToDocument(id);',
+    '  showConfirm(CGI.confirmExport,CGI.actionExport,function(){',
+    '    showLoading();',
+    '    google.script.run.withSuccessHandler(function(r){',
+    '      showStatus(r.ok?"success":"error",r.message);',
+    '    }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).exportCustomTemplateToDocument(id);',
+    '  });',
     '}',
     'function doDeleteCustom(id){',
-    '  if(!confirm(CGI.confirmDelete)) return;',
-    '  google.script.run.withSuccessHandler(function(r){',
-    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
-    '    else{ showStatus("error",r.message); }',
-    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).deleteCustomTemplateFromClient(id);',
+    '  showConfirm(CGI.confirmDelete,CGI.actionDelete,function(){',
+    '    showLoading();',
+    '    google.script.run.withSuccessHandler(function(r){',
+    '      if(r.ok){ google.script.run.showTemplateGalleryDialog(); }',
+    '      else{ showStatus("error",r.message); }',
+    '    }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).deleteCustomTemplateFromClient(id);',
+    '  });',
     '}',
     'function doCreateFromTemplate(){',
+    '  showLoading();',
     '  google.script.run.showCreateFromTemplatePickerDialog();',
-    '  google.script.host.close();',
     '}',
     'function doCreateBlank(){',
+    '  showLoading();',
     '  google.script.run.withSuccessHandler(function(r){',
-    '    if(r.ok){ google.script.run.showCustomTemplateEditorDialog(r.template.id); google.script.host.close(); }',
+    '    if(r.ok){ google.script.run.showCustomTemplateEditorDialog(r.template.id); }',
     '    else{ showStatus("error",r.message); }',
     '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).createBlankCustomTemplate();',
     '}',
