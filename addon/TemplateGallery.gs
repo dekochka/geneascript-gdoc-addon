@@ -194,7 +194,7 @@ function getTemplateSectionsForClient(templateId) {
   }
 
   if (!TEMPLATES[templateId]) {
-    return { documentContext: '', contextDefaults: '', role: '', columns: '', outputFormat: '', instructions: '' };
+    return { documentContext: '', hasDocumentContext: false, contextDefaults: '', role: '', columns: '', outputFormat: '', instructions: '' };
   }
   var prompt = getPromptForTemplate(templateId);
   var contextDefaults = getContextDefaultsForTemplate(templateId);
@@ -996,12 +996,8 @@ function getTemplateGalleryHtml() {
     '}',
     'function doDuplicateCustom(id){',
     '  google.script.run.withSuccessHandler(function(r){',
-    '    if(r.ok){',
-    '      google.script.run.withSuccessHandler(function(r2){',
-    '        if(r2.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
-    '        else{ showStatus("error",r2.message); }',
-    '      }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).saveCustomTemplateFromClient(JSON.stringify(r.template));',
-    '    }else{ showStatus("error",r.message); }',
+    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
+    '    else{ showStatus("error",r.message); }',
     '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).duplicateCustomTemplate(id);',
     '}',
     'function doExportCustom(id){',
@@ -1036,5 +1032,5 @@ function getTemplateGalleryHtml() {
 
 function esc(s) {
   if (!s) return '';
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }

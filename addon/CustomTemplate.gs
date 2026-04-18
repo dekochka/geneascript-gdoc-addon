@@ -367,6 +367,9 @@ function duplicateCustomTemplate(sourceId) {
     createdAt: now,
     updatedAt: now
   };
+  // Save immediately (consistent with createCustomTemplateFromParent/createBlankCustomTemplate)
+  var saveResult = saveCustomTemplate(copy);
+  if (!saveResult.ok) return saveResult;
   return { ok: true, template: copy };
 }
 
@@ -387,6 +390,9 @@ function exportCustomTemplateToDocument(id) {
     if (!found) exported.push(tpl);
 
     var json = JSON.stringify(exported);
+    if (json.length > 9000) {
+      return { ok: false, message: t('editor.too_large') };
+    }
     PropertiesService.getDocumentProperties().setProperty(EXPORTED_TEMPLATES_PROPERTY, json);
     return { ok: true, message: t('gallery.exported_ok') };
   } catch (e) {
