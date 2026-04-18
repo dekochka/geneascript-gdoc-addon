@@ -654,6 +654,62 @@ function getTemplateGalleryHtml() {
       '</label>';
   }
 
+  var customTemplates = getCustomTemplateListForClient();
+  var customCardsHtml = '';
+  for (var ci = 0; ci < customTemplates.length; ci++) {
+    var ct = customTemplates[ci];
+    var cChecked = ct.id === selectedId ? ' checked' : '';
+    var cSelected = ct.id === selectedId ? ' selected' : '';
+    var badge = ct.isOwn ? '<span class="badge-custom">' + esc(t('gallery.badge_custom')) + '</span>'
+                         : '<span class="badge-shared">' + esc(t('gallery.badge_shared')) + '</span>';
+    var parentLine = ct.parentLabel ? '<div class="parent-link">' + esc(t('gallery.parent_link', { name: ct.parentLabel })) + '</div>' : '';
+    var actionsHtml = '';
+    if (ct.isOwn) {
+      actionsHtml = '<div class="card-actions">' +
+        '<button class="action-link" onclick="doEditCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_edit')) + '</button>' +
+        '<button class="action-link" onclick="doDuplicateCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_duplicate')) + '</button>' +
+        '<button class="action-link" onclick="doExportCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_export')) + '</button>' +
+        '<button class="action-danger" onclick="doDeleteCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_delete')) + '</button>' +
+        '</div>';
+    } else {
+      actionsHtml = '<div class="card-actions">' +
+        '<button class="action-link" onclick="doDuplicateCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_duplicate')) + '</button>' +
+        '</div>';
+    }
+    customCardsHtml += '<label class="card' + cSelected + '" data-id="' + esc(ct.id) + '">' +
+      '<input type="radio" name="template" value="' + esc(ct.id) + '"' + cChecked + '>' +
+      '<div class="card-body">' +
+      '<div class="card-title-row"><span class="card-title">' + esc(ct.label) + '</span>' + badge + '</div>' +
+      parentLine +
+      '<div class="card-desc">' + esc(ct.description) + '</div>' +
+      actionsHtml +
+      '</div>' +
+      '</label>';
+  }
+
+  var myTemplatesSectionHtml =
+    '<div class="divider"></div>' +
+    '<div class="section-header">' +
+    '<span class="section-label" style="margin-bottom:0">' + esc(t('gallery.section_my')) + '</span>' +
+    '<span class="section-counter">' + esc(t('gallery.my_counter', { count: customTemplates.length, max: MAX_CUSTOM_TEMPLATES })) + '</span>' +
+    '</div>';
+
+  if (customTemplates.length === 0) {
+    myTemplatesSectionHtml +=
+      '<div class="empty-state">' +
+      '<p><b>' + esc(t('gallery.empty_title')) + '</b></p>' +
+      '<p>' + esc(t('gallery.empty_hint')) + '</p>' +
+      '</div>';
+  } else {
+    myTemplatesSectionHtml += '<div class="cards">' + customCardsHtml + '</div>';
+  }
+
+  myTemplatesSectionHtml +=
+    '<div class="create-row">' +
+    '<button class="create-btn" onclick="doCreateFromTemplate()">' + esc(t('gallery.create_from')) + '</button>' +
+    '<button class="create-btn" onclick="doCreateBlank()">' + esc(t('gallery.create_blank')) + '</button>' +
+    '</div>';
+
   var parts = [
     '<!DOCTYPE html><html><head><base target="_top">',
     '<style>',
@@ -698,6 +754,23 @@ function getTemplateGalleryHtml() {
     '.copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-weight: bold; }',
     '.copy-btn:hover { background: #1765cc; }',
     '.copy-btn svg { width: 14px; height: 14px; fill: currentColor; }',
+    '.section-label { font-size: 11px; font-weight: bold; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }',
+    '.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }',
+    '.section-counter { font-size: 11px; color: #5f6368; }',
+    '.divider { border-top: 1px solid #dadce0; margin: 16px 0; }',
+    '.badge-custom { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #e8f0fe; color: #1a73e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; margin-left: 6px; vertical-align: middle; }',
+    '.badge-shared { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #fef7e0; color: #e37400; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; margin-left: 6px; vertical-align: middle; }',
+    '.parent-link { font-size: 11px; color: #5f6368; margin-bottom: 4px; }',
+    '.card-title-row { display: flex; align-items: center; margin-bottom: 2px; }',
+    '.card-actions { display: flex; gap: 12px; margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; }',
+    '.card-actions button { font-size: 11px; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }',
+    '.action-link { color: #1a73e8; }',
+    '.action-danger { color: #c5221f; }',
+    '.create-row { display: flex; gap: 8px; margin-top: 8px; }',
+    '.create-btn { flex: 1; padding: 10px; border: 2px dashed #dadce0; border-radius: 8px; background: #f8f9fa; color: #1a73e8; font-size: 12px; cursor: pointer; font-weight: bold; transition: all 0.15s; text-align: center; }',
+    '.create-btn:hover { border-color: #1a73e8; background: #e8f0fe; }',
+    '.empty-state { text-align: center; padding: 16px; color: #5f6368; }',
+    '.empty-state p { font-size: 12px; margin: 4px 0; line-height: 1.5; }',
     '</style>',
     '</head><body>',
     '<div style="text-align:right;margin-bottom:8px">',
@@ -706,7 +779,9 @@ function getTemplateGalleryHtml() {
     '    <span>' + esc(t('gallery.copy_prompt')) + '</span>',
     '  </button>',
     '</div>',
+    '<div class="section-label">' + esc(t('gallery.section_official')) + '</div>',
     '<div class="cards" id="cards">' + cardsHtml + '</div>',
+    myTemplatesSectionHtml,
     '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; ' + t('gallery.review') + '</button>',
     '<div class="preview-wrap" id="previewWrap">',
     '  <div class="tab-bar">',
@@ -734,11 +809,13 @@ function getTemplateGalleryHtml() {
     '</div>',
     '<script>',
     'var GI=', giJson, ';',
+    'var CGI=', stringifyForHtmlScript(getCustomGalleryClientI18n()), ';',
     'function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}',
     '',
     'var cards=document.querySelectorAll(".card");',
     'cards.forEach(function(c){',
-    '  c.addEventListener("click",function(){',
+    '  c.addEventListener("click",function(e){',
+    '    if(e.target.closest(".card-actions")) return;',
     '    cards.forEach(function(x){x.classList.remove("selected");});',
     '    c.classList.add("selected");',
     '    c.querySelector("input[type=radio]").checked=true;',
@@ -912,6 +989,43 @@ function getTemplateGalleryHtml() {
     '  var el=document.getElementById("statusMsg");',
     '  el.className="status "+type;',
     '  el.textContent=msg;',
+    '}',
+    'function doEditCustom(id){',
+    '  google.script.run.showCustomTemplateEditorDialog(id);',
+    '  google.script.host.close();',
+    '}',
+    'function doDuplicateCustom(id){',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    if(r.ok){',
+    '      google.script.run.withSuccessHandler(function(r2){',
+    '        if(r2.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
+    '        else{ showStatus("error",r2.message); }',
+    '      }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).saveCustomTemplateFromClient(JSON.stringify(r.template));',
+    '    }else{ showStatus("error",r.message); }',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).duplicateCustomTemplate(id);',
+    '}',
+    'function doExportCustom(id){',
+    '  if(!confirm(CGI.confirmExport)) return;',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    showStatus(r.ok?"success":"error",r.message);',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).exportCustomTemplateToDocument(id);',
+    '}',
+    'function doDeleteCustom(id){',
+    '  if(!confirm(CGI.confirmDelete)) return;',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); google.script.host.close(); }',
+    '    else{ showStatus("error",r.message); }',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).deleteCustomTemplateFromClient(id);',
+    '}',
+    'function doCreateFromTemplate(){',
+    '  google.script.run.showCreateFromTemplatePickerDialog();',
+    '  google.script.host.close();',
+    '}',
+    'function doCreateBlank(){',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    if(r.ok){ google.script.run.showCustomTemplateEditorDialog(r.template.id); google.script.host.close(); }',
+    '    else{ showStatus("error",r.message); }',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).createBlankCustomTemplate();',
     '}',
     '</script>',
     '</body></html>'
