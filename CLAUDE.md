@@ -45,7 +45,7 @@ cd observability/scripts
   - `appsscript.json` — Add-on manifest: OAuth scopes, add-on config, runtime settings
 
 - **`docs/`** — User documentation: **`docs/en/`** (plus **`docs/uk/`**, **`docs/ru/`** for the site), STORE_LISTING, DESIGN; GitHub Pages uses Jekyll under **`docs/`**
-- **`project/`** — Specs (SPEC.md, SPEC-1 through SPEC-8, TEMPLATE-SPEC.md)
+- **`project/`** — Specs (SPEC.md, SPEC-1 through SPEC-13, TEMPLATE-SPEC.md), **`project/designs/`** — initial design proposals and brainstorm artifacts
 - **`observability/`** — GCP monitoring config, metrics apply script, dashboards JSON
 
 ### Key Architecture Patterns
@@ -103,6 +103,8 @@ Follow `.cursor/rules/spec-driven-workflow.mdc` for all non-trivial features:
 **Lightweight mode:** For tiny fixes or changelog-only changes, read related spec section if exists, skip formal phases unless requested.
 
 **New work without a spec:** Propose new `project/SPEC-N-SHORT-NAME.md` from `project/TEMPLATE-SPEC.md` and confirm before substantial implementation.
+
+**Project materials location:** All brainstorm artifacts, design proposals, research notes, and planning documents must be stored under `project/` (e.g., `project/designs/` for initial designs, `project/SPEC-*.md` for specs). Do not create planning/design documents outside the `project/` directory.
 
 ## Release & Change Management
 

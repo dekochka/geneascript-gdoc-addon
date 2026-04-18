@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### ✨ Added
+
+- **Playwright E2E test suite** — 12 serial browser tests covering all main add-on workflows against a live Google Doc with a real Google session:
+  1. Blank out test document
+  2. Menu and sidebar open correctly (6 core buttons)
+  3. Empty doc — no images for refresh
+  4. Setup AI dialog
+  5. No API key banner (skipped when key exists)
+  6. Import images from Drive via Google Picker (opt-in via `GENEASCRIPT_RUN_IMPORT_PICKER=1`)
+  7. Refresh image list
+  8. No image selected — transcribe disabled
+  9. Extract Context dialog
+  10. Template Gallery preview tabs (5 tabs + preview toggle)
+  11. Batch transcribe (2 images, waits for completion)
+  12. Document result structure screenshot
+- **E2E infrastructure** — Persistent Chrome profile auth (`e2e/save-auth.ts`), Playwright fixtures, shared helpers for sidebar/modal frame discovery, Google Material Design scrim workarounds, CDP mouse events for Google Picker automation.
+- **Project spec** — Added `project/SPEC-13-E2E-PLAYWRIGHT.md` and design doc `project/designs/2026-04-18-e2e-playwright-suite-design.md`.
+
+### 🔧 Changed
+
+- **`.gitignore`** — Added `playwright-report/` and `e2e/.auth/` exclusions.
+- **`CLAUDE.md`** — Updated spec range (SPEC-1–13), added `project/designs/` reference and project materials location rule.
+
 ## [1.2.0] — 2026-04-18
 
 ### ✨ Added

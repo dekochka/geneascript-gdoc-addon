@@ -2,6 +2,10 @@
 *.log
 node_modules/
 test-results/
+playwright-report/
+
+# E2E auth session (contains Google cookies — never commit)
+e2e/.auth/
 
 # Local reference videos (e.g. in docs/)
 *.mp4
