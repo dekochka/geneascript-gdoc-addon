@@ -2513,7 +2513,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.1.1</div>',
+    '<div class="footer">v1.2.0</div>',
 
     '<script>',
     'var SI=', siJson, ';',
