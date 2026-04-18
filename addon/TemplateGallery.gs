@@ -60,7 +60,14 @@ function getSelectedTemplateId() {
   try {
     var props = PropertiesService.getDocumentProperties();
     var id = props.getProperty(TEMPLATE_ID_PROPERTY);
-    if (id && TEMPLATES[id]) return id;
+    if (!id) return DEFAULT_TEMPLATE_ID;
+    // OOB template
+    if (TEMPLATES[id]) return id;
+    // Custom template — verify it exists
+    if (id.indexOf(CUSTOM_ID_PREFIX) === 0) {
+      if (resolveCustomTemplate(id)) return id;
+      Logger.log('getSelectedTemplateId: custom template not found, using default. id=' + id);
+    }
   } catch (e) {
     Logger.log('getSelectedTemplateId: error reading doc props, using default. ' + e.message);
   }
@@ -68,11 +75,18 @@ function getSelectedTemplateId() {
 }
 
 function setSelectedTemplateId(id) {
-  if (!TEMPLATES[id]) throw new Error('Unknown template ID: ' + id);
+  if (!TEMPLATES[id] && id.indexOf(CUSTOM_ID_PREFIX) !== 0) {
+    throw new Error('Unknown template ID: ' + id);
+  }
   PropertiesService.getDocumentProperties().setProperty(TEMPLATE_ID_PROPERTY, id);
 }
 
 function getPromptForTemplate(templateId) {
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom && custom.sections) return assemblePromptFromSections(custom.sections);
+    Logger.log('getPromptForTemplate: custom template not found, falling back. id=' + templateId);
+  }
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxPrompt();
@@ -85,6 +99,11 @@ function getPromptForTemplate(templateId) {
 }
 
 function getContextDefaultsForTemplate(templateId) {
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom && custom.contextDefaults) return custom.contextDefaults;
+    Logger.log('getContextDefaultsForTemplate: custom not found, falling back. id=' + templateId);
+  }
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxContextDefaults();
@@ -123,7 +142,9 @@ function getTemplateListForClient() {
  * Returns the full prompt text for preview in the dialog.
  */
 function getPromptPreviewForClient(templateId) {
-  if (!TEMPLATES[templateId]) return t('template.preview_unknown');
+  if (!TEMPLATES[templateId] && !(templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0 && resolveCustomTemplate(templateId))) {
+    return t('template.preview_unknown');
+  }
   return getPromptForTemplate(templateId);
 }
 
@@ -132,7 +153,7 @@ function getPromptPreviewForClient(templateId) {
  * Mirrors the exact text that buildPrompt() sends to the Gemini API.
  */
 function getFullPromptForClient(templateId) {
-  if (!TEMPLATES[templateId]) return '';
+  if (!TEMPLATES[templateId] && !(templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0 && resolveCustomTemplate(templateId))) return '';
   var template = getPromptForTemplate(templateId);
   var context = '';
   try {
@@ -149,6 +170,29 @@ function getFullPromptForClient(templateId) {
  * Splits the prompt on #### headers and adds the context defaults tab.
  */
 function getTemplateSectionsForClient(templateId) {
+  // Custom template — read sections directly
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom) {
+      var documentContext = '';
+      try {
+        var doc = DocumentApp.getActiveDocument();
+        if (doc) documentContext = getContextFromDocument(doc) || '';
+      } catch (e) {
+        Logger.log('getTemplateSectionsForClient: could not read doc context: ' + e.message);
+      }
+      return {
+        documentContext: documentContext,
+        hasDocumentContext: documentContext.length > 0,
+        contextDefaults: custom.contextDefaults || '',
+        role: custom.sections.role || '',
+        columns: custom.sections.inputStructure || '',
+        outputFormat: custom.sections.outputFormat || '',
+        instructions: custom.sections.instructions || ''
+      };
+    }
+  }
+
   if (!TEMPLATES[templateId]) {
     return { documentContext: '', contextDefaults: '', role: '', columns: '', outputFormat: '', instructions: '' };
   }
