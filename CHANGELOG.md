@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### ✨ Added
 
+- **Custom Templates** — Create, edit, duplicate, and delete personal transcription templates via the Template Gallery:
+  - Clone from official templates or create blank with starter scaffold (Output Format, Instructions, Context Defaults)
+  - Per-section "Reset to inherited" for templates based on official ones
+  - Tabbed editor dialog with Role, Input Structure, Output Format, Instructions, and Context Defaults sections
+  - Export custom templates to document for collaborator access (Shared badge, read-only)
+  - "My Templates" section in Template Gallery with Custom/Shared badges and action buttons
+  - Max 5 custom templates per user, stored in User Properties
+  - Full EN/UK/RU localization for all custom template UI (~40 new i18n keys)
+
 - **Playwright E2E test suite** — 12 serial browser tests covering all main add-on workflows against a live Google Doc with a real Google session:
   1. Blank out test document
   2. Menu and sidebar open correctly (6 core buttons)
