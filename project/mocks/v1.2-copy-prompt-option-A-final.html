@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Option A Final — "Full Prompt" tab + corner icon</title>
+<style>
+body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 16px; color: #333; display: flex; flex-direction: column; height: calc(100vh - 32px); background: #fff; }
+.current-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.current { font-size: 12px; color: #666; }
+.current span { font-weight: bold; color: #1a73e8; }
+.cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.card { display: flex; align-items: flex-start; gap: 8px; border: 2px solid #dadce0; border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }
+.card:hover { border-color: #1a73e8; }
+.card.selected { border-color: #1a73e8; background: #e8f0fe; }
+.card input[type=radio] { margin-top: 3px; accent-color: #1a73e8; }
+.card-body { flex: 1; }
+.card-title { font-weight: bold; font-size: 14px; margin-bottom: 2px; }
+.card-meta { font-size: 11px; color: #5f6368; margin-bottom: 4px; }
+.card-desc { font-size: 12px; color: #444; line-height: 1.4; }
+.preview-toggle { background: none; border: none; color: #1a73e8; cursor: pointer; font-size: 12px; padding: 4px 0; margin-bottom: 4px; text-decoration: underline; }
+.preview-wrap { display: block; margin-bottom: 12px; border: 1px solid #dadce0; border-radius: 4px; overflow: hidden; }
+.tab-bar { display: flex; border-bottom: 1px solid #dadce0; background: #f1f3f4; }
+.tab-btn { padding: 6px 10px; font-size: 11px; border: none; background: none; cursor: pointer; color: #5f6368; white-space: nowrap; border-bottom: 2px solid transparent; }
+.tab-btn:hover { color: #1a73e8; }
+.tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; font-weight: bold; }
+.tab-content { max-height: 220px; overflow-y: auto; padding: 8px; font-family: "Roboto Mono", monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #f8f9fa; }
+.options { margin-bottom: 12px; }
+.options label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.options .hint { font-size: 11px; color: #5f6368; margin-left: 22px; margin-top: 2px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }
+.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }
+.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.btn-primary:hover { background: #1765cc; }
+.btn:hover { background: #f1f3f4; }
+
+/* --- Copy bar inside Full Prompt tab --- */
+.copy-bar { display: none; align-items: center; justify-content: space-between; padding: 6px 8px; background: #e8f0fe; border-bottom: 1px solid #c5d7f2; }
+.copy-bar.visible { display: flex; }
+.copy-bar-label { font-size: 11px; color: #3c4043; }
+.copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-weight: bold; }
+.copy-btn:hover { background: #1765cc; }
+.copy-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* --- Corner icon button --- */
+.copy-icon-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #5f6368; transition: all 0.15s; }
+.copy-icon-btn:hover { border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; }
+.copy-icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+.copy-icon-btn .icon-label { font-size: 11px; }
+
+/* Tooltip */
+.copy-icon-btn { position: relative; }
+.copy-icon-btn .tooltip { display: none; position: absolute; top: calc(100% + 6px); right: 0; background: #333; color: #fff; font-size: 11px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; z-index: 10; pointer-events: none; }
+.copy-icon-btn .tooltip::before { content: ''; position: absolute; bottom: 100%; right: 12px; border: 5px solid transparent; border-bottom-color: #333; }
+.copy-icon-btn:hover .tooltip { display: block; }
+</style>
+</head>
+<body>
+
+<!-- Top row: "Currently using" + corner copy icon -->
+<div class="current-row">
+  <div class="current">Currently using: <span>Galician Greek Catholic (19th c.)</span></div>
+  <!-- Content copy / assignment icon: document with arrow out -->
+  <button class="copy-icon-btn" onclick="doCopyCorner(this)">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <!-- "assignment return" / document-export style icon -->
+      <path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+    </svg>
+    <span class="icon-label">Copy prompt</span>
+    <span class="tooltip">Copy full prompt to clipboard</span>
+  </button>
+</div>
+
+<div class="cards" id="cards">
+  <label class="card selected">
+    <input type="radio" name="template" checked>
+    <div class="card-body">
+      <div class="card-title">Galician Greek Catholic (19th c.)</div>
+      <div class="card-meta">Galicia (Austrian Empire) &middot; Greek Catholic &middot; Birth, Marriage, Death</div>
+      <div class="card-desc">Latin/Polish/Ukrainian registers from Galician Greek Catholic parishes. Column headers in Latin with Cyrillic equivalents.</div>
+    </div>
+  </label>
+  <label class="card">
+    <input type="radio" name="template">
+    <div class="card-body">
+      <div class="card-title">Russian Imperial Orthodox (Metricheskaya Kniga)</div>
+      <div class="card-meta">Russian Empire &middot; Orthodox &middot; Birth, Marriage, Death</div>
+      <div class="card-desc">Pre-reform Russian Cyrillic registers with Church Slavonic influence.</div>
+    </div>
+  </label>
+  <label class="card">
+    <input type="radio" name="template">
+    <div class="card-body">
+      <div class="card-title">Generic — verbatim text (letters, typescript, etc.)</div>
+      <div class="card-meta">Any source &middot; N/A &middot; General manuscript or typescript</div>
+      <div class="card-desc">Handwritten letters, typescript pages, notes, or any non-tabular text.</div>
+    </div>
+  </label>
+</div>
+
+<button class="preview-toggle" id="previewToggle">&#9660; Hide Template Review</button>
+
+<div class="preview-wrap" id="previewWrap">
+  <div class="tab-bar">
+    <button class="tab-btn" data-tab="context" onclick="switchTab(this)">Context</button>
+    <button class="tab-btn" data-tab="role" onclick="switchTab(this)">Role</button>
+    <button class="tab-btn" data-tab="columns" onclick="switchTab(this)">Columns</button>
+    <button class="tab-btn" data-tab="output" onclick="switchTab(this)">Output Format</button>
+    <button class="tab-btn" data-tab="instructions" onclick="switchTab(this)">Instructions</button>
+    <button class="tab-btn active" data-tab="fullprompt" onclick="switchTab(this)">Full Prompt</button>
+  </div>
+  <div class="copy-bar visible" id="copyBar">
+    <span class="copy-bar-label">Exact prompt sent to Gemini API (with your document context)</span>
+    <button class="copy-btn" onclick="doCopyInline(this)">
+      <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      Copy to clipboard
+    </button>
+  </div>
+  <div class="tab-content" id="tabContent">#### Role
+
+You are an expert archivist and paleographer specializing in 19th and early 20th-century Galician (Austrian/Polish/Ukrainian) vital records. Your task is to extract and transcribe handwritten text from the attached image of a metric book (birth, marriage, or death register).
+
+#### Context
+
+ARCHIVE_NAME: Державний архів Тернопільської області
+ARCHIVE_REFERENCE: Справа № 526
+DOCUMENT_DESCRIPTION: Метрична книга про народження за 1888 (липень – грудень) – 1924 (січень – квітень) роки с. Турильче Борщівського повіту
+DATE_RANGE: 1888 (липень – грудень) – 1924 (січень – квітень)
+VILLAGES:
+Основні села приходу:
+Темеровці (Temerowce) - центр приходу
+Селище (Sieliska)
+
+COMMON_SURNAMES:
+Дубель (Dubel)
+Рега (Rega)
+Балащук (Balaszczuk)
+
+#### Input Template Description
+
+Metric Book may contain mix of different table formats for births, deaths, marriage records.
+
+**Linguistic hints:**
+- Primary language is Latin with Cyrillic (Ukrainian/Russian) equivalents in column headers.
+- Surnames follow Polish orthography (w instead of v, cz instead of ch, sz instead of sh).
+- Given names are Latinized: Joannes (Ivan), Nicolaus (Mykola)...
+
+#### Output Format
+
+Output must be formatted for readability in a document.
+Use **bold** for labels, names, and key attributes (e.g., **Name:**, **Parents:**).
+Do NOT use bullet points for the main record data. Use standard paragraphs.
+...
+
+#### Instructions
+
+Step 1: Extract page header metadata (year, page number, Fond/Opis/Case if visible, village names).
+
+Step 2: For each record provide structured summary in Russian, Ukrainian, Latin, and English per the record output format above.
+
+Transcription accuracy: Transcribe exactly as written; preserve spelling and abbreviations. If unclear use [illegible] or [possibly X].</div>
+</div>
+
+<div class="options">
+  <label><input type="checkbox"> Scaffold missing Context fields from template</label>
+  <div class="hint">Adds any missing field labels (e.g. VILLAGES, COMMON_SURNAMES) without overwriting existing values.</div>
+</div>
+
+<div class="actions">
+  <button class="btn">Cancel</button>
+  <button class="btn btn-primary">Apply</button>
+</div>
+
+<script>
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('copyBar').classList.toggle('visible', btn.dataset.tab === 'fullprompt');
+  // In the real version, tab content would update here
+}
+
+var copyIconSvg = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>';
+
+function flashCopied(btn, restoreHTML) {
+  var origBg = btn.style.background;
+  var origBorder = btn.style.borderColor;
+  var origColor = btn.style.color;
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> Copied!';
+  btn.style.background = '#137333';
+  btn.style.borderColor = '#137333';
+  btn.style.color = '#fff';
+  setTimeout(function(){
+    btn.innerHTML = restoreHTML;
+    btn.style.background = origBg;
+    btn.style.borderColor = origBorder;
+    btn.style.color = origColor;
+  }, 2000);
+}
+
+function doCopyInline(btn) {
+  flashCopied(btn, copyIconSvg + ' Copy to clipboard');
+}
+
+function doCopyCorner(btn) {
+  var checkSvg = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width:16px;height:16px;fill:currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>';
+  var origHTML = btn.innerHTML;
+  btn.innerHTML = checkSvg + '<span class="icon-label">Copied!</span>';
+  btn.style.borderColor = '#137333';
+  btn.style.color = '#137333';
+  btn.style.background = '#e6f4ea';
+  setTimeout(function(){
+    btn.innerHTML = origHTML;
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    btn.style.background = '';
+  }, 2000);
+}
+</script>
+</body>
+</html>

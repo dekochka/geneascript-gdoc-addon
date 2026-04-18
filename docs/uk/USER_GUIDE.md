@@ -35,19 +35,19 @@ flowchart LR
 1. **Зберіть документ** — **Import Book from Drive Files** (рекомендовано) або вручну додайте Context і зображення.
 2. **Шаблон** — якщо джерело не греко-католицькі метричні книги Галичини, відкрийте **Select Template** і оберіть профіль (наприклад, російська православна метрична книга).
 3. **Транскрипція** — бічна панель для пакету або одне зображення через меню **Transcribe Image**.
-4. **Налаштування** — **Extensions** → **Metric Book Transcriber** → **Setup AI** або кнопка в бічній панелі.
+4. **Налаштування** — **Extensions** → **GeneaScript** → **Setup AI** або кнопка в бічній панелі.
 5. **Контекст з обкладинки** — **Extract Context from Cover Image** (меню) або **Extract Context from Selected Image** (бічна панель, одне зображення).
 
 ### Мова інтерфейсу
 
 Доступні **англійська**, **українська**, **російська**. За замовчуванням — мова облікового запису Google. Перевизначення: **Setup AI** або **Settings** → **Interface language** (**Auto**, **English**, **Українська**, **Русский**). Заголовок **Context** у документі не перекладається — так працює авто-виявлення контексту.
 
-Меню **Extensions** → **Metric Book Transcriber**: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, **Report an issue**.
+Меню **Extensions** → **GeneaScript**: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, **Report an issue**.
 
 ## 📁 Імпорт з Google Drive (рекомендовано)
 
 1. Відкрийте Google Doc.
-2. **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Files**.
+2. **Extensions** → **GeneaScript** → **Import Book from Drive Files**.
 3. У **Google Picker** стартує папка батьківського документа (якщо документ у Drive).
 4. Вкладки **Images** / **Folders**, пошук, **до 30 зображень** (JPEG, PNG, WebP), **Select**.
 5. Додається розділ **Context** (зразок з жирними мітками — відредагуйте), для кожного файлу: **Heading 2**, **Source Image Link**, зображення, розрив сторінки.

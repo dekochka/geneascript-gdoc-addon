@@ -7,10 +7,10 @@ Use the text below when filling out the Store Listing page in the **Google Works
 ## Application Name
 
 ```
-Metric Book Transcriber
+GeneaScript Transcriber
 ```
 
-(24 characters; limit 50)
+(23 characters; limit 50)
 
 ## Short Description
 
@@ -25,7 +25,7 @@ Transcribe metric book images (birth, marriage, death registers) using Google™
 Emojis are used for scannability; the **Google Workspace™ Marketplace** accepts Unicode. If a field strips or rejects them, remove the emoji prefixes (✨ 📁 🤖 📋 🎯 🔑 📖 ✅) and keep the rest.
 
 ```
-Metric Book Transcriber is a free, open-source Google Docs™ add-on for genealogists and archivists working with 19th and early 20th-century vital records (metric books). It uses the Google™ AI (Gemini™) API to read handwritten text from scanned images and insert a structured transcription directly into your document.
+GeneaScript Transcriber is a free, open-source Google Docs™ add-on for genealogists and archivists working with 19th and early 20th-century vital records (metric books). It uses the Google™ AI (Gemini™) API to read handwritten text from scanned images and insert a structured transcription directly into your document.
 
 ✨ FEATURES
 
@@ -47,14 +47,14 @@ Each transcription includes:
 Add a Context section at the top of your document with archive name, reference numbers, date range, village names, and common surnames. The add-on uses this to improve transcription accuracy and name normalization.
 
 🔑 API Key & Model Setup
-On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key (link to **Google AI Studio™**) and choose a model: **Gemini™ Flash Latest** (default, free tier ~20 requests/day), **Gemini™ 3.1 Flash Lite** (500 requests/day), or **Gemini™ 3.1 Pro Preview** (best quality, billing). Your key and model choice are stored privately (per user). Update them anytime via Extensions > Metric Book Transcriber > Setup API key & model. See aistudio.google.com/rate-limit for free tier and billing.
+On first use, the add-on prompts you to enter a Google™ AI (Gemini™) API key (link to **Google AI Studio™**) and choose a model: **Gemini™ Flash Latest** (default, free tier ~20 requests/day), **Gemini™ 3.1 Flash Lite** (500 requests/day), or **Gemini™ 3.1 Pro Preview** (best quality, billing). Your key and model choice are stored privately (per user). Update them anytime via Extensions > GeneaScript > Setup API key & model. See aistudio.google.com/rate-limit for free tier and billing.
 
 📖 HOW TO USE
 
 1. Open a Google Docs™ document.
-2. Run Extensions > Metric Book Transcriber > Import Book from Drive Files (or add images manually).
+2. Run Extensions > GeneaScript > Import Book from Drive Files (or add images manually).
 3. Edit the Context section to match your source archive and locality.
-4. Open the Sidebar (Extensions > Metric Book Transcriber > Open Sidebar, or click the add-on icon in the right panel).
+4. Open the Sidebar (Extensions > GeneaScript > Open Sidebar, or click the add-on icon in the right panel).
 5. Select images and click "Transcribe Selected" to batch-transcribe, or select a single image and use "Transcribe Image" from the menu.
 6. Review the transcriptions inserted below each image. Use Setup API key & model to change your API key or **Gemini™** model when needed.
 
@@ -120,7 +120,7 @@ The Store listing requires **App details** → **Edit language** with at least o
 
 **What to set:**
 1. **English (required)** — Add or select **English**. Fill the three required fields with the text from the sections above:
-   - **Application name:** `Metric Book Transcriber`
+   - **Application name:** `GeneaScript Transcriber`
    - **Short description:** (copy from “Short Description” above)
    - **Detailed description:** (copy from “Detailed Description” above)
    - Click **Done**.

@@ -1,10 +1,10 @@
 ---
 layout: default
 lang: en
-title: Design — Metric Book Transcriber
+title: Design — GeneaScript Transcriber
 permalink: /DESIGN.html
 ---
-# GDoc Metric Book Transcriber Add-On — Design Document
+# GeneaScript Transcriber — Design Document
 
 ## 1. Overview
 
@@ -20,7 +20,7 @@ References: [SPEC.md](../project/SPEC.md), [Google Workspace Add-ons](https://de
 
 - **`onOpen(e)`**  
   Runs when the document is opened. Adds a custom menu to the Docs UI:
-  - **Extensions** (or **Add-ons**) → **Metric Book Transcriber** → **Transcribe Image**.
+  - **Extensions** (or **Add-ons**) → **GeneaScript** → **Transcribe Image**.
 
 - **Main action: Transcribe Image**  
   Bound to a function (e.g. `transcribeSelectedImage()`) that:
@@ -42,7 +42,7 @@ All logic runs in the user’s Apps Script project; there is no separate backend
 The add-on uses the **Google Picker API** for importing metric book scan images from Google Drive into a document:
 
 **Google Picker flow**
-- User selects **Extensions → Metric Book Transcriber → Import Book from Drive Files** (or sidebar button)
+- User selects **Extensions → GeneaScript → Import Book from Drive Files** (or sidebar button)
 - Loading dialog opens (1100×700px) with “Loading Google Picker...” message and brief instructions
 - Picker configuration retrieved from script properties (`GOOGLE_PICKER_API_KEY`, `GOOGLE_PICKER_APP_ID`)
 - OAuth token generated via `ScriptApp.getOAuthToken()`
@@ -124,7 +124,7 @@ The Template Gallery provides **domain-specific transcription templates** that c
 2. **Russian Imperial Orthodox (`russian_orthodox`)** — Pre-reform Russian Cyrillic registers with Church Slavonic, patronymics, Julian calendar
 
 **Template selection flow**
-- User opens Template Gallery via **Extensions → Metric Book Transcriber → Select Template** or sidebar "Template" button
+- User opens Template Gallery via **Extensions → GeneaScript → Select Template** or sidebar "Template" button
 - Modal dialog (620×700px) shows:
   - Current template indicator at top
   - Template cards with radio selection (label, region, religion, record types, description)

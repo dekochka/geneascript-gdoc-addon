@@ -2111,7 +2111,6 @@ function buildHomepageCard() {
     .addWidget(CardService.newTextParagraph().setText(t('card.blurb')))
     .addWidget(button);
   return CardService.newCardBuilder()
-    .setHeader(CardService.newCardHeader().setTitle(t('card.title')))
     .addSection(section)
     .build();
 }
@@ -2468,7 +2467,7 @@ function getSidebarHtml() {
     '  <button id="importBtn" type="button" data-testid="geneascript-import" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; ', t('sidebar.btn_import'), '</button>',
     '  <button id="setupBtn" type="button" data-testid="geneascript-setup-ai" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; ', t('sidebar.btn_setup'), '</button>',
     '  <button id="extractBtnSidebar" type="button" data-testid="geneascript-extract" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; ', t('sidebar.btn_extract'), '</button>',
-    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; ', t('sidebar.template_prefix'), ' <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
+    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
     '</div>',
 
     '<div class="section">',

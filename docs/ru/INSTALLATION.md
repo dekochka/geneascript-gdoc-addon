@@ -26,9 +26,9 @@ permalink: /ru/INSTALLATION.html
 
 ## 🏪 Вариант 0: Marketplace
 
-1. Найдите **Metric Book Transcriber** в [Marketplace](https://workspace.google.com/marketplace/).
+1. Найдите **GeneaScript Transcriber** в [Marketplace](https://workspace.google.com/marketplace/).
 2. **Install** и выдайте разрешения.
-3. В любом Doc: **Extensions** → **Metric Book Transcriber** или значок дополнения.
+3. В любом Doc: **Extensions** → **GeneaScript** или значок дополнения.
 4. Первый **Transcribe Image** — диалог ключа и модели (по умолчанию Gemini Flash Latest; в диалоге также **Interface language**). Стоимость: [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing).
 
 Далее — [USER_GUIDE.html](USER_GUIDE.html).

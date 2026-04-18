@@ -8,11 +8,11 @@ redirect_from:
   - /PRIVACY_POLICY.html
 ---
 
-# Privacy Policy — GeneaScript Metric Book Transcriber
+# Privacy Policy — GeneaScript Transcriber
 
 **Last updated:** 2026-04-04
 
-GeneaScript Metric Book Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
+GeneaScript Transcriber ("the Add-on") is an open-source Google Docs™ Editor add-on that helps users transcribe images of metric books (birth, marriage, and death registers) using the Google™ AI (Gemini™) API.
 
 ## Data the Add-on Accesses
 

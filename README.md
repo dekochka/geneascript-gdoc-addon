@@ -1,6 +1,6 @@
-# 📖 Metric Book Transcriber Add-On
+# 📖 GeneaScript Transcriber
 
-A **Google Docs™** add-on that helps transcribe images of metric books (birth, marriage, and death registers) using the **Google™ AI (Gemini™)** API. You can **import scan images from selected Google Drive™ files** into a document (with a Context block and source links), **select a domain-specific template** (Galician Greek Catholic or Russian Imperial Orthodox) for region-specific transcription prompts, then **transcribe** one image at a time from the menu or **batch-transcribe** multiple images from the **sidebar**; the add-on inserts structured transcription **directly below each image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
+A **Google Docs™** add-on that helps transcribe images of metric books (birth, marriage, and death registers) using the **Google™ AI (Gemini™)** API. You can **import scan images from selected Google Drive™ files** into a document (with a Context block and source links), **select a domain-specific template** (Galician Greek Catholic, Russian Imperial Orthodox, or Generic verbatim) for region-specific transcription prompts, then **transcribe** one image at a time from the menu or **batch-transcribe** multiple images from the **sidebar**; the add-on inserts structured transcription **directly below each image** with readable formatting (bold labels, language summaries as bullets, Quality Metrics and Assessment highlighted in color).
 
 ## 🎬 Demo
 
@@ -8,9 +8,9 @@ A **Google Docs™** add-on that helps transcribe images of metric books (birth,
 
 ## 📥 Install
 
-**Recommended:** Install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/) (search for "Metric Book Transcriber"). One click, works in any **Google Docs™** document. See [Installation](docs/en/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
+**Recommended:** Install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/) (search for "GeneaScript Transcriber"). One click, works in any **Google Docs™** document. See [Installation](docs/en/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
 
-## 📸 Current UI (v1.1.1 — EN / UK / RU)
+## 📸 Current UI (v1.2 — EN / UK / RU)
 
 **Main workflow with sidebar:**
 
@@ -59,13 +59,13 @@ flowchart LR
   Gemini --> Transcription
 ```
 
-*Typical flow: import from **Google Drive™**, setup AI, extract context from cover image, select template (Galician or Russian), then transcribe selected images.*
+*Typical flow: import from **Google Drive™**, setup AI, extract context from cover image, select template (Galician, Russian, or Generic), then transcribe selected images.*
 
 - **📍 Where it runs:** **Google Docs™** (install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/), or use a Test deployment / container-bound script).
-- **📁 Import from Drive:** **Extensions → Metric Book Transcriber → Import Book from Drive Files** opens a **Google Picker™** dialog to select images from **Google Drive™**. Adds a **Context** section at the top (full sample template with bold labels), imports up to **30 selected images** (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in **Google Drive™**), the image (scaled to content width), and a page break. Uses `drive.file` OAuth scope (non-sensitive) — only user-selected files are accessible, not all **Google Drive™** files.
-- **📋 Template Gallery:** Select a domain-specific template (**Galician Greek Catholic** or **Russian Imperial Orthodox**) from **Extensions → Metric Book Transcriber → Select Template** or the sidebar. Each template provides a specialized AI prompt with region-specific linguistic hints, column schemas, and terminology tailored to that record type. The selected template is stored per-document and used for all subsequent transcriptions. Improves transcription accuracy by giving the model domain-expert context.
+- **📁 Import from Drive:** **Extensions → GeneaScript → Import Book from Drive Files** opens a **Google Picker™** dialog to select images from **Google Drive™**. Adds a **Context** section at the top (full sample template with bold labels), imports up to **30 selected images** (JPEG, PNG, WebP only), natural-sorted by filename. For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (link to the file in **Google Drive™**), the image (scaled to content width), and a page break. Uses `drive.file` OAuth scope (non-sensitive) — only user-selected files are accessible, not all **Google Drive™** files.
+- **📋 Template Gallery:** Select a domain-specific template (**Galician Greek Catholic**, **Russian Imperial Orthodox**, or **Generic verbatim**) from **Extensions → GeneaScript → Select Template** or the sidebar. Each template provides a specialized AI prompt with region-specific linguistic hints, column schemas, and terminology tailored to that record type. The selected template is stored per-document and used for all subsequent transcriptions. Use the **Copy prompt** button to export the full assembled prompt (with your document context) for use in AI Studio, ChatGPT, or fine-tuning.
 - **✍️ Transcribe:** Select an image in the document and run **Transcribe Image**. The add-on sends that image plus the document's Context to the **Gemini™** API using the selected template's prompt and inserts the structured transcription under the image. Output includes page header metadata, per-record fields, language summaries (Russian, Ukrainian, Latin/Original, English), and Quality Metrics / Assessment (styled in blue and red).
-- **🔑 API key, model, and request config:** A **Google™ AI (Gemini™)** API key is required. The add-on prompts you to enter it the first time you run **Transcribe Image** (with a link to [Google AI Studio™ — API keys](https://aistudio.google.com/api-keys)). You can choose the model: **Gemini™ Flash Latest** (default, free tier ~20 requests/day), **Gemini™ 3.1 Flash Lite** (500 requests/day), or **Gemini™ 3.1 Pro Preview** (best quality, billing). In the same setup dialog you can tune transcription behavior using **Transcription strictness**, **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**, each with inline impact hints. Update key/model/settings anytime via **Extensions → Metric Book Transcriber → Setup AI**. See [Gemini™ API pricing](https://ai.google.dev/gemini-api/docs/pricing) for cost details by model and token usage. Each user's key, model, and request settings are stored privately (User Properties).
+- **🔑 API key, model, and request config:** A **Google™ AI (Gemini™)** API key is required. The add-on prompts you to enter it the first time you run **Transcribe Image** (with a link to [Google AI Studio™ — API keys](https://aistudio.google.com/api-keys)). You can choose the model: **Gemini™ Flash Latest** (default, free tier ~20 requests/day), **Gemini™ 3.1 Flash Lite** (500 requests/day), or **Gemini™ 3.1 Pro Preview** (best quality, billing). In the same setup dialog you can tune transcription behavior using **Transcription strictness**, **Max text length**, **Reasoning depth**, and (when supported) **Reasoning effort limit**, each with inline impact hints. Update key/model/settings anytime via **Extensions → GeneaScript → Setup AI**. See [Gemini™ API pricing](https://ai.google.dev/gemini-api/docs/pricing) for cost details by model and token usage. Each user's key, model, and request settings are stored privately (User Properties).
 
 ## 📚 Documentation
 
@@ -80,4 +80,4 @@ flowchart LR
 - **`addon/`** — Apps Script source: `Code.gs`, `TemplateGallery.gs`, `ContextTemplate.gs`, `Prompt.gs`, `Observability.gs`, `appsscript.json`.
 - **`docs/`** — User guide, installation, design, privacy policy, terms of service, store listing copy.
 - **`observability/`** — Dashboard config, metric apply script, and setup guide for Google Cloud Monitoring/Logging.
-- **`project/`** — Specs (SPEC.md, SPEC-1–10) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.
+- **`project/`** — Specs (SPEC.md, SPEC-1–12) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.

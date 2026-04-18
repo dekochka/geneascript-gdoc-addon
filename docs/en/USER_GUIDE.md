@@ -2,13 +2,13 @@
 layout: default
 lang: en
 locale_section: true
-title: User Guide — Metric Book Transcriber
+title: User Guide — GeneaScript Transcriber
 permalink: /en/USER_GUIDE.html
 redirect_from:
   - /USER_GUIDE.html
 ---
 
-# 📖 User Guide — Metric Book Transcriber Add-On
+# 📖 User Guide — GeneaScript Transcriber
 
 This add-on helps you transcribe images of metric books (birth, marriage, death registers) using **Google™ AI (Gemini™)**. You can **import scan images from Google Drive™ file links/IDs that you select** into a document (with a Context block and source links), then **transcribe** selected images; the add-on inserts the transcription **directly below the selected image** with clear formatting.
 
@@ -45,14 +45,14 @@ flowchart LR
 ## 🔄 Workflow summary
 
 1. **Build the document** — Use **Import Book from Drive Files** (recommended) or add Context and images manually.
-2. **Select Template (if needed)** — If your source material is not a Galician Greek Catholic register, open **Select Template** from the menu or sidebar to choose the matching record profile (e.g. Russian Imperial Orthodox).
+2. **Select Template (if needed)** — If your source material is not a Galician Greek Catholic register, open **Select Template** from the menu or sidebar to choose the matching record profile (e.g. Russian Imperial Orthodox or Generic verbatim for letters and non-tabular text).
 3. **Transcribe** — Open the **Sidebar** and select one or more images to transcribe in batch, or select a single image and run **Transcribe Image** from the menu.
-4. **Setup (optional)** — To change your API key or **Gemini™** model anytime, use **Extensions** → **Metric Book Transcriber** → **Setup AI**, or click **Setup AI** in the sidebar.
+4. **Setup (optional)** — To change your API key or **Gemini™** model anytime, use **Extensions** → **GeneaScript** → **Setup AI**, or click **Setup AI** in the sidebar.
 5. **Extract Context from cover image (recommended after import)** — Use **Extract Context from Cover Image** (menu) or **Extract Context from Selected Image** (sidebar) to auto-fill Context fields from a title page, then review and edit before applying.
 
 **Menu overview**
 
-The **Extensions** → **Metric Book Transcriber** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
+The **Extensions** → **GeneaScript** menu includes: **Open Sidebar**, **Transcribe Image**, **Import Book from Drive Files**, **Extract Context from Cover Image**, **Select Template**, **Setup AI**, **Help / User Guide**, and **Report an issue**. You can also open the sidebar by clicking the add-on icon in the right-side panel.
 
 ### Interface language
 
@@ -67,7 +67,7 @@ The add-on UI is available in **English**, **Ukrainian**, and **Russian**. By de
 Use this to create a document with a Context section and scan images from your **Google Drive™** in one go.
 
 1. Open a **new or existing** Google Docs™ document.
-2. Go to **Extensions** → **Metric Book Transcriber** → **Import Book from Drive Files**.
+2. Go to **Extensions** → **GeneaScript** → **Import Book from Drive Files**.
 3. A **Google Picker™** dialog opens, automatically starting in **your document's parent folder** (if the document is saved in a **Google Drive™** folder).
 
    ![Google Picker™ showing Images tab with file selection](app-screenshots/v0.9-export-from-drive-picker.jpg)
@@ -117,7 +117,7 @@ Use this to create a document with a Context section and scan images from your *
 
 The sidebar is the easiest way to transcribe one or many images at once.
 
-1. Open **Extensions** → **Metric Book Transcriber** → **Open Sidebar**, or click the add-on icon in the right-side panel and then **Open Transcriber Sidebar**.
+1. Open **Extensions** → **GeneaScript** → **Open Sidebar**, or click the add-on icon in the right-side panel and then **Open Transcriber Sidebar**.
 2. The sidebar shows the top action flow in order: **Import from Drive Folder**, **Setup AI**, **Extract Context from Selected Image**, then the image list and **Transcribe Selected** action.
 3. The image list shows inline images labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark.
 4. **Select images** — check the images you want to transcribe, or use **Select All**. You can select a single image or multiple.
@@ -148,7 +148,7 @@ This feature helps you populate the `Context` section automatically from a cover
 
 1. Import images with **Import Book from Drive Files**.
 2. Start extraction using either:
-   - **Extensions** → **Metric Book Transcriber** → **Extract Context from Cover Image**, or
+   - **Extensions** → **GeneaScript** → **Extract Context from Cover Image**, or
    - Sidebar action **Extract Context from Selected Image** (select exactly one image first).
 3. Select the cover/title image and click **Extract**.
 4. Review AI-extracted fields (archive name/reference, document description, date range, villages, surnames, notes).
@@ -173,16 +173,18 @@ Different metric books use different languages, column structures, and conventio
 |----------|--------|----------|----------|
 | **Galician Greek Catholic** (default) | Galicia (Austrian Empire) | Greek Catholic | Latin/Polish/Ukrainian registers with Latinized names, Polish surname orthography |
 | **Russian Imperial Orthodox** | Russian Empire | Orthodox | Pre-reform Russian Cyrillic registers with Church Slavonic influence, patronymics, Julian calendar dates |
+| **Generic — verbatim text** | Any source | N/A | Handwritten letters, typescript, diaries, notes, or any non-tabular text |
 
 ### How to select a template
 
 1. Open the Template Gallery using either:
-   - **Extensions** → **Metric Book Transcriber** → **Select Template**, or
+   - **Extensions** → **GeneaScript** → **Select Template**, or
    - Click the **Template** button in the sidebar (shows the currently selected template name).
 2. In the dialog, select the template that matches your source material (radio button selection).
-3. Click **Review Template** to expand a tabbed preview with five sections: **Context** (shows your live document context), **Role**, **Columns**, **Output Format**, and **Instructions** (optional).
-4. Choose whether to **Update Context block with template defaults** (recommended for new documents; uncheck if you already have custom context).
-5. Click **Apply** to save.
+3. Click **Review Template** to expand a tabbed preview with six sections: **Context** (shows your live document context), **Role**, **Columns**, **Output Format**, **Instructions**, and **Full Prompt** (the exact text sent to the AI).
+4. Use the **Copy prompt** button (top-right corner or inside the Full Prompt tab) to copy the assembled prompt to your clipboard — useful for pasting into AI Studio, ChatGPT, or building fine-tuning datasets.
+5. Choose whether to **Scaffold missing Context fields from template** (recommended for new documents; uncheck if you already have custom context).
+6. Click **Apply** to save.
 
 The selected template is stored **per document** — each document remembers its own template. All subsequent transcriptions in that document will use the selected template's prompt. Already-transcribed images are not affected; only new transcriptions use the new template.
 
@@ -199,7 +201,7 @@ The selected template is stored **per document** — each document remembers its
 You can also transcribe one image at a time using the classic menu flow:
 
 1. **🖼️ Click on the image** you want to transcribe so it is selected (handles appear around it).
-2. Open **Extensions** → **Metric Book Transcriber** → **Transcribe Image**.
+2. Open **Extensions** → **GeneaScript** → **Transcribe Image**.
 
    ![Select image and run Transcribe Image](Step2_selectImage_HitTranscribe.png)
 
@@ -219,7 +221,7 @@ You can also transcribe one image at a time using the classic menu flow:
 
 ### Setup AI
 
-To change your API key, **Gemini™** model, or request behavior anytime (for example after hitting free-tier limits or to try different transcription quality settings), use **Extensions** → **Metric Book Transcriber** → **Setup AI**. In the dialog you can pick a model, tune **Transcription strictness**, **Max text length**, and **Reasoning depth**, and review short notes that explain how each parameter can affect transcription quality/latency/cost. On models that support it, you can also set **Reasoning effort limit**. Enter a new API key (or leave it blank to keep the current one), and click **Save**. Use **Clear stored API key** to remove your key so you’ll be prompted again on the next Transcribe.
+To change your API key, **Gemini™** model, or request behavior anytime (for example after hitting free-tier limits or to try different transcription quality settings), use **Extensions** → **GeneaScript** → **Setup AI**. In the dialog you can pick a model, tune **Transcription strictness**, **Max text length**, and **Reasoning depth**, and review short notes that explain how each parameter can affect transcription quality/latency/cost. On models that support it, you can also set **Reasoning effort limit**. Enter a new API key (or leave it blank to keep the current one), and click **Save**. Use **Clear stored API key** to remove your key so you’ll be prompted again on the next Transcribe.
 
 ![v0.8 setup AI popup](app-screenshots/v0.8-setup-ai-popup.jpg)
 
@@ -253,9 +255,9 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Cannot access some files** | Each file must be owned by you or shared with you. If you changed access recently, re-authorize and run import again. |
 | **No images found in selection** | Only JPEG, PNG, and WebP are imported. Ensure selected files are images in one of these formats. |
 | **Some images skipped** | Very large or invalid images may be skipped; the add-on reports how many. Resize or re-export large scans if needed. |
-| **"Set API Key" dialog / API key prompt** | The add-on prompts for a key and model on first use of **Transcribe Image**. Create a key at [Google AI Studio™ — API keys](https://aistudio.google.com/api-keys), paste it, choose a model, and click **Save & Continue**. To change key or model later, use **Extensions** → **Metric Book Transcriber** → **Setup AI**. See [INSTALLATION.html](INSTALLATION.html). |
+| **"Set API Key" dialog / API key prompt** | The add-on prompts for a key and model on first use of **Transcribe Image**. Create a key at [Google AI Studio™ — API keys](https://aistudio.google.com/api-keys), paste it, choose a model, and click **Save & Continue**. To change key or model later, use **Extensions** → **GeneaScript** → **Setup AI**. See [INSTALLATION.html](INSTALLATION.html). |
 | **Setup dialog validation error** | Check request fields in **Setup AI**. **Transcription strictness** must be `0..2`; **Max text length** must be an integer `1..65536`; and reasoning options depend on the selected model. |
-| **"Authorisation is required to perform that action"** | Usually means you are a collaborator on the doc and haven’t authorized the add-on for your account. Open **Extensions** → **Metric Book Transcriber** and complete the authorization when prompted. |
+| **"Authorisation is required to perform that action"** | Usually means you are a collaborator on the doc and haven’t authorized the add-on for your account. Open **Extensions** → **GeneaScript** and complete the authorization when prompted. |
 | **Quota exceeded / 429 / rate limit** | Free tier has limited requests per day. The add-on shows the error in the dialog. Check [Gemini™ API pricing](https://ai.google.dev/gemini-api/docs/pricing) and your quota/billing setup; switch model or billing settings via **Setup AI** if needed. |
 | **Request failed / API error** | Check that your API key is valid and that the Generative Language API is enabled. If you see a quota or billing message, review [Gemini™ API pricing](https://ai.google.dev/gemini-api/docs/pricing) and your Google AI™ or Google Cloud™ project settings. |
 | **Timeout** | The add-on waits up to about 60 seconds. If the request times out, try again or use a smaller/simpler image. |

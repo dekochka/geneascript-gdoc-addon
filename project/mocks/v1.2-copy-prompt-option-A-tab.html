@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Option A — "Full Prompt" tab with Copy button inside</title>
+<style>
+body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 16px; color: #333; display: flex; flex-direction: column; height: calc(100vh - 32px); background: #fff; }
+h4 { margin: 0 0 8px; color: #999; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.current { font-size: 12px; color: #666; margin-bottom: 12px; }
+.current span { font-weight: bold; color: #1a73e8; }
+.cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.card { display: flex; align-items: flex-start; gap: 8px; border: 2px solid #dadce0; border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }
+.card:hover { border-color: #1a73e8; }
+.card.selected { border-color: #1a73e8; background: #e8f0fe; }
+.card input[type=radio] { margin-top: 3px; accent-color: #1a73e8; }
+.card-body { flex: 1; }
+.card-title { font-weight: bold; font-size: 14px; margin-bottom: 2px; }
+.card-meta { font-size: 11px; color: #5f6368; margin-bottom: 4px; }
+.card-desc { font-size: 12px; color: #444; line-height: 1.4; }
+.preview-toggle { background: none; border: none; color: #1a73e8; cursor: pointer; font-size: 12px; padding: 4px 0; margin-bottom: 4px; text-decoration: underline; }
+.preview-wrap { display: block; margin-bottom: 12px; border: 1px solid #dadce0; border-radius: 4px; overflow: hidden; }
+.tab-bar { display: flex; border-bottom: 1px solid #dadce0; background: #f1f3f4; }
+.tab-btn { padding: 6px 10px; font-size: 11px; border: none; background: none; cursor: pointer; color: #5f6368; white-space: nowrap; border-bottom: 2px solid transparent; }
+.tab-btn:hover { color: #1a73e8; }
+.tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; font-weight: bold; }
+.tab-content { max-height: 220px; overflow-y: auto; padding: 8px; font-family: "Roboto Mono", monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #f8f9fa; }
+.options { margin-bottom: 12px; }
+.options label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.options .hint { font-size: 11px; color: #5f6368; margin-left: 22px; margin-top: 2px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }
+.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }
+.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+.btn-primary:hover { background: #1765cc; }
+.btn:hover { background: #f1f3f4; }
+
+/* --- New: Full Prompt tab copy bar --- */
+.copy-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: #e8f0fe; border-bottom: 1px solid #c5d7f2; }
+.copy-bar-label { font-size: 11px; color: #3c4043; }
+.copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-weight: bold; }
+.copy-btn:hover { background: #1765cc; }
+.copy-btn svg { width: 14px; height: 14px; fill: currentColor; }
+</style>
+</head>
+<body>
+
+<h4>Option A: New "Full Prompt" tab (copy button inside tab content)</h4>
+
+<div class="current">Currently using: <span>Galician Greek Catholic (19th c.)</span></div>
+
+<div class="cards">
+  <label class="card selected">
+    <input type="radio" name="template" checked>
+    <div class="card-body">
+      <div class="card-title">Galician Greek Catholic (19th c.)</div>
+      <div class="card-meta">Galicia (Austrian Empire) &middot; Greek Catholic &middot; Birth, Marriage, Death</div>
+      <div class="card-desc">Latin/Polish/Ukrainian registers from Galician Greek Catholic parishes. Column headers in Latin with Cyrillic equivalents.</div>
+    </div>
+  </label>
+  <label class="card">
+    <input type="radio" name="template">
+    <div class="card-body">
+      <div class="card-title">Russian Imperial Orthodox (Metricheskaya Kniga)</div>
+      <div class="card-meta">Russian Empire &middot; Orthodox &middot; Birth, Marriage, Death</div>
+      <div class="card-desc">Pre-reform Russian Cyrillic registers with Church Slavonic influence.</div>
+    </div>
+  </label>
+</div>
+
+<button class="preview-toggle">&#9660; Hide Template Review</button>
+
+<div class="preview-wrap">
+  <div class="tab-bar">
+    <button class="tab-btn" onclick="showRegular(this)">Context</button>
+    <button class="tab-btn" onclick="showRegular(this)">Role</button>
+    <button class="tab-btn" onclick="showRegular(this)">Columns</button>
+    <button class="tab-btn" onclick="showRegular(this)">Output Format</button>
+    <button class="tab-btn" onclick="showRegular(this)">Instructions</button>
+    <button class="tab-btn active" onclick="showFullPrompt(this)" style="color:#1a73e8;font-weight:bold;">Full Prompt</button>
+  </div>
+  <!-- Copy bar visible only on Full Prompt tab -->
+  <div class="copy-bar" id="copyBar">
+    <span class="copy-bar-label">Exact prompt sent to Gemini API (with your document context)</span>
+    <button class="copy-btn" onclick="doCopy()">
+      <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      Copy to clipboard
+    </button>
+  </div>
+  <div class="tab-content" id="tabContent">#### Role
+
+You are an expert archivist and paleographer specializing in 19th and early 20th-century Galician (Austrian/Polish/Ukrainian) vital records. Your task is to extract and transcribe handwritten text from the attached image of a metric book (birth, marriage, or death register).
+
+#### Context
+
+ARCHIVE_NAME: Державний архів Тернопільської області
+ARCHIVE_REFERENCE: Справа № 526
+DOCUMENT_DESCRIPTION: Метрична книга про народження за 1888 (липень – грудень) – 1924 (січень – квітень) роки с. Турильче Борщівського повіту
+DATE_RANGE: 1888 (липень – грудень) – 1924 (січень – квітень)
+VILLAGES:
+Основні села приходу:
+Темеровці (Temerowce) - центр приходу
+
+#### Input Template Description
+
+Metric Book may contain mix of different table formats for births, deaths, marriage records.
+...
+
+#### Output Format
+
+Output must be formatted for readability in a document.
+Use **bold** for labels, names, and key attributes.
+...
+
+#### Instructions
+
+Step 1: Extract page header metadata (year, page number, Fond/Opis/Case if visible, village names).
+Step 2: For each record provide structured summary in Russian, Ukrainian, Latin, and English per the record output format above.
+...</div>
+</div>
+
+<div class="options">
+  <label><input type="checkbox"> Scaffold missing Context fields from template</label>
+  <div class="hint">Adds any missing field labels (e.g. VILLAGES, COMMON_SURNAMES) without overwriting existing values.</div>
+</div>
+
+<div class="actions">
+  <button class="btn">Cancel</button>
+  <button class="btn btn-primary">Apply</button>
+</div>
+
+<script>
+function showFullPrompt(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('copyBar').style.display = 'flex';
+}
+function showRegular(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('copyBar').style.display = 'none';
+}
+function doCopy() {
+  var btn = document.querySelector('.copy-btn');
+  btn.textContent = 'Copied!';
+  btn.style.background = '#137333';
+  btn.style.borderColor = '#137333';
+  setTimeout(function(){ btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> Copy to clipboard'; btn.style.background='#1a73e8'; btn.style.borderColor='#1a73e8'; }, 2000);
+}
+</script>
+</body>
+</html>
