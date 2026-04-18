@@ -2,19 +2,19 @@
 layout: default
 lang: en
 locale_section: true
-title: Terms of Service — Metric Book Transcriber
+title: Terms of Service — GeneaScript Transcriber
 permalink: /en/TERMS_OF_SERVICE.html
 redirect_from:
   - /TERMS_OF_SERVICE.html
 ---
 
-# Terms of Service — Metric Book Transcriber
+# Terms of Service — GeneaScript Transcriber
 
 **Last updated:** 2026-03-14
 
 ## 1. Acceptance
 
-By installing or using Metric Book Transcriber ("the Add-on"), you agree to these Terms of Service. If you do not agree, do not install or use the Add-on.
+By installing or using GeneaScript Transcriber ("the Add-on"), you agree to these Terms of Service. If you do not agree, do not install or use the Add-on.
 
 ## 2. Description
 

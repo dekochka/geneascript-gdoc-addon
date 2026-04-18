@@ -1,18 +1,25 @@
 ---
 layout: home
-title: GeneaScript — Metric Book Transcriber
+title: GeneaScript Transcriber
 permalink: /
 ---
 <img src="/GeneaScript_logo_128.png" alt="GeneaScript" width="128" height="128" />
 
 # GeneaScript
 
-## Metric Book Transcriber
+## Transcriber
 
-Free **Google Docs™** add-on for transcribing metric book images (birth, marriage, death registers) using **Google™ AI (Gemini™)**. **Choose a language for the documentation site:**
+Free **Google Docs™** add-on for importing and transcribing metric book images (birth, marriage, death registers) using **Google™ AI (Gemini™)** with predefined templates. **Choose a language for the documentation site:**
 
 <p><a href="/en/" style="display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border:1px solid #0366d6;border-radius:6px;font-weight:600;">English</a>
 <a href="/uk/" style="display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border:1px solid #0366d6;border-radius:6px;font-weight:600;">Українська</a>
 <a href="/ru/" style="display:inline-block;padding:0.5rem 1rem;margin:0.25rem;border:1px solid #0366d6;border-radius:6px;font-weight:600;">Русский</a></p>
 
-<p style="font-size:0.9rem;color:#555"><a href="https://github.com/dekochka/geneascript-gdoc-addon">Source on GitHub</a></p>
+<h3>Links</h3>
+<p>
+<a href="https://workspace.google.com/marketplace/app/geneascript_metric_book_transcriber/440886676248">Google Workspace™ Marketplace</a> · 
+<a href="https://t.me/geneascript">Telegram</a> · 
+<a href="https://www.youtube.com/@GeneaMetricBooksTranscriber">YouTube</a> · 
+<a href="https://github.com/dekochka/geneascript-gdoc-addon">Source code</a> · 
+<a href="mailto:geneascript.support@gmail.com">geneascript.support@gmail.com</a>
+</p>

@@ -128,6 +128,23 @@ function getPromptPreviewForClient(templateId) {
 }
 
 /**
+ * Returns the fully assembled prompt (template + document context) for clipboard copy.
+ * Mirrors the exact text that buildPrompt() sends to the Gemini API.
+ */
+function getFullPromptForClient(templateId) {
+  if (!TEMPLATES[templateId]) return '';
+  var template = getPromptForTemplate(templateId);
+  var context = '';
+  try {
+    var doc = DocumentApp.getActiveDocument();
+    if (doc) context = getContextFromDocument(doc) || '';
+  } catch (e) {
+    Logger.log('getFullPromptForClient: could not read doc context: ' + e.message);
+  }
+  return template.replace(/\{\{CONTEXT\}\}/g, context || '(No context provided.)');
+}
+
+/**
  * Returns structured preview sections for the tabbed preview panel.
  * Splits the prompt on #### headers and adds the context defaults tab.
  */
@@ -578,7 +595,6 @@ function getTemplateGalleryHtml() {
   var templates = getTemplateListForClient();
   var selectedId = getSelectedTemplateId();
   var giJson = stringifyForHtmlScript(getGalleryClientI18n());
-  var curLabel = t('template.' + selectedId + '.label');
 
   var cardsHtml = '';
   for (var i = 0; i < templates.length; i++) {
@@ -598,8 +614,7 @@ function getTemplateGalleryHtml() {
     '<!DOCTYPE html><html><head><base target="_top">',
     '<style>',
     'body { font-family: Arial, sans-serif; font-size: 13px; margin: 0; padding: 16px; color: #333; display: flex; flex-direction: column; height: calc(100vh - 32px); }',
-    '.current { font-size: 12px; color: #666; margin-bottom: 12px; }',
-    '.current span { font-weight: bold; color: #1a73e8; }',
+    '',
     '.cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }',
     '.card { display: flex; align-items: flex-start; gap: 8px; border: 2px solid #dadce0; border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color 0.15s; }',
     '.card:hover { border-color: #1a73e8; }',
@@ -629,9 +644,24 @@ function getTemplateGalleryHtml() {
     '.status { font-size: 12px; margin-top: 8px; padding: 8px; border-radius: 4px; display: none; }',
     '.status.success { display: block; background: #e6f4ea; color: #137333; }',
     '.status.error { display: block; background: #fce8e6; color: #c5221f; }',
+    '',
+    '.copy-icon-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #5f6368; transition: all 0.15s; }',
+    '.copy-icon-btn:hover { border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; }',
+    '.copy-icon-btn svg { width: 16px; height: 16px; fill: currentColor; }',
+    '.copy-bar { display: none; align-items: center; justify-content: space-between; padding: 6px 8px; background: #e8f0fe; border-bottom: 1px solid #c5d7f2; }',
+    '.copy-bar.visible { display: flex; }',
+    '.copy-bar-label { font-size: 11px; color: #3c4043; }',
+    '.copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-weight: bold; }',
+    '.copy-btn:hover { background: #1765cc; }',
+    '.copy-btn svg { width: 14px; height: 14px; fill: currentColor; }',
     '</style>',
     '</head><body>',
-    '<div class="current">' + t('gallery.currently') + ' <span id="currentLabel">' + esc(curLabel) + '</span></div>',
+    '<div style="text-align:right;margin-bottom:8px">',
+    '  <button class="copy-icon-btn" id="cornerCopyBtn" onclick="doCopyPrompt()" title="' + esc(t('gallery.copy_prompt_hint')) + '">',
+    '    <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>',
+    '    <span>' + esc(t('gallery.copy_prompt')) + '</span>',
+    '  </button>',
+    '</div>',
     '<div class="cards" id="cards">' + cardsHtml + '</div>',
     '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; ' + t('gallery.review') + '</button>',
     '<div class="preview-wrap" id="previewWrap">',
@@ -641,6 +671,11 @@ function getTemplateGalleryHtml() {
     '    <button class="tab-btn" data-tab="columns" onclick="switchTab(this)">' + t('gallery.tab.columns') + '</button>',
     '    <button class="tab-btn" data-tab="output" onclick="switchTab(this)">' + t('gallery.tab.output') + '</button>',
     '    <button class="tab-btn" data-tab="instructions" onclick="switchTab(this)">' + t('gallery.tab.instructions') + '</button>',
+    '    <button class="tab-btn" data-tab="fullprompt" onclick="switchTab(this)">' + t('gallery.tab.full_prompt') + '</button>',
+    '  </div>',
+    '  <div class="copy-bar" id="copyBar">',
+    '    <span class="copy-bar-label">' + esc(t('gallery.copy_prompt_hint')) + '</span>',
+    '    <button class="copy-btn" onclick="doCopyPrompt()"><svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg> ' + esc(t('gallery.copy_to_clipboard')) + '</button>',
     '  </div>',
     '  <div class="tab-content" id="tabContent">' + t('gallery.select_tab') + '</div>',
     '</div>',
@@ -663,6 +698,7 @@ function getTemplateGalleryHtml() {
     '    cards.forEach(function(x){x.classList.remove("selected");});',
     '    c.classList.add("selected");',
     '    c.querySelector("input[type=radio]").checked=true;',
+    '    cachedFullPrompt=null;',
     '    if(document.getElementById("previewWrap").classList.contains("open")){loadSections(function(){showTab(currentTab);});}',
     '  });',
     '});',
@@ -708,6 +744,8 @@ function getTemplateGalleryHtml() {
     '  tabs.forEach(function(t){t.classList.remove("active");});',
     '  btn.classList.add("active");',
     '  currentTab=btn.getAttribute("data-tab");',
+    '  var bar=document.getElementById("copyBar");',
+    '  if(currentTab==="fullprompt"){bar.classList.add("visible");}else{bar.classList.remove("visible");}',
     '  showTab(currentTab);',
     '}',
     '',
@@ -731,9 +769,65 @@ function getTemplateGalleryHtml() {
     '    btn.textContent=GI.extractCover;',
     '    btn.onclick=function(){google.script.run.openExtractContextDialog();google.script.host.close();};',
     '    sep.appendChild(btn);',
+    '  }else if(tab==="fullprompt"){',
+    '    el.textContent=GI.loadingTab;',
+    '    var fid=getSelectedId();',
+    '    if(!fid){el.textContent=GI.selectTemplate;return;}',
+    '    if(cachedFullPrompt){el.textContent=cachedFullPrompt;return;}',
+    '    google.script.run.withSuccessHandler(function(txt){',
+    '      cachedFullPrompt=txt;',
+    '      el.textContent=txt;',
+    '    }).withFailureHandler(function(err){',
+    '      el.textContent=GI.errorPrefix+" "+((err&&err.message)||GI.loadPreviewFailed);',
+    '    }).getFullPromptForClient(fid);',
     '  }else{',
     '    el.textContent=map[tab]||GI.emptySection;',
     '  }',
+    '}',
+    '',
+    'var cachedFullPrompt=null;',
+    '',
+    'function copyToClipboard(text){',
+    '  try{',
+    '    var ta=document.createElement("textarea");',
+    '    ta.value=text;',
+    '    ta.style.cssText="position:fixed;left:-9999px;top:-9999px";',
+    '    document.body.appendChild(ta);',
+    '    ta.select();',
+    '    var ok=document.execCommand("copy");',
+    '    document.body.removeChild(ta);',
+    '    return ok;',
+    '  }catch(e){return false;}',
+    '}',
+    '',
+    'function doCopyPrompt(){',
+    '  var id=getSelectedId();',
+    '  if(!id){showStatus("error",GI.selectTemplate);return;}',
+    '  if(cachedFullPrompt){finishCopy(cachedFullPrompt);return;}',
+    '  google.script.run.withSuccessHandler(function(txt){',
+    '    cachedFullPrompt=txt;',
+    '    finishCopy(txt);',
+    '  }).withFailureHandler(function(err){',
+    '    showStatus("error",GI.errorPrefix+" "+((err&&err.message)||GI.loadPreviewFailed));',
+    '  }).getFullPromptForClient(id);',
+    '}',
+    '',
+    'function finishCopy(text){',
+    '  var ok=copyToClipboard(text);',
+    '  if(ok){',
+    '    flashCopied(document.getElementById("cornerCopyBtn"));',
+    '    showStatus("success",GI.copied);',
+    '    setTimeout(function(){document.getElementById("statusMsg").className="status";},2000);',
+    '  }else{',
+    '    showStatus("error",GI.copyFailed);',
+    '  }',
+    '}',
+    '',
+    'function flashCopied(btn){',
+    '  var origHTML=btn.innerHTML;',
+    '  btn.innerHTML=\'<svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg> <span>\'+GI.copied+\'</span>\';',
+    '  btn.style.borderColor="#137333";btn.style.color="#137333";btn.style.background="#e6f4ea";',
+    '  setTimeout(function(){btn.innerHTML=origHTML;btn.style.borderColor="";btn.style.color="";btn.style.background="";},2000);',
     '}',
     '',
     'function initContextCheckbox(hasCtx){',

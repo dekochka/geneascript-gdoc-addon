@@ -15,7 +15,7 @@
   ],
   "addOns": {
     "common": {
-      "name": "Metric Book Transcriber",
+      "name": "GeneaScript Transcriber",
       "logoUrl": "https://raw.githubusercontent.com/dekochka/geneascript-gdoc-addon/main/addon/img/GeneaScript_logo_128.png"
     },
     "docs": {

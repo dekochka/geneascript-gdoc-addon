@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Metric Book Transcriber** is a Google Docs add-on that transcribes images of 19th/20th-century Galician metric books (birth, marriage, death registers) using the Google AI (Gemini) API. Users import images from Google Drive into a document, then transcribe them individually or in batches. The add-on inserts structured transcriptions with multi-language summaries (Russian, Ukrainian, Latin, English) directly below each image.
+**GeneaScript Transcriber** is a Google Docs add-on that transcribes images of 19th/20th-century metric books (birth, marriage, death registers) using the Google AI (Gemini) API. Users import images from Google Drive into a document, then transcribe them individually or in batches using domain-specific templates (Galician Greek Catholic, Russian Imperial Orthodox, or Generic verbatim). The add-on inserts structured transcriptions with multi-language summaries (Russian, Ukrainian, Latin, English) directly below each image.
 
 ## Development Commands
 
 ### Deploy to Apps Script
+`.clasp.json` sets `rootDir: "addon"` — `clasp push` deploys only the `addon/` directory.
 ```bash
 # Push code changes to Google Apps Script
 clasp push
@@ -28,7 +29,7 @@ cd observability/scripts
 - No automated test suite. Testing requires manual verification in Google Docs:
   1. Push changes with `clasp push`
   2. Open a test Google Doc
-  3. Test via Extensions → Metric Book Transcriber menu
+  3. Test via Extensions → GeneaScript menu
 
 ## Architecture
 
@@ -38,6 +39,8 @@ cd observability/scripts
   - `Prompt.gs` — Transcription prompt template with `{{CONTEXT}}` placeholder
   - `ContextTemplate.gs` — Template for imported document context section
   - `ContextExtractionPrompt.gs` — Prompt for extracting context from cover images
+  - `I18n.gs` — UI localization (EN/UK/RU); locale stored in User Property `UI_LOCALE`
+  - `TemplateGallery.gs` — Region/religion-specific transcription template registry; selected template stored in Document Property `SELECTED_TEMPLATE_ID`
   - `Observability.gs` — Structured logging helpers for telemetry (logObsEvent, error classification, cost estimation)
   - `appsscript.json` — Add-on manifest: OAuth scopes, add-on config, runtime settings
 
@@ -59,9 +62,9 @@ cd observability/scripts
 - Timeout: 60 seconds
 
 **State Management:**
-- User Properties: `GEMINI_API_KEY`, `GEMINI_MODEL_ID`, `GEMINI_REQUEST_TEMPERATURE`, `GEMINI_REQUEST_MAX_OUTPUT_TOKENS`, `GEMINI_REQUEST_THINKING_MODE`, `GEMINI_REQUEST_THINKING_BUDGET`
-- No server-side persistence beyond User Properties
-- All state is in the active Google Doc or user's Drive folder
+- User Properties (per-user, private): `GEMINI_API_KEY`, `GEMINI_MODEL_ID`, `GEMINI_REQUEST_TEMPERATURE`, `GEMINI_REQUEST_MAX_OUTPUT_TOKENS`, `GEMINI_REQUEST_THINKING_MODE`, `GEMINI_REQUEST_THINKING_BUDGET`, `UI_LOCALE`
+- Document Properties (per-document, shared): `SELECTED_TEMPLATE_ID` (transcription template)
+- All other state is in the active Google Doc or user's Drive folder
 
 **Error Handling:**
 - All server functions use try/catch with structured error payloads: `{ ok: false, message: "..." }`
@@ -132,6 +135,7 @@ Follow `.cursor/rules/release-change-management.mdc`:
 - Never tag or version without explicit confirmation
 - Keep tag naming consistent (semver with optional suffix)
 - Never skip git hooks or amend published commits
+- **Always update the sidebar footer version** in `addon/Code.gs` (search for `<div class="footer">v`) when bumping the version — this is easily missed
 
 ## OAuth Scopes & Manifest
 
@@ -168,7 +172,7 @@ Follow `.cursor/rules/release-change-management.mdc`:
 
 - **No secrets in code** — API keys stored in User Properties only
 - **Single-file Apps Script pattern** — Prefer inline HTML in `Code.gs` over separate `.html` unless spec requires it
-- **No automated tests** — Manual testing in Google Docs required
+- **E2E tests require saved Google session** — Cannot run in stateless CI without `e2e/.auth/google.json`
 - **Context size limits** — MAX_CONTEXT_PARAGRAPHS = 50, MAX_IMPORT_IMAGES = 30
 - **Image MIME types** — JPEG, PNG, WebP only
 - **Timeout** — 60 seconds for Gemini API calls
@@ -185,7 +189,7 @@ Follow `.cursor/rules/release-change-management.mdc`:
 ## Entry Points
 
 **Menu handlers** (in `Code.gs`):
-- `onOpen(e)` — Creates "Metric Book Transcriber" menu
+- `onOpen(e)` — Creates "GeneaScript" menu
 - `onInstall(e)` — Calls `onOpen()` for initial install
 - `showTranscribeSidebar()` — Opens sidebar for batch transcription workflow
 - `transcribeSelectedImage()` — Single-image transcription from menu

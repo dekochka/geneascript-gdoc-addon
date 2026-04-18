@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-18
+
+### ✨ Added
+
+- **Copy Full Prompt** — Two new entry points in the Template Gallery dialog let users copy the exact prompt text sent to the Gemini API (with document context injected) to the clipboard, for use in AI Studio, ChatGPT, or fine-tuning datasets:
+  - **"Copy prompt" icon button** — top-right corner of the gallery dialog, always visible.
+  - **"Full Prompt" tab** — 6th tab in the review panel, shows the assembled prompt with a blue "Copy to clipboard" bar.
+- **`getFullPromptForClient(templateId)`** — New server function in `TemplateGallery.gs` that assembles the full prompt identically to `buildPrompt()`.
+- **Project spec** — Added `project/SPEC-12-COPY-FULL-PROMPT.md` and UI mockups under `project/mocks/`.
+
+### 🔧 Changed
+
+- **Branding simplification** — Shortened the add-on name throughout the UI:
+  - Extensions menu: **GeneaScript** (was "GeneaScript Metric Book Transcriber").
+  - Sidebar title: **GeneaScript Transcriber** (was "GeneaScript Metric Book Transcriber").
+  - Manifest `addOns.common.name`: **GeneaScript Transcriber** (was "Metric Book Transcriber").
+- **Homepage card cleaned up** — Removed duplicate card header title (manifest name already shown in dark bar). Updated description to "Import images into a document and transcribe them using AI with predefined templates." Button renamed to "Open GeneaScript sidebar" (EN) / "Відкрити GeneaScript" (UK) / "Открыть GeneaScript" (RU).
+- **Sidebar template button** — Removed "Template:" prefix; button now shows just the template name (e.g. "📚 Galician Greek Catholic (19th c.)"), fitting on one line.
+- **Template Gallery** — Removed "Currently using: ..." line (redundant with the selected radio button).
+- **I18n** — Added `gallery.tab.full_prompt`, `gallery.copy_prompt`, `gallery.copy_to_clipboard`, `gallery.copied`, `gallery.copy_failed`, `gallery.copy_prompt_hint` in all three locales (EN/UK/RU). Updated `card.blurb`, `card.button`, `menu.title`, and `auth.required` strings.
+
 ## [1.1.1] — 2026-04-11
 
 ### ✨ Added
@@ -350,6 +371,7 @@ Initial proof-of-concept release.
 - **📋 Project specs** — SPEC.md (transcription spec), SPEC-1-POC.md, SPEC-2-GDRIVE-to-GDOC.md (Drive Folder Importer spec).
 - **🔐 OAuth** — `drive.readonly` scope in manifest for folder access; API key stored in Script Properties only (not in code).
 
+[1.2.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.2.0
 [1.1.1]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.1
 [1.1.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.1.0
 [1.0.0]: https://github.com/dekochka/geneascript-gdoc-addon/releases/tag/v1.0.0
