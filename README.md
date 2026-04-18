@@ -6,9 +6,11 @@ A **Google Docs™** add-on that helps transcribe images of metric books (birth,
 
 [▶️ Watch a 2-minute demo of Import and Transcribe](https://www.youtube.com/watch?v=Hi8Hu1osihg)
 
+More videos on the [YouTube channel](https://www.youtube.com/@GeneaMetricBooksTranscriber).
+
 ## 📥 Install
 
-**Recommended:** Install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/) (search for "GeneaScript Transcriber"). One click, works in any **Google Docs™** document. See [Installation](docs/en/INSTALLATION.md) for all options (Marketplace, test deployment, container-bound, or clasp).
+**Recommended:** Install from the [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/app/geneascript_metric_book_transcriber/440886676248). One click, works in any **Google Docs™** document. See [Installation](docs/en/INSTALLATION.md) for details.
 
 ## 📸 Current UI (v1.2 — EN / UK / RU)
 
@@ -81,3 +83,10 @@ flowchart LR
 - **`docs/`** — User guide, installation, design, privacy policy, terms of service, store listing copy.
 - **`observability/`** — Dashboard config, metric apply script, and setup guide for Google Cloud Monitoring/Logging.
 - **`project/`** — Specs (SPEC.md, SPEC-1–12) and [`TEMPLATE-SPEC.md`](project/TEMPLATE-SPEC.md) for new features. Cursor SDD workflow: `.cursor/rules/spec-driven-workflow.mdc`.
+
+## 🔗 Links
+
+- [Google Workspace™ Marketplace](https://workspace.google.com/marketplace/app/geneascript_metric_book_transcriber/440886676248)
+- [Telegram channel](https://t.me/geneascript)
+- [YouTube](https://www.youtube.com/@GeneaMetricBooksTranscriber)
+- [geneascript.support@gmail.com](mailto:geneascript.support@gmail.com)
