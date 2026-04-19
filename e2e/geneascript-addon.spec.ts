@@ -2,6 +2,9 @@ import { test, expect } from './fixtures';
 import {
   openGeneascriptSidebar,
   clearDocument,
+  disableScrim,
+  findGalleryFrame,
+  findEditorFrame,
   sidebarExtract,
   sidebarImport,
   sidebarRefresh,
@@ -375,36 +378,8 @@ test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
   await sidebarTemplateGallery(sidebar).click();
 
-  // Disable Material Design scrim overlay that blocks clicks on dialog elements
-  async function disableScrim(): Promise<void> {
-    await page.evaluate(() => {
-      document.querySelectorAll('[class*="WizDialog-dialog__scrim"], [class*="WizDialog-dialog"]').forEach((el) => {
-        (el as HTMLElement).style.pointerEvents = 'none';
-      });
-      document.querySelectorAll('[class*="WizDialog-dialog__content"]').forEach((el) => {
-        (el as HTMLElement).style.pointerEvents = 'auto';
-      });
-    });
-  }
-
-  // Find the frame that actually contains #previewToggle (may be deeper than the
-  // frame containing the "Template Gallery" heading text due to nested iframes)
-  async function findGalleryFrame(): Promise<import('@playwright/test').Frame> {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      for (const frame of page.frames()) {
-        try {
-          const count = await frame.locator('#previewToggle').count();
-          if (count > 0) return frame;
-        } catch { /* skip */ }
-      }
-      await page.waitForTimeout(500);
-    }
-    throw new Error('Gallery frame with #previewToggle not found');
-  }
-
-  await disableScrim();
-  const gal = await findGalleryFrame();
+  await disableScrim(page);
+  const gal = await findGalleryFrame(page);
 
   // Toggle preview pane
   await gal.locator('#previewToggle').click({ timeout: 30_000 });
@@ -419,19 +394,257 @@ test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
     /Instructions|Інструкції|Инструкции/i,
   ];
   for (const tRe of tabs) {
-    await disableScrim();
+    await disableScrim(page);
     await gal.getByRole('button', { name: tRe }).click({ timeout: 30_000 });
     await expect(gal.locator('#tabContent')).not.toBeEmpty({ timeout: 30_000 });
   }
 
-  await disableScrim();
+  await disableScrim(page);
   await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
 });
 
 // ---------------------------------------------------------------------------
-// 11. Transcribe flow (batch)
+// 11. Custom Templates: My Templates section visible
 // ---------------------------------------------------------------------------
-test('GeneaScript: batch transcribe (needs API key)', async ({ page }) => {
+test('GeneaScript: gallery shows My Templates section', async ({ page }) => {
+  const sidebar = await openGeneascriptSidebar(page);
+  await sidebarTemplateGallery(sidebar).click();
+
+  await disableScrim(page);
+  const gal = await findGalleryFrame(page);
+
+  // "My Templates" section should be present (empty state or with cards)
+  await expect(
+    gal.getByText(/My Templates|Мої шаблони|Мои шаблоны/i).first()
+  ).toBeVisible({ timeout: 30_000 });
+
+  // Create buttons should be visible
+  await expect(
+    gal.getByText(/Create from Template|Створити з шаблону|Создать из шаблона/i).first()
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(
+    gal.getByText(/Create Blank|Створити порожній|Создать пустой/i).first()
+  ).toBeVisible({ timeout: 15_000 });
+
+  await page.screenshot({ path: 'test-results/11-gallery-my-templates.png', fullPage: true });
+
+  await disableScrim(page);
+  await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+});
+
+// ---------------------------------------------------------------------------
+// 12. Custom Templates: Create blank, fill editor, save
+// ---------------------------------------------------------------------------
+test('GeneaScript: create blank custom template', async ({ page }) => {
+  test.setTimeout(180_000);
+  const sidebar = await openGeneascriptSidebar(page);
+  await sidebarTemplateGallery(sidebar).click();
+
+  await disableScrim(page);
+  const gal = await findGalleryFrame(page);
+
+  // Click "Create Blank"
+  await disableScrim(page);
+  await gal.getByText(/Create Blank|Створити порожній|Создать пустой/i).first().click({ timeout: 30_000 });
+
+  // Wait for the editor dialog to open (replaces gallery)
+  await page.waitForTimeout(3000);
+  await disableScrim(page);
+  const editor = await findEditorFrame(page);
+
+  // Fill in name and description
+  await editor.locator('#tplName').fill('E2E Test Template', { timeout: 15_000 });
+  await editor.locator('#tplDesc').fill('Automated test template for E2E', { timeout: 15_000 });
+
+  // Fill in Role section (first tab, already active)
+  await editor.locator('#sec_role').fill('You are an E2E test transcription specialist.', { timeout: 15_000 });
+
+  // Switch to Input Structure tab and fill
+  await disableScrim(page);
+  await editor.getByRole('button', { name: /Input Structure|Вхідна структура|Входная структура/i }).click({ timeout: 15_000 });
+  await editor.locator('#sec_inputStructure').fill('Test input structure content.', { timeout: 15_000 });
+
+  // Switch to Output Format tab and verify it has separate content
+  await disableScrim(page);
+  await editor.getByRole('button', { name: /Output Format|Формат виводу|Формат вывода/i }).click({ timeout: 15_000 });
+  const outputVal = await editor.locator('#sec_outputFormat').inputValue();
+  // Output Format should have scaffold text (not the role text we typed)
+  expect(outputVal).not.toContain('E2E test transcription specialist');
+
+  await page.screenshot({ path: 'test-results/12-editor-filled.png', fullPage: true });
+
+  // Click Save
+  await disableScrim(page);
+  await editor.locator('#saveBtn').click({ timeout: 15_000 });
+
+  // Wait for "Saved" status and gallery to reopen
+  await page.waitForTimeout(3000);
+  await disableScrim(page);
+
+  // Gallery should reopen with the new template visible
+  const galAfter = await findGalleryFrame(page);
+  await expect(
+    galAfter.getByText('E2E Test Template').first()
+  ).toBeVisible({ timeout: 30_000 });
+
+  await page.screenshot({ path: 'test-results/12-gallery-with-custom.png', fullPage: true });
+
+  await disableScrim(page);
+  await galAfter.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+});
+
+// ---------------------------------------------------------------------------
+// 13. Custom Templates: Apply custom template
+// ---------------------------------------------------------------------------
+test('GeneaScript: apply custom template', async ({ page }) => {
+  test.setTimeout(180_000);
+  const sidebar = await openGeneascriptSidebar(page);
+  await sidebarTemplateGallery(sidebar).click();
+
+  await disableScrim(page);
+  const gal = await findGalleryFrame(page);
+
+  // Click on the custom template card to select it
+  await disableScrim(page);
+  const customCard = gal.locator('.card', { has: gal.getByText('E2E Test Template') }).first();
+  await customCard.click({ timeout: 30_000 });
+
+  // Verify it's selected
+  await expect(customCard).toHaveClass(/selected/, { timeout: 10_000 });
+
+  // Click Apply
+  await disableScrim(page);
+  await gal.locator('#applyBtn').click({ timeout: 15_000 });
+
+  // Wait for success status and dialog to close
+  await expect(gal.locator('#statusMsg')).toContainText(/applied|застосовано|применён/i, { timeout: 30_000 });
+  await page.waitForTimeout(2000);
+
+  await page.screenshot({ path: 'test-results/13-applied-custom.png', fullPage: true });
+
+  // Verify sidebar template label updated (polls every 2s)
+  await expect(
+    sidebar.locator('#templateLabel')
+  ).toContainText('E2E Test Template', { timeout: 15_000 });
+});
+
+// ---------------------------------------------------------------------------
+// 14. Custom Templates: Duplicate custom template
+// ---------------------------------------------------------------------------
+test('GeneaScript: duplicate custom template', async ({ page }) => {
+  test.setTimeout(180_000);
+  const sidebar = await openGeneascriptSidebar(page);
+  await sidebarTemplateGallery(sidebar).click();
+
+  await disableScrim(page);
+  const gal = await findGalleryFrame(page);
+
+  // Click Duplicate on the custom template
+  await disableScrim(page);
+  const duplicateBtn = gal.locator('.card', { has: gal.getByText('E2E Test Template') })
+    .first()
+    .locator('.action-link', { hasText: /Duplicate|Дублювати|Дублировать/i });
+  await duplicateBtn.click({ timeout: 30_000 });
+
+  // The gallery closes and reopens — wait for the fresh gallery to render.
+  await page.waitForTimeout(5000);
+
+  // Poll until we find a gallery frame (with #previewToggle) that also
+  // contains the duplicated template name.
+  const deadline = Date.now() + 60_000;
+  let galAfter: import('@playwright/test').Frame | null = null;
+  while (Date.now() < deadline) {
+    await disableScrim(page);
+    for (const frame of page.frames()) {
+      try {
+        const hasToggle = (await frame.locator('#previewToggle').count()) > 0;
+        const hasCopy = (await frame.getByText('E2E Test Template (copy)').count()) > 0;
+        if (hasToggle && hasCopy) { galAfter = frame; break; }
+      } catch { /* skip */ }
+    }
+    if (galAfter) break;
+    await page.waitForTimeout(1000);
+  }
+
+  expect(galAfter).not.toBeNull();
+  await page.screenshot({ path: 'test-results/14-duplicated.png', fullPage: true });
+
+  await disableScrim(page);
+  await galAfter!.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+});
+
+// ---------------------------------------------------------------------------
+// 15. Custom Templates: Delete custom templates (cleanup)
+// ---------------------------------------------------------------------------
+test('GeneaScript: delete custom templates', async ({ page }) => {
+  test.setTimeout(240_000);
+  const sidebar = await openGeneascriptSidebar(page);
+
+  // Delete all custom templates created during testing (up to 3 iterations).
+  // A gallery dialog may already be open from the previous test's duplicate flow.
+  for (let i = 0; i < 3; i++) {
+    await disableScrim(page);
+
+    // Check if gallery is already open; if not, open it from sidebar
+    let gal: import('@playwright/test').Frame | null = null;
+    for (const frame of page.frames()) {
+      try {
+        if ((await frame.locator('#previewToggle').count()) > 0) { gal = frame; break; }
+      } catch { /* skip */ }
+    }
+    if (!gal) {
+      await sidebarTemplateGallery(sidebar).click({ timeout: 30_000 });
+      await page.waitForTimeout(3000);
+      await disableScrim(page);
+      try {
+        gal = await findGalleryFrame(page);
+      } catch {
+        break;
+      }
+    }
+
+    // Scroll down in gallery to see custom template cards
+    await disableScrim(page);
+
+    // Find any Delete button in custom template cards
+    const deleteBtn = gal.locator('.action-danger').first();
+    if ((await deleteBtn.count()) === 0) {
+      // No custom templates left — close gallery and exit
+      await disableScrim(page);
+      await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 15_000 });
+      break;
+    }
+
+    await disableScrim(page);
+    await deleteBtn.click({ timeout: 15_000 });
+
+    // Handle custom confirm modal
+    await page.waitForTimeout(1000);
+    await disableScrim(page);
+    const confirmYes = gal.locator('#confirmYes');
+    if (await confirmYes.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await confirmYes.click({ timeout: 10_000 });
+    }
+
+    // Wait for gallery to reload after delete (new dialog replaces old one)
+    await page.waitForTimeout(5000);
+    // Reset gal to null so next iteration re-discovers the fresh frame
+    gal = null;
+  }
+
+  // Verify sidebar reverted to an OOB template label
+  await disableScrim(page);
+  await page.waitForTimeout(5000);
+  const label = await sidebar.locator('#templateLabel').textContent();
+  expect(label).not.toContain('E2E Test Template');
+
+  await page.screenshot({ path: 'test-results/15-deleted-all.png', fullPage: true });
+});
+
+// ---------------------------------------------------------------------------
+// 16. Transcribe flow (batch)
+// ---------------------------------------------------------------------------
+test('GeneaScript: batch transcribe (needs API key) [16]', async ({ page }) => {
   test.setTimeout(600_000);
   const sidebar = await openGeneascriptSidebar(page);
 
@@ -474,9 +687,9 @@ test('GeneaScript: batch transcribe (needs API key)', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// 12. Document result structure (screenshot)
+// 17. Document result structure (screenshot)
 // ---------------------------------------------------------------------------
-test('GeneaScript: document result structure after transcription', async ({ page }) => {
+test('GeneaScript: document result structure after transcription [17]', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
   void sidebar;
 

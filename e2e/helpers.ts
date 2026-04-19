@@ -164,6 +164,62 @@ export function sidebarEmptyState(sidebar: Frame): Locator {
   return sidebar.locator('.empty-state');
 }
 
+/**
+ * Disable the Material Design dialog scrim overlay that blocks clicks on
+ * Apps Script modal dialog elements rendered in nested iframes.
+ */
+export async function disableScrim(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const selectors = [
+      '.javascriptMaterialdesignGm3WizDialog-dialog__scrim',
+      '[class*="WizDialog-dialog__scrim"]',
+      '[class*="WizDialog-dialog"]',
+    ];
+    for (const sel of selectors) {
+      document.querySelectorAll(sel).forEach((el) => {
+        (el as HTMLElement).style.pointerEvents = 'none';
+      });
+    }
+    document.querySelectorAll('[class*="WizDialog-dialog__content"]').forEach((el) => {
+      (el as HTMLElement).style.pointerEvents = 'auto';
+    });
+  });
+}
+
+/**
+ * Find the gallery dialog frame by looking for a known element (#previewToggle).
+ */
+export async function findGalleryFrame(page: Page): Promise<Frame> {
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      try {
+        const count = await frame.locator('#previewToggle').count();
+        if (count > 0) return frame;
+      } catch { /* skip */ }
+    }
+    await page.waitForTimeout(500);
+  }
+  throw new Error('Gallery frame with #previewToggle not found');
+}
+
+/**
+ * Find the custom template editor dialog frame by looking for #tplName input.
+ */
+export async function findEditorFrame(page: Page): Promise<Frame> {
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    for (const frame of page.frames()) {
+      try {
+        const count = await frame.locator('#tplName').count();
+        if (count > 0) return frame;
+      } catch { /* skip */ }
+    }
+    await page.waitForTimeout(500);
+  }
+  throw new Error('Editor frame with #tplName not found');
+}
+
 /** Select all document content and delete it. */
 export async function clearDocument(page: Page): Promise<void> {
   // Click into the document editing area first
