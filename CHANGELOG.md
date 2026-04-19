@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [1.4.0] — 2026-04-19
 
 ### ✨ Added
 
@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Max 5 custom templates per user, stored in User Properties
   - Full EN/UK/RU localization for all custom template UI (~40 new i18n keys)
 
-- **Playwright E2E test suite** — 12 serial browser tests covering all main add-on workflows against a live Google Doc with a real Google session:
+- **Playwright E2E test suite** — 17 serial browser tests covering all main add-on workflows against a live Google Doc with a real Google session:
   1. Blank out test document
   2. Menu and sidebar open correctly (6 core buttons)
   3. Empty doc — no images for refresh
@@ -28,8 +28,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   8. No image selected — transcribe disabled
   9. Extract Context dialog
   10. Template Gallery preview tabs (5 tabs + preview toggle)
-  11. Batch transcribe (2 images, waits for completion)
-  12. Document result structure screenshot
+  11. Gallery shows My Templates section with create buttons
+  12. Create blank custom template, fill editor tabs, verify isolation, save
+  13. Apply custom template, verify sidebar label updates
+  14. Duplicate custom template, verify in reloaded gallery
+  15. Delete custom templates with inline confirm modal
+  16. Batch transcribe (2 images, waits for completion)
+  17. Document result structure screenshot
 - **E2E infrastructure** — Persistent Chrome profile auth (`e2e/save-auth.ts`), Playwright fixtures, shared helpers for sidebar/modal frame discovery, Google Material Design scrim workarounds, CDP mouse events for Google Picker automation.
 - **Project spec** — Added `project/SPEC-13-E2E-PLAYWRIGHT.md` and design doc `project/designs/2026-04-18-e2e-playwright-suite-design.md`.
 
