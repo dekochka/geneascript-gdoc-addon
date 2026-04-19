@@ -60,7 +60,14 @@ function getSelectedTemplateId() {
   try {
     var props = PropertiesService.getDocumentProperties();
     var id = props.getProperty(TEMPLATE_ID_PROPERTY);
-    if (id && TEMPLATES[id]) return id;
+    if (!id) return DEFAULT_TEMPLATE_ID;
+    // OOB template
+    if (TEMPLATES[id]) return id;
+    // Custom template — verify it exists
+    if (id.indexOf(CUSTOM_ID_PREFIX) === 0) {
+      if (resolveCustomTemplate(id)) return id;
+      Logger.log('getSelectedTemplateId: custom template not found, using default. id=' + id);
+    }
   } catch (e) {
     Logger.log('getSelectedTemplateId: error reading doc props, using default. ' + e.message);
   }
@@ -68,11 +75,18 @@ function getSelectedTemplateId() {
 }
 
 function setSelectedTemplateId(id) {
-  if (!TEMPLATES[id]) throw new Error('Unknown template ID: ' + id);
+  if (!TEMPLATES[id] && id.indexOf(CUSTOM_ID_PREFIX) !== 0) {
+    throw new Error('Unknown template ID: ' + id);
+  }
   PropertiesService.getDocumentProperties().setProperty(TEMPLATE_ID_PROPERTY, id);
 }
 
 function getPromptForTemplate(templateId) {
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom && custom.sections) return assemblePromptFromSections(custom.sections);
+    Logger.log('getPromptForTemplate: custom template not found, falling back. id=' + templateId);
+  }
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxPrompt();
@@ -85,6 +99,11 @@ function getPromptForTemplate(templateId) {
 }
 
 function getContextDefaultsForTemplate(templateId) {
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom && custom.contextDefaults) return custom.contextDefaults;
+    Logger.log('getContextDefaultsForTemplate: custom not found, falling back. id=' + templateId);
+  }
   switch (templateId) {
     case 'russian_orthodox':
       return getRussianOrthodoxContextDefaults();
@@ -120,10 +139,28 @@ function getTemplateListForClient() {
 }
 
 /**
+ * Returns the label of the currently selected template (OOB or custom).
+ * Used by the sidebar to display the active template name.
+ */
+function getSelectedTemplateLabelForClient() {
+  var selectedId = getSelectedTemplateId();
+  if (TEMPLATES[selectedId]) {
+    return t('template.' + selectedId + '.label');
+  }
+  if (selectedId && selectedId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(selectedId);
+    if (custom && custom.label) return custom.label;
+  }
+  return '';
+}
+
+/**
  * Returns the full prompt text for preview in the dialog.
  */
 function getPromptPreviewForClient(templateId) {
-  if (!TEMPLATES[templateId]) return t('template.preview_unknown');
+  if (!TEMPLATES[templateId] && !(templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0 && resolveCustomTemplate(templateId))) {
+    return t('template.preview_unknown');
+  }
   return getPromptForTemplate(templateId);
 }
 
@@ -132,7 +169,7 @@ function getPromptPreviewForClient(templateId) {
  * Mirrors the exact text that buildPrompt() sends to the Gemini API.
  */
 function getFullPromptForClient(templateId) {
-  if (!TEMPLATES[templateId]) return '';
+  if (!TEMPLATES[templateId] && !(templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0 && resolveCustomTemplate(templateId))) return '';
   var template = getPromptForTemplate(templateId);
   var context = '';
   try {
@@ -149,8 +186,31 @@ function getFullPromptForClient(templateId) {
  * Splits the prompt on #### headers and adds the context defaults tab.
  */
 function getTemplateSectionsForClient(templateId) {
+  // Custom template — read sections directly
+  if (templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = resolveCustomTemplate(templateId);
+    if (custom) {
+      var documentContext = '';
+      try {
+        var doc = DocumentApp.getActiveDocument();
+        if (doc) documentContext = getContextFromDocument(doc) || '';
+      } catch (e) {
+        Logger.log('getTemplateSectionsForClient: could not read doc context: ' + e.message);
+      }
+      return {
+        documentContext: documentContext,
+        hasDocumentContext: documentContext.length > 0,
+        contextDefaults: custom.contextDefaults || '',
+        role: custom.sections.role || '',
+        columns: custom.sections.inputStructure || '',
+        outputFormat: custom.sections.outputFormat || '',
+        instructions: custom.sections.instructions || ''
+      };
+    }
+  }
+
   if (!TEMPLATES[templateId]) {
-    return { documentContext: '', contextDefaults: '', role: '', columns: '', outputFormat: '', instructions: '' };
+    return { documentContext: '', hasDocumentContext: false, contextDefaults: '', role: '', columns: '', outputFormat: '', instructions: '' };
   }
   var prompt = getPromptForTemplate(templateId);
   var contextDefaults = getContextDefaultsForTemplate(templateId);
@@ -198,11 +258,14 @@ function getTemplateSectionsForClient(templateId) {
  */
 function applyTemplate(templateId, updateContext) {
   try {
-    if (!TEMPLATES[templateId]) {
+    // Resolve template — OOB or custom
+    var isCustom = templateId && templateId.indexOf(CUSTOM_ID_PREFIX) === 0;
+    var customTpl = isCustom ? resolveCustomTemplate(templateId) : null;
+    if (!TEMPLATES[templateId] && !customTpl) {
       return { ok: false, message: t('template.unknown', { id: templateId }) };
     }
     setSelectedTemplateId(templateId);
-    var locLabel = t('template.' + templateId + '.label');
+    var locLabel = isCustom ? (customTpl.label || templateId) : t('template.' + templateId + '.label');
     var msg = t('template.applied', { name: locLabel });
 
     if (updateContext) {
@@ -610,6 +673,62 @@ function getTemplateGalleryHtml() {
       '</label>';
   }
 
+  var customTemplates = getCustomTemplateListForClient();
+  var customCardsHtml = '';
+  for (var ci = 0; ci < customTemplates.length; ci++) {
+    var ct = customTemplates[ci];
+    var cChecked = ct.id === selectedId ? ' checked' : '';
+    var cSelected = ct.id === selectedId ? ' selected' : '';
+    var badge = ct.isOwn ? '<span class="badge-custom">' + esc(t('gallery.badge_custom')) + '</span>'
+                         : '<span class="badge-shared">' + esc(t('gallery.badge_shared')) + '</span>';
+    var parentLine = ct.parentLabel ? '<div class="parent-link">' + esc(t('gallery.parent_link', { name: ct.parentLabel })) + '</div>' : '';
+    var actionsHtml = '';
+    if (ct.isOwn) {
+      actionsHtml = '<div class="card-actions">' +
+        '<button class="action-link" onclick="doEditCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_edit')) + '</button>' +
+        '<button class="action-link" onclick="doDuplicateCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_duplicate')) + '</button>' +
+        '<button class="action-link" onclick="doExportCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_export')) + '</button>' +
+        '<button class="action-danger" onclick="doDeleteCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_delete')) + '</button>' +
+        '</div>';
+    } else {
+      actionsHtml = '<div class="card-actions">' +
+        '<button class="action-link" onclick="doDuplicateCustom(\'' + esc(ct.id) + '\')">' + esc(t('gallery.action_duplicate')) + '</button>' +
+        '</div>';
+    }
+    customCardsHtml += '<label class="card' + cSelected + '" data-id="' + esc(ct.id) + '">' +
+      '<input type="radio" name="template" value="' + esc(ct.id) + '"' + cChecked + '>' +
+      '<div class="card-body">' +
+      '<div class="card-title-row"><span class="card-title">' + esc(ct.label) + '</span>' + badge + '</div>' +
+      parentLine +
+      '<div class="card-desc">' + esc(ct.description) + '</div>' +
+      actionsHtml +
+      '</div>' +
+      '</label>';
+  }
+
+  var myTemplatesSectionHtml =
+    '<div class="divider"></div>' +
+    '<div class="section-header">' +
+    '<span class="section-label" style="margin-bottom:0">' + esc(t('gallery.section_my')) + '</span>' +
+    '<span class="section-counter">' + esc(t('gallery.my_counter', { count: customTemplates.length, max: MAX_CUSTOM_TEMPLATES })) + '</span>' +
+    '</div>';
+
+  if (customTemplates.length === 0) {
+    myTemplatesSectionHtml +=
+      '<div class="empty-state">' +
+      '<p><b>' + esc(t('gallery.empty_title')) + '</b></p>' +
+      '<p>' + esc(t('gallery.empty_hint')) + '</p>' +
+      '</div>';
+  } else {
+    myTemplatesSectionHtml += '<div class="cards">' + customCardsHtml + '</div>';
+  }
+
+  myTemplatesSectionHtml +=
+    '<div class="create-row">' +
+    '<button class="create-btn" onclick="doCreateFromTemplate()">' + esc(t('gallery.create_from')) + '</button>' +
+    '<button class="create-btn" onclick="doCreateBlank()">' + esc(t('gallery.create_blank')) + '</button>' +
+    '</div>';
+
   var parts = [
     '<!DOCTYPE html><html><head><base target="_top">',
     '<style>',
@@ -632,9 +751,6 @@ function getTemplateGalleryHtml() {
     '.tab-btn:hover { color: #1a73e8; }',
     '.tab-btn.active { color: #1a73e8; border-bottom-color: #1a73e8; font-weight: bold; }',
     '.tab-content { max-height: 220px; overflow-y: auto; padding: 8px; font-family: "Roboto Mono", monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; background: #f8f9fa; }',
-    '.options { margin-bottom: 12px; }',
-    '.options label { font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }',
-    '.options .hint { font-size: 11px; color: #5f6368; margin-left: 22px; margin-top: 2px; }',
     '.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; padding-top: 12px; border-top: 1px solid #eee; }',
     '.btn { padding: 8px 20px; border-radius: 4px; font-size: 13px; cursor: pointer; border: 1px solid #dadce0; background: #fff; color: #333; }',
     '.btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }',
@@ -654,14 +770,41 @@ function getTemplateGalleryHtml() {
     '.copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; border: 1px solid #1a73e8; background: #1a73e8; color: #fff; font-weight: bold; }',
     '.copy-btn:hover { background: #1765cc; }',
     '.copy-btn svg { width: 14px; height: 14px; fill: currentColor; }',
+    '.section-label { font-size: 11px; font-weight: bold; color: #5f6368; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }',
+    '.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }',
+    '.section-counter { font-size: 11px; color: #5f6368; }',
+    '.divider { border-top: 1px solid #dadce0; margin: 16px 0; }',
+    '.badge-custom { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #e8f0fe; color: #1a73e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; margin-left: 6px; vertical-align: middle; }',
+    '.badge-shared { font-size: 9px; padding: 2px 6px; border-radius: 3px; background: #fef7e0; color: #e37400; font-weight: bold; text-transform: uppercase; letter-spacing: 0.3px; display: inline-block; margin-left: 6px; vertical-align: middle; }',
+    '.parent-link { font-size: 11px; color: #5f6368; margin-bottom: 4px; }',
+    '.card-title-row { display: flex; align-items: center; margin-bottom: 2px; }',
+    '.card-actions { display: flex; gap: 12px; margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; }',
+    '.card-actions button { font-size: 11px; background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }',
+    '.action-link { color: #1a73e8; }',
+    '.action-danger { color: #c5221f; }',
+    '.create-row { display: flex; gap: 8px; margin-top: 8px; }',
+    '.create-btn { flex: 1; padding: 10px; border: 2px dashed #dadce0; border-radius: 8px; background: #f8f9fa; color: #1a73e8; font-size: 12px; cursor: pointer; font-weight: bold; transition: all 0.15s; text-align: center; }',
+    '.create-btn:hover { border-color: #1a73e8; background: #e8f0fe; }',
+    '.empty-state { text-align: center; padding: 16px; color: #5f6368; }',
+    '.empty-state p { font-size: 12px; margin: 4px 0; line-height: 1.5; }',
+    '.gallery-scroll { flex: 1; overflow-y: auto; min-height: 0; }',
+    '.confirm-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); z-index: 100; align-items: center; justify-content: center; }',
+    '.confirm-overlay.visible { display: flex; }',
+    '.confirm-box { background: #fff; border-radius: 8px; padding: 20px; max-width: 340px; width: 90%; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }',
+    '.confirm-box .confirm-msg { font-size: 13px; color: #333; margin-bottom: 16px; line-height: 1.5; }',
+    '.confirm-box .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }',
+    '.btn-danger { color: #fff; background: #c5221f; border-color: #c5221f; }',
+    '.btn-danger:hover { background: #a81e1b; }',
     '</style>',
     '</head><body>',
+    '<div class="gallery-scroll">',
     '<div style="text-align:right;margin-bottom:8px">',
     '  <button class="copy-icon-btn" id="cornerCopyBtn" onclick="doCopyPrompt()" title="' + esc(t('gallery.copy_prompt_hint')) + '">',
     '    <svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>',
     '    <span>' + esc(t('gallery.copy_prompt')) + '</span>',
     '  </button>',
     '</div>',
+    '<div class="section-label">' + esc(t('gallery.section_official')) + '</div>',
     '<div class="cards" id="cards">' + cardsHtml + '</div>',
     '<button class="preview-toggle" id="previewToggle" onclick="togglePreview()">&#9654; ' + t('gallery.review') + '</button>',
     '<div class="preview-wrap" id="previewWrap">',
@@ -679,22 +822,31 @@ function getTemplateGalleryHtml() {
     '  </div>',
     '  <div class="tab-content" id="tabContent">' + t('gallery.select_tab') + '</div>',
     '</div>',
-    '<div class="options">',
-    '  <label><input type="checkbox" id="updateContext"> ' + t('gallery.scaffold') + '</label>',
-    '  <div class="hint" id="contextHint"></div>',
-    '</div>',
+    myTemplatesSectionHtml,
     '<div id="statusMsg" class="status"></div>',
+    '</div>',
     '<div class="actions">',
     '<button class="btn" onclick="google.script.host.close()">' + t('gallery.cancel') + '</button>',
     '<button class="btn btn-primary" id="applyBtn" onclick="doApply()">' + t('gallery.apply') + '</button>',
     '</div>',
+    '<div class="confirm-overlay" id="confirmOverlay">',
+    '  <div class="confirm-box">',
+    '    <div class="confirm-msg" id="confirmMsg"></div>',
+    '    <div class="confirm-actions">',
+    '      <button class="btn" id="confirmNo" onclick="closeConfirm()">' + esc(t('gallery.cancel')) + '</button>',
+    '      <button class="btn btn-danger" id="confirmYes"></button>',
+    '    </div>',
+    '  </div>',
+    '</div>',
     '<script>',
     'var GI=', giJson, ';',
+    'var CGI=', stringifyForHtmlScript(getCustomGalleryClientI18n()), ';',
     'function esc(s){var d=document.createElement("div");d.textContent=s;return d.innerHTML;}',
     '',
     'var cards=document.querySelectorAll(".card");',
     'cards.forEach(function(c){',
-    '  c.addEventListener("click",function(){',
+    '  c.addEventListener("click",function(e){',
+    '    if(e.target.closest(".card-actions")) return;',
     '    cards.forEach(function(x){x.classList.remove("selected");});',
     '    c.classList.add("selected");',
     '    c.querySelector("input[type=radio]").checked=true;',
@@ -724,14 +876,12 @@ function getTemplateGalleryHtml() {
     '  }',
     '}',
     '',
-    'var contextCheckboxInitialized=false;',
     'function loadSections(cb){',
     '  var id=getSelectedId();',
     '  if(!id)return;',
     '  document.getElementById("tabContent").textContent=GI.loadingTab;',
     '  google.script.run.withSuccessHandler(function(s){',
     '    cachedSections=s;',
-    '    if(!contextCheckboxInitialized){initContextCheckbox(s.hasDocumentContext);contextCheckboxInitialized=true;}',
     '    if(cb)cb();',
     '  }).withFailureHandler(function(err){',
     '    document.getElementById("tabContent").textContent=GI.errorPrefix+" "+((err&&err.message)||GI.loadPreviewFailed);',
@@ -830,22 +980,9 @@ function getTemplateGalleryHtml() {
     '  setTimeout(function(){btn.innerHTML=origHTML;btn.style.borderColor="";btn.style.color="";btn.style.background="";},2000);',
     '}',
     '',
-    'function initContextCheckbox(hasCtx){',
-    '  var cb=document.getElementById("updateContext");',
-    '  var hint=document.getElementById("contextHint");',
-    '  if(hasCtx){',
-    '    cb.checked=false;',
-    '    hint.textContent=GI.hintMerge;',
-    '  }else{',
-    '    cb.checked=true;',
-    '    hint.textContent=GI.hintCreate;',
-    '  }',
-    '}',
-    '',
     'function doApply(){',
     '  var id=getSelectedId();',
     '  if(!id){showStatus("error",GI.selectTemplate);return;}',
-    '  var uc=document.getElementById("updateContext").checked;',
     '  document.getElementById("applyBtn").disabled=true;',
     '  document.getElementById("applyBtn").textContent=GI.applying;',
     '  google.script.run.withSuccessHandler(function(r){',
@@ -861,13 +998,62 @@ function getTemplateGalleryHtml() {
     '    showStatus("error",GI.errorPrefix+" "+((err&&err.message)||GI.applyFailed));',
     '    document.getElementById("applyBtn").disabled=false;',
     '    document.getElementById("applyBtn").textContent=GI.apply;',
-    '  }).applyTemplate(id,uc);',
+    '  }).applyTemplate(id,false);',
     '}',
     '',
     'function showStatus(type,msg){',
     '  var el=document.getElementById("statusMsg");',
     '  el.className="status "+type;',
     '  el.textContent=msg;',
+    '}',
+    'function showLoading(msg){showStatus("success",msg||GI.loadingTab);}',
+    'function doEditCustom(id){',
+    '  showLoading();',
+    '  google.script.run.showCustomTemplateEditorDialog(id);',
+    '}',
+    'function doDuplicateCustom(id){',
+    '  showLoading();',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    if(r.ok){ google.script.run.showTemplateGalleryDialog(); }',
+    '    else{ showStatus("error",r.message); }',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).duplicateCustomTemplate(id);',
+    '}',
+    'var confirmCallback=null;',
+    'function showConfirm(msg,btnLabel,cb){',
+    '  document.getElementById("confirmMsg").textContent=msg;',
+    '  document.getElementById("confirmYes").textContent=btnLabel;',
+    '  confirmCallback=cb;',
+    '  document.getElementById("confirmYes").onclick=function(){closeConfirm();cb();};',
+    '  document.getElementById("confirmOverlay").classList.add("visible");',
+    '}',
+    'function closeConfirm(){document.getElementById("confirmOverlay").classList.remove("visible");confirmCallback=null;}',
+    'function doExportCustom(id){',
+    '  showConfirm(CGI.confirmExport,CGI.actionExport,function(){',
+    '    showLoading();',
+    '    google.script.run.withSuccessHandler(function(r){',
+    '      showStatus(r.ok?"success":"error",r.message);',
+    '    }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).exportCustomTemplateToDocument(id);',
+    '  });',
+    '}',
+    'function doDeleteCustom(id){',
+    '  showConfirm(CGI.confirmDelete,CGI.actionDelete,function(){',
+    '    showLoading();',
+    '    google.script.run.withSuccessHandler(function(r){',
+    '      if(r.ok){ google.script.run.showTemplateGalleryDialog(); }',
+    '      else{ showStatus("error",r.message); }',
+    '    }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).deleteCustomTemplateFromClient(id);',
+    '  });',
+    '}',
+    'function doCreateFromTemplate(){',
+    '  showLoading();',
+    '  google.script.run.showCreateFromTemplatePickerDialog();',
+    '}',
+    'function doCreateBlank(){',
+    '  showLoading();',
+    '  google.script.run.withSuccessHandler(function(r){',
+    '    if(r.ok){ google.script.run.showCustomTemplateEditorDialog(r.template.id); }',
+    '    else{ showStatus("error",r.message); }',
+    '  }).withFailureHandler(function(e){ showStatus("error",GI.errorPrefix+" "+(e.message||"")); }).createBlankCustomTemplate();',
     '}',
     '</script>',
     '</body></html>'
@@ -878,5 +1064,5 @@ function getTemplateGalleryHtml() {
 
 function esc(s) {
   if (!s) return '';
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
