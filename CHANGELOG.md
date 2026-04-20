@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.1] — 2026-04-21
+
+### 🐛 Fixed
+
+- **Observability: dashboard charts no longer empty** — Log-based metric filters combined `event` and `status` into one regex (`".*event.*status"`), but `logObsEvent` emits the keys in the opposite order, so 5 filters matched zero log entries. Split each into two order-independent AND conditions. Affected metrics: `geneascript_transcribe_images_count`, `geneascript_import_runs_count`, `geneascript_import_image_latency_ms`, `geneascript_estimated_cost_usd_total`, `geneascript_user_activity_count`.
+- **Observability: cost metrics now populated for default model** — `gemini-flash-latest` (the default) had no entry in the pricing table, so `estimatedCostUsd` was always `null`. Added paid-tier Standard pricing ($0.50 input / $3.00 output per 1M tokens).
+- **Observability: "Total Estimated Cost" widget** — Converted from xyChart to scorecard; the xyChart rejected the underlying distribution metric with a `pickTimeSeriesFilter cannot be a distribution` error.
+
+### 🧰 Chores
+
+- **Observability apply script cleanup** — Removed leftover `debug_log` function and `rg` (ripgrep) dependency from `observability/scripts/apply.sh`.
+- **Docs** — `observability/README.md` now lists all 15 managed metrics (was missing 3).
+
 ## [1.4.0] — 2026-04-19
 
 ### ✨ Added
