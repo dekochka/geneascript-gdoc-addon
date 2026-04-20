@@ -24,9 +24,12 @@ This folder stores Google Cloud observability configuration so dashboards/metric
 | Transcribe | `geneascript_output_tokens` | Distribution of output token usage per transcription response. |
 | Transcribe | `geneascript_total_tokens` | Distribution of total token usage per transcription response. |
 | Transcribe | `geneascript_estimated_cost_usd` | Distribution of estimated USD cost per image from prompt/output tokens (groupable by model). |
+| Transcribe | `geneascript_estimated_cost_usd_total` | Distribution of estimated USD cost from `transcribe_image_done` (used for total cost visualization in dashboard). |
 | User activity | `geneascript_user_activity_count` | Counter metric used for daily/monthly active user approximations (anonymized user key label). |
 | Transcribe | `geneascript_transcribe_latency_ms` | Distribution of end-to-end transcription latency in milliseconds. |
-| Transcribe | `geneascript_image_bytes` | Distribution of input image sizes for transcription requests. |
+| Transcribe | `geneascript_transcribe_latency_s` | Distribution of end-to-end transcription latency in seconds (used in dashboard latency widget). |
+| Transcribe | `geneascript_image_bytes` | Distribution of input image sizes for transcription requests (bytes). |
+| Transcribe | `geneascript_image_kbytes` | Distribution of input image sizes for transcription requests (kilobytes, used in dashboard). |
 | Import | `geneascript_images_imported_count` | Distribution of images imported per completed import run (`addedCount`). |
 | Import | `geneascript_import_image_latency_ms` | Distribution of per-image import latency in milliseconds. |
 

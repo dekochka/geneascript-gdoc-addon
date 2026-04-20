@@ -3,24 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DASHBOARD_FILE="$ROOT_DIR/observability/dashboards/geneascript-observability.json"
-DEBUG_LOG_PATH="$ROOT_DIR/.cursor/debug-b78b55.log"
-DEBUG_RUN_ID="apply_$(date +%s)"
-
-debug_log() {
-  local hypothesis_id="$1"
-  local location="$2"
-  local message="$3"
-  local data="$4"
-  # #region agent log
-  printf '{"sessionId":"b78b55","runId":"%s","hypothesisId":"%s","location":"%s","message":"%s","data":%s,"timestamp":%s}\n' \
-    "$DEBUG_RUN_ID" "$hypothesis_id" "$location" "$message" "$data" "$(($(date +%s)*1000))" >> "$DEBUG_LOG_PATH"
-  # #endregion
-}
 
 echo "Using gcloud project: $(gcloud config get-value project)"
-debug_log "H1" "apply.sh:project" "active project detected" "{\"project\":\"$(gcloud config get-value project 2>/dev/null || echo unknown)\"}"
-debug_log "H2" "apply.sh:gcloud-version" "gcloud version captured" "{\"version\":\"$(gcloud --version 2>/dev/null | tr '\n' ' ' | sed 's/\"/\\"/g')\"}"
-debug_log "H2" "apply.sh:create-help" "checked if create supports value-extractor" "{\"supportsValueExtractor\":$(gcloud logging metrics create --help 2>/dev/null | rg -q -- '--value-extractor' && echo true || echo false)}"
 
 upsert_counter_metric() {
   local name="$1"
@@ -105,7 +89,6 @@ upsert_distribution_metric() {
   local extractor="$4"
   local with_model="${5:-false}"
   local with_user="${6:-false}"
-  debug_log "H3" "apply.sh:upsert_distribution_metric" "distribution metric branch entered" "{\"metric\":\"$name\"}"
   local tmp_config
   tmp_config="$(mktemp)"
   {
@@ -162,11 +145,9 @@ EOF
   } > "$tmp_config"
   if gcloud logging metrics describe "$name" >/dev/null 2>&1; then
     echo "Updating metric: $name"
-    debug_log "H3" "apply.sh:upsert_distribution_metric" "using update path for metric" "{\"metric\":\"$name\"}"
     gcloud logging metrics update "$name" --config-from-file="$tmp_config" >/dev/null
   else
     echo "Creating metric: $name"
-    debug_log "H4" "apply.sh:upsert_distribution_metric" "using create path for metric with value extractor" "{\"metric\":\"$name\"}"
     gcloud logging metrics create "$name" --config-from-file="$tmp_config" >/dev/null
   fi
   rm -f "$tmp_config"
