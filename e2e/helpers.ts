@@ -28,11 +28,16 @@ export async function openGeneascriptSidebar(page: Page): Promise<Frame> {
 
   // Handle "Choose an account" page — click the account if it appears
   try {
-    const chooseAccount = page.getByText('Choose an account');
+    const chooseAccount = page.getByText(/Choose an account|Виберіть обліковий запис|Выберите аккаунт/i);
     if (await chooseAccount.isVisible({ timeout: 5000 }).catch(() => false)) {
-      // Click the first account (geneascript.support@gmail.com)
-      await page.locator('[data-email]').first().click({ timeout: 10_000 });
-      await page.waitForTimeout(3000);
+      // Click the first account — try data-email attr first, then button with email text
+      const dataEmailBtn = page.locator('[data-email]').first();
+      if (await dataEmailBtn.count() > 0) {
+        await dataEmailBtn.click({ timeout: 10_000 });
+      } else {
+        await page.getByRole('button', { name: /geneascript/i }).first().click({ timeout: 10_000 });
+      }
+      await page.waitForTimeout(5000);
     }
   } catch { /* not on account chooser page */ }
 
@@ -46,7 +51,7 @@ export async function openGeneascriptSidebar(page: Page): Promise<Frame> {
 
   async function openViaTopMenu() {
     // Click Extensions menu first, then find the add-on submenu
-    await page.getByRole('menuitem', { name: /Extensions/i }).click({ timeout: 20_000 });
+    await page.getByRole('menuitem', { name: /Extensions|Розширення|Расширения/i }).click({ timeout: 20_000 });
     await page.getByRole('menuitem', { name: TOP_MENU_TITLE_RE }).click({ timeout: 20_000 });
     await page.getByRole('menuitem', { name: OPEN_SIDEBAR_BTN_RE }).click({ timeout: 20_000 });
   }

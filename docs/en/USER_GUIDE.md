@@ -183,8 +183,7 @@ Different metric books use different languages, column structures, and conventio
 2. In the dialog, select the template that matches your source material (radio button selection).
 3. Click **Review Template** to expand a tabbed preview with six sections: **Context** (shows your live document context), **Role**, **Columns**, **Output Format**, **Instructions**, and **Full Prompt** (the exact text sent to the AI).
 4. Use the **Copy prompt** button (top-right corner or inside the Full Prompt tab) to copy the assembled prompt to your clipboard — useful for pasting into AI Studio, ChatGPT, or building fine-tuning datasets.
-5. Choose whether to **Scaffold missing Context fields from template** (recommended for new documents; uncheck if you already have custom context).
-6. Click **Apply** to save.
+5. Click **Apply** to save.
 
 The selected template is stored **per document** — each document remembers its own template. All subsequent transcriptions in that document will use the selected template's prompt. Already-transcribed images are not affected; only new transcriptions use the new template.
 
@@ -193,6 +192,50 @@ The selected template is stored **per document** — each document remembers its
 - If you are starting work on a **Russian Imperial metric book** (Метрическая книга) after previously working on Galician records, switch to the **Russian Imperial Orthodox** template.
 - If your results seem off (wrong column interpretation, incorrect language assumptions), check that the correct template is selected for your source material.
 - The **Galician Greek Catholic** template is the default and works best for Latin-script Galician registers.
+
+### Custom Templates (v1.4+)
+
+You can create your own transcription templates based on the official ones or from scratch. Custom templates let you fine-tune the AI prompt sections — **Role**, **Input Structure**, **Output Format**, **Instructions**, and **Context Defaults** — for your specific source material.
+
+![Template Gallery with My Templates section and custom template cards](app-screenshots/v1.4-en-gallery-custom-templates.png)
+
+#### Create a custom template
+
+1. Open the **Template Gallery** (sidebar button or menu).
+2. Scroll to the **My Templates** section at the bottom.
+3. Choose one of:
+   - **Create from Template** — pick an official template as a starting point (inherits all sections).
+   - **Create Blank** — start with empty Role/Input Structure and default scaffolds for Output Format, Instructions, and Context Defaults.
+4. The **Template Editor** opens.
+
+#### Edit a custom template
+
+![Custom Template Editor with tabbed sections](app-screenshots/v1.4-en-editor-custom-template.png)
+
+1. Fill in **Template Name** and **Description** (both required).
+2. Use the **tabs** to edit each section independently:
+   - **Role** — who the AI should act as (e.g. "expert archivist specializing in Polish parish registers")
+   - **Input Structure** — describe the source material columns and conventions
+   - **Output Format** — how the transcription should be structured
+   - **Instructions** — step-by-step transcription process
+   - **Context Defaults** — default Context field labels for new documents
+3. For templates based on an official parent, use **Reset** to restore a section to its inherited value.
+4. Click **Save**. The gallery reopens showing your new template.
+
+#### Manage custom templates
+
+From the **My Templates** section in the gallery, each template card shows:
+
+- **Custom** badge (your own) or **Shared** badge (exported by a collaborator)
+- Action buttons: **Edit**, **Duplicate**, **Export to Doc**, **Delete**
+
+**Export to Doc** saves your template into the current document's properties, making it available to collaborators who open the same document (shown with a Shared badge, read-only).
+
+You can have up to **5 custom templates** per user account.
+
+#### Apply a custom template
+
+Select any custom template in the gallery and click **Apply** — it works exactly like official templates. The sidebar label updates to show the custom template name.
 
 ---
 
