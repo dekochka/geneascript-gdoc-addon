@@ -25,8 +25,33 @@ cd observability/scripts
 ./apply.sh
 ```
 
-### Testing
-- No automated test suite. Testing requires manual verification in Google Docs:
+### E2E Tests (Playwright)
+Tests drive Google Docs with a saved Google session and a test deployment (`addon_dry_run` URL).
+```bash
+# Requires saved auth session at e2e/.auth/google.json
+export PLAYWRIGHT_STORAGE_STATE=$PWD/e2e/.auth/google.json
+
+npm run test:e2e              # Run all tests (import test skipped without picker flag)
+npm run test:e2e:headed       # Visible browser
+npm run test:e2e:debug        # Debug mode
+npm run test:e2e:ui           # Playwright UI mode
+
+# Enable full Drive import flow
+export GENEASCRIPT_RUN_IMPORT_PICKER=1
+npm run test:e2e
+```
+Tests run serially — each builds on document state from previous tests. See `e2e/README.md` for auth setup.
+
+### Eval Framework (Prompt Quality)
+```bash
+# Run transcription eval against golden datasets
+export GEMINI_API_KEY=...
+npx tsx eval/scripts/run-eval.ts
+```
+See `eval/README.md` for golden dataset structure and scoring dimensions.
+
+### Manual Testing in Google Docs
+For changes not covered by E2E, test manually:
   1. Push changes with `clasp push`
   2. Open a test Google Doc
   3. Test via Extensions → GeneaScript menu
@@ -41,11 +66,14 @@ cd observability/scripts
   - `ContextExtractionPrompt.gs` — Prompt for extracting context from cover images
   - `I18n.gs` — UI localization (EN/UK/RU); locale stored in User Property `UI_LOCALE`
   - `TemplateGallery.gs` — Region/religion-specific transcription template registry; selected template stored in Document Property `SELECTED_TEMPLATE_ID`
+  - `CustomTemplate.gs` — Custom template CRUD, storage (User Properties), and editor dialog; max 5 custom templates per user
   - `Observability.gs` — Structured logging helpers for telemetry (logObsEvent, error classification, cost estimation)
   - `appsscript.json` — Add-on manifest: OAuth scopes, add-on config, runtime settings
 
 - **`docs/`** — User documentation: **`docs/en/`** (plus **`docs/uk/`**, **`docs/ru/`** for the site), STORE_LISTING, DESIGN; GitHub Pages uses Jekyll under **`docs/`**
 - **`project/`** — Specs (SPEC.md, SPEC-1 through SPEC-13, TEMPLATE-SPEC.md), **`project/designs/`** — initial design proposals and brainstorm artifacts
+- **`e2e/`** — Playwright E2E tests: `geneascript-addon.spec.ts`, `fixtures.ts`, `helpers.ts`; requires saved Google session in `e2e/.auth/google.json`
+- **`eval/`** — Prompt quality eval framework: golden datasets (`eval/golden/`), LLM-as-judge scoring scripts, prompt working copies
 - **`observability/`** — GCP monitoring config, metrics apply script, dashboards JSON
 
 ### Key Architecture Patterns

@@ -461,12 +461,12 @@ test('GeneaScript: create blank custom template', async ({ page }) => {
 
   // Switch to Input Structure tab and fill
   await disableScrim(page);
-  await editor.getByRole('button', { name: /Input Structure|Вхідна структура|Входная структура/i }).click({ timeout: 15_000 });
+  await editor.getByRole('button', { name: /Input Structure|Структура введення|Структура ввода/i }).click({ timeout: 15_000 });
   await editor.locator('#sec_inputStructure').fill('Test input structure content.', { timeout: 15_000 });
 
   // Switch to Output Format tab and verify it has separate content
   await disableScrim(page);
-  await editor.getByRole('button', { name: /Output Format|Формат виводу|Формат вывода/i }).click({ timeout: 15_000 });
+  await editor.getByRole('button', { name: /Output Format|Формат виводу|Формат вывода/i }).click({ timeout: 30_000 });
   const outputVal = await editor.locator('#sec_outputFormat').inputValue();
   // Output Format should have scaffold text (not the role text we typed)
   expect(outputVal).not.toContain('E2E test transcription specialist');

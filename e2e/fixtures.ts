@@ -34,8 +34,11 @@ export const test = base.extend<{ page: Page; context: BrowserContext }>({
         '--no-sandbox',
       ],
       ignoreDefaultArgs: ['--enable-automation'],
-      locale: 'en-US',
+      locale: process.env.GENEASCRIPT_LOCALE || 'en-US',
       viewport: { width: 1280, height: 720 },
+      recordVideo: process.env.GENEASCRIPT_RECORD_VIDEO === '1'
+        ? { dir: 'test-results/videos', size: { width: 1280, height: 720 } }
+        : undefined,
     });
 
     // Spoof navigator.webdriver so Google Docs loads add-ons normally
