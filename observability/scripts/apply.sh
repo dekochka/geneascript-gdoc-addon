@@ -158,14 +158,14 @@ echo "Upserting log-based metrics..."
 upsert_counter_metric \
   "geneascript_transcribe_images_count" \
   "Count successful image transcriptions" \
-  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\".*\"status\":\"success\""' \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\"" AND jsonPayload.message=~"OBS:.*\"status\":\"success\""' \
   "true" \
   "true"
 
 upsert_counter_metric \
   "geneascript_import_runs_count" \
   "Count completed import runs" \
-  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_done\".*\"status\":\"success\""'
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_done\"" AND jsonPayload.message=~"OBS:.*\"status\":\"success\""'
 
 upsert_counter_metric \
   "geneascript_errors_count" \
@@ -247,13 +247,13 @@ upsert_distribution_metric \
 upsert_distribution_metric \
   "geneascript_import_image_latency_ms" \
   "Per-image import latency in milliseconds" \
-  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_image_processed\".*\"status\":\"success\""' \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"import_drive_image_processed\"" AND jsonPayload.message=~"OBS:.*\"status\":\"success\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"imageImportLatencyMs\\\":([0-9]+).*")'
 
 upsert_distribution_metric \
   "geneascript_estimated_cost_usd_total" \
   "Estimated USD cost per image for total cost visualization" \
-  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\".*\"status\":\"success\""' \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"transcribe_image_done\"" AND jsonPayload.message=~"OBS:.*\"status\":\"success\""' \
   'REGEXP_EXTRACT(jsonPayload.message, ".*\\\"estimatedCostUsd\\\":([0-9]+(?:\\.[0-9]+)?).*")' \
   "true" \
   "true"
@@ -261,7 +261,7 @@ upsert_distribution_metric \
 upsert_counter_metric \
   "geneascript_user_activity_count" \
   "Activity counter for unique-user approximation" \
-  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"(transcribe_image_done|import_drive_done)\".*\"status\":\"success\""' \
+  'resource.type="app_script_function" AND jsonPayload.message=~"OBS:.*\"event\":\"(transcribe_image_done|import_drive_done)\"" AND jsonPayload.message=~"OBS:.*\"status\":\"success\""' \
   "false" \
   "true"
 

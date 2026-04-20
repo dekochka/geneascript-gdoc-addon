@@ -71,11 +71,18 @@ function sanitizeErrorMessage(error) {
 }
 
 /** Pricing version used for estimated Gemini token-cost telemetry. */
-var GEMINI_PRICING_VERSION = 'gemini-dev-api-2026-03-26';
+var GEMINI_PRICING_VERSION = 'gemini-dev-api-2026-04-21';
 
-/** Returns paid-tier USD rates per 1M tokens for supported models. */
+/**
+ * Returns paid-tier USD rates per 1M tokens for supported models.
+ * Assumes paid-tier Standard pricing (user-tier is not distinguishable at runtime).
+ * Pro rates use the <=200k prompt tier; image+context prompts in this app stay well under that.
+ * Source: https://ai.google.dev/gemini-api/docs/pricing
+ */
 function getModelTokenPricingUsdPerMillion(modelId) {
   switch (modelId) {
+    case 'gemini-flash-latest':
+      return { inputUsdPerMillion: 0.5, outputUsdPerMillion: 3.0 };
     case 'gemini-3.1-pro-preview':
       return { inputUsdPerMillion: 2.0, outputUsdPerMillion: 12.0 };
     case 'gemini-3.1-flash-lite-preview':

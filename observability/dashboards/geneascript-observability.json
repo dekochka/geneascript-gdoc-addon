@@ -269,21 +269,24 @@
         "height": 4,
         "widget": {
           "title": "Total Estimated Cost (USD, sum)",
-          "xyChart": {
-            "dataSets": [
-              {
-                "timeSeriesQuery": {
-                  "timeSeriesFilter": {
-                    "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd_total\"",
-                    "aggregation": {
-                      "perSeriesAligner": "ALIGN_SUM",
-                      "alignmentPeriod": "60s"
-                    }
-                  }
+          "scorecard": {
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "filter": "metric.type=\"logging.googleapis.com/user/geneascript_estimated_cost_usd_total\"",
+                "aggregation": {
+                  "perSeriesAligner": "ALIGN_SUM",
+                  "alignmentPeriod": "86400s",
+                  "crossSeriesReducer": "REDUCE_SUM",
+                  "groupByFields": []
                 },
-                "plotType": "LINE"
+                "secondaryAggregation": {
+                  "perSeriesAligner": "ALIGN_SUM",
+                  "alignmentPeriod": "86400s",
+                  "crossSeriesReducer": "REDUCE_SUM",
+                  "groupByFields": []
+                }
               }
-            ]
+            }
           }
         }
       },
