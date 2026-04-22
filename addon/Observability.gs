@@ -52,14 +52,21 @@ function hashId(value) {
 /** Normalizes low-level errors into a small stable taxonomy. */
 function classifyErrorCode(errorMessage, httpCode) {
   var msg = String(errorMessage || '').toLowerCase();
-  if (httpCode === 429 || msg.indexOf('quota') !== -1 || msg.indexOf('rate') !== -1) return 'API_RATE_LIMIT';
-  if (httpCode && httpCode >= 400) return 'API_HTTP_ERROR';
+  var codeFromText = null;
+  var m = String(errorMessage || '').match(/\(HTTP\s+(\d{3})\)/i);
+  if (m) codeFromText = parseInt(m[1], 10);
+  var effectiveCode = httpCode || codeFromText;
+  if (effectiveCode === 503 || msg.indexOf('overloaded') !== -1 || msg.indexOf('experiencing high demand') !== -1) return 'API_OVERLOADED';
+  if (effectiveCode === 429 || msg.indexOf('quota') !== -1 || msg.indexOf('rate') !== -1) return 'API_RATE_LIMIT';
+  if (msg.indexOf('has not been used in project') !== -1) return 'API_NOT_ENABLED';
+  if (msg.indexOf('project has been denied access') !== -1) return 'API_PROJECT_DENIED';
   if (msg.indexOf('authorisation is required') !== -1 || msg.indexOf('authorization is required') !== -1) return 'AUTH_REQUIRED';
   if (msg.indexOf('no candidates returned') !== -1) return 'API_EMPTY_CANDIDATES';
   if (msg.indexOf('no image found') !== -1) return 'DOC_IMAGE_NOT_FOUND';
   if (msg.indexOf('select') !== -1 && msg.indexOf('image') !== -1) return 'DOC_SELECTION_INVALID';
   if (msg.indexOf('access not configured') !== -1 || msg.indexOf('not enabled') !== -1) return 'DRIVE_API_DISABLED';
   if (msg.indexOf('access denied') !== -1) return 'DRIVE_ACCESS_DENIED';
+  if (effectiveCode && effectiveCode >= 400) return 'API_HTTP_ERROR';
   return 'UNKNOWN';
 }
 
