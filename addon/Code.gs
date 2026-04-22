@@ -389,7 +389,7 @@ function importFromDriveFileIds(fileIds) {
         fileName: file.getName(),
         blobSizeBytes: bytesForError,
         imageImportLatencyMs: Date.now() - imageStartMs,
-        errorCode: classifyErrorCode(e.message || String(e)),
+        errorCode: e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode),
         errorMessage: sanitizeErrorMessage(e.message || String(e))
       });
     }
@@ -463,7 +463,19 @@ function getDrivePickerConfig() {
       }
     }
   } catch (e) {
-    Logger.log('getDrivePickerConfig: could not get parent folder: ' + (e.message || String(e)));
+    var pickerErrMsg = e.message || String(e);
+    Logger.log('getDrivePickerConfig: could not get parent folder: ' + pickerErrMsg);
+    if (pickerErrMsg.indexOf('script.external_request') !== -1 ||
+        pickerErrMsg.indexOf('authorisation is required') !== -1 ||
+        pickerErrMsg.indexOf('authorization is required') !== -1) {
+      logObsEvent('picker_config_scope_error', {
+        operation: 'drive_picker',
+        entrypoint: 'picker_dialog',
+        status: 'warning',
+        errorCode: 'AUTH_REQUIRED_STALE_CONSENT',
+        errorMessage: sanitizeErrorMessage(pickerErrMsg)
+      });
+    }
   }
 
   var oauthToken = ScriptApp.getOAuthToken();
@@ -1327,16 +1339,17 @@ function runTranscribeWorker() {
     });
   } catch (e) {
     Logger.log('runTranscribeWorker: callGemini threw ' + (e.message || String(e)));
+    var rtwCode = e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode);
     logObsEvent('transcribe_image_error', {
       operation: operation,
       entrypoint: entrypoint,
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
-      errorCode: classifyErrorCode(e.message || String(e)),
+      errorCode: rtwCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
-    return { ok: false, message: t('msg.request_failed', { detail: e.message || String(e) }) };
+    return { ok: false, errorCode: rtwCode, message: t('msg.request_failed', { detail: e.message || String(e) }) };
   }
   var transcription = geminiResult.text;
   if (!transcription || transcription.trim() === '') {
@@ -1795,16 +1808,17 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
     };
   } catch (e) {
     var message = e.message || String(e);
+    var ctxExtractCode = e.errorCode || classifyErrorCode(message, e.httpCode);
     logObsEvent('context_extract_error', {
       operation: 'context_extract',
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
       bodyIndex: bodyIndex,
-      errorCode: classifyErrorCode(message),
+      errorCode: ctxExtractCode,
       errorMessage: sanitizeErrorMessage(message)
     });
-    return { ok: false, message: t('msg.request_failed', { detail: message }) };
+    return { ok: false, errorCode: ctxExtractCode, message: t('msg.request_failed', { detail: message }) };
   }
 }
 
@@ -1825,15 +1839,16 @@ function applyExtractedContext(extracted) {
     return { ok: true, updatedFields: updatedFields };
   } catch (e) {
     var message = e.message || String(e);
+    var ctxApplyCode = e.errorCode || classifyErrorCode(message, e.httpCode);
     logObsEvent('context_apply_error', {
       operation: 'context_apply',
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
-      errorCode: classifyErrorCode(message),
+      errorCode: ctxApplyCode,
       errorMessage: sanitizeErrorMessage(message)
     });
-    return { ok: false, message: t('msg.request_failed', { detail: message }) };
+    return { ok: false, errorCode: ctxApplyCode, message: t('msg.request_failed', { detail: message }) };
   }
 }
 
@@ -1898,6 +1913,28 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
       if (err.error && err.error.message) msg = err.error.message;
     } catch (e) {}
     Logger.log('callGemini: error ' + code + ' ' + msg);
+    var retryable503 = (code === 503) && !telemetry.__isRetry;
+    if (retryable503) {
+      Logger.log('callGemini: 503 overloaded, sleeping 5s then retrying once');
+      logObsEvent('transcribe_image_api_retry', {
+        operation: telemetry.operation || 'transcribe_single',
+        entrypoint: telemetry.entrypoint || 'unknown',
+        status: 'retry',
+        runId: telemetry.runId || null,
+        docIdHash: telemetry.docIdHash || null,
+        model: modelId,
+        httpCode: code,
+        apiLatencyMs: Date.now() - apiStartMs,
+        errorCode: 'API_OVERLOADED',
+        errorMessage: sanitizeErrorMessage(msg)
+      });
+      Utilities.sleep(5000);
+      var retryTelemetry = {};
+      for (var k in telemetry) { if (Object.prototype.hasOwnProperty.call(telemetry, k)) retryTelemetry[k] = telemetry[k]; }
+      retryTelemetry.__isRetry = true;
+      return callGemini(apiKey, prompt, imageBlob, mimeType, retryTelemetry);
+    }
+    var errorCode = classifyErrorCode(msg, code);
     logObsEvent('transcribe_image_api_error', {
       operation: telemetry.operation || 'transcribe_single',
       entrypoint: telemetry.entrypoint || 'unknown',
@@ -1907,10 +1944,15 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
       model: modelId,
       httpCode: code,
       apiLatencyMs: Date.now() - apiStartMs,
-      errorCode: classifyErrorCode(msg, code),
-      errorMessage: sanitizeErrorMessage(msg)
+      errorCode: errorCode,
+      errorMessage: sanitizeErrorMessage(msg),
+      retried: !!telemetry.__isRetry
     });
-    throw new Error(msg + ' (HTTP ' + code + ')');
+    var thrownErr = new Error(msg + ' (HTTP ' + code + ')');
+    thrownErr.httpCode = code;
+    thrownErr.errorCode = errorCode;
+    thrownErr.apiMessage = msg;
+    throw thrownErr;
   }
 
   var json = JSON.parse(text);
@@ -2280,6 +2322,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     });
   } catch (e) {
     Logger.log('transcribeImageByIndex: callGemini threw ' + (e.message || String(e)));
+    var tbiCode = e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode);
     logObsEvent('transcribe_image_error', {
       operation: operation,
       entrypoint: entrypoint,
@@ -2287,10 +2330,10 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       runId: runId,
       docIdHash: docIdHash,
       bodyIndex: effectiveBodyIndex,
-      errorCode: classifyErrorCode(e.message || String(e)),
+      errorCode: tbiCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
-    return { ok: false, message: t('msg.api_error', { detail: e.message || String(e) }) };
+    return { ok: false, errorCode: tbiCode, message: t('msg.api_error', { detail: e.message || String(e) }) };
   }
 
   var transcription = geminiResult.text;
@@ -2513,7 +2556,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.1</div>',
+    '<div class="footer">v1.4.2</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2547,7 +2590,7 @@ function getSidebarHtml() {
 
     'function refreshImages(){',
     '  var prev={};',
-    '  for(var i=0;i<imgs.length;i++){if(imgs[i]._s)prev[imgs[i].index]={s:imgs[i]._s,e:imgs[i]._e};}',
+    '  for(var i=0;i<imgs.length;i++){if(imgs[i]._s)prev[imgs[i].index]={s:imgs[i]._s,e:imgs[i]._e,c:imgs[i]._c};}',
     '  document.getElementById("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.loading)+\'</div>\';',
     '  document.getElementById("imgCount").textContent="0";',
     '  el("goBtn").disabled=true;',
@@ -2556,7 +2599,7 @@ function getSidebarHtml() {
     '      if(r&&r.ok){',
     '        imgs=r.images||[];',
     '        lastImageCount=imgs.length;',
-    '        for(var j=0;j<imgs.length;j++){var p=prev[imgs[j].index];if(p){imgs[j]._s=p.s;imgs[j]._e=p.e;}}',
+    '        for(var j=0;j<imgs.length;j++){var p=prev[imgs[j].index];if(p){imgs[j]._s=p.s;imgs[j]._e=p.e;imgs[j]._c=p.c;}}',
     '        renderList();',
     '      }else el("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.failLoad)+\'</div>\';',
     '    })',
@@ -2574,7 +2617,10 @@ function getSidebarHtml() {
     '  for(var i=0;i<imgs.length;i++){',
     '    var m=imgs[i],st="";',
     '    if(m._s==="done")st=\'<span class="status st-done">\\u2713</span>\';',
-    '    else if(m._s==="fail")st=\'<span class="status st-fail" title="\'+esc(m._e||SI.statusFail)+\'">\\u2717</span>\';',
+    '    else if(m._s==="fail"){',
+    '      if(m._c==="API_OVERLOADED")st=\'<span class="status st-warn" title="\'+esc(SI.overloadIconTitle)+\'">\\u26A0</span>\';',
+    '      else st=\'<span class="status st-fail" title="\'+esc(m._e||SI.statusFail)+\'">\\u2717</span>\';',
+    '    }',
     '    else if(m._s==="warn")st=\'<span class="status st-warn" title="\'+esc(SI.truncTitle)+\'">\\u26A0</span>\';',
     '    else if(m._s==="active")st=\'<span class="status st-active">\\u231B</span>\';',
     '    else if(m.hasTranscription)st=\'<span class="status st-done" title="\'+esc(SI.doneTitle)+\'">\\u2713</span>\';',
@@ -2672,16 +2718,28 @@ function getSidebarHtml() {
     '        if(r&&r.ok){',
     '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
     '          shift+=(r.insertedCount||0);',
-    '        }else{m._s="fail";m._e=(r&&r.message)||SI.unknownError;fail++;}',
+    '        }else{m._s="fail";m._e=(r&&r.message)||SI.unknownError;m._c=(r&&r.errorCode)||null;fail++;maybeShowBanner(m._c);}',
     '        renderList();next(ti+1);',
     '      })',
     '      .withFailureHandler(function(e){',
-    '        m._s="fail";m._e=e.message||String(e);fail++;',
+    '        m._s="fail";m._e=e.message||String(e);m._c=null;fail++;',
     '        renderList();next(ti+1);',
     '      })',
     '      .transcribeImageByIndex(task.bi+shift, m.label);',
     '  }',
     '  next(0);',
+    '}',
+
+    'function maybeShowBanner(code){',
+    '  if(!code)return;',
+    '  var msg=null;',
+    '  if(code==="API_OVERLOADED")msg=SI.overloadBanner;',
+    '  else if(code==="API_NOT_ENABLED")msg=SI.apiNotEnabledBanner;',
+    '  else if(code==="API_PROJECT_DENIED")msg=SI.apiProjectDeniedBanner;',
+    '  if(!msg)return;',
+    '  var b=el("errorBanner");',
+    '  b.textContent=msg;',
+    '  b.style.display="block";',
     '}',
 
     'function stopBatch(){',

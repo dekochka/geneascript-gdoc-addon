@@ -4,6 +4,20 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.2] — 2026-04-22
+
+### 🐛 Fixed
+
+- **Gemini 503 "overloaded" transient failures now auto-retry once** — `callGemini` sleeps 5 seconds and retries a single time on HTTP 503 before surfacing the error. Production logs showed ~83% of transcription errors over a 2-day window were transient free-tier 503s that succeeded on a second attempt.
+- **Overload errors now show actionable hint in sidebar** — When a transcription fails with `API_OVERLOADED`, the sidebar shows a pink banner under the progress bar suggesting the user retry later or switch to a paid-tier model, and the affected image row gets a warning icon with a tooltip instead of a generic red ✗.
+- **Better error hints for API misconfiguration** — "Generative Language API not enabled" and "project has been denied access" errors are now classified as `API_NOT_ENABLED` / `API_PROJECT_DENIED` and surface specific guidance in the sidebar banner, instead of bubbling the raw Google error text.
+
+### 🔭 Observability
+
+- **Error classification taxonomy expanded** — `classifyErrorCode` now recognizes 503/overloaded, `API_NOT_ENABLED`, and `API_PROJECT_DENIED`, and parses embedded HTTP codes from error text like `(HTTP 503)`. Thrown Gemini errors now carry `httpCode` / `errorCode` / `apiMessage` properties for downstream telemetry.
+- **Stale OAuth consent detection** — `getDrivePickerConfig` now emits a `picker_config_scope_error` event with code `AUTH_REQUIRED_STALE_CONSENT` when the runtime is missing the `script.external_request` scope, making it observable when a user needs to re-consent to the add-on.
+- **Server responses include `errorCode`** — All user-facing failure payloads now include the classified `errorCode` so the sidebar can render specialized UI per error class.
+
 ## [1.4.1] — 2026-04-21
 
 ### 🐛 Fixed

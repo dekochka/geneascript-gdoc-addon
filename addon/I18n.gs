@@ -168,6 +168,10 @@ var I18N_STRINGS = {
     'sidebar.transcribing': 'Transcribing…',
     'sidebar.image_fallback': 'Image {n}',
     'sidebar.unknown_error': 'Unknown error',
+    'sidebar.overload_banner': 'Gemini is overloaded right now. We retried once but it is still unavailable. This usually affects free-tier calls during peak hours — wait a few minutes and try again, or switch to a paid-tier model in Setup for more reliable access.',
+    'sidebar.overload_icon_title': 'Gemini overload — try again later or use paid-tier model',
+    'sidebar.api_not_enabled_banner': 'Your Gemini API key comes from a Google Cloud project where the Generative Language API is not enabled. Open the Setup dialog and follow the link next to "Get API key" to enable it, or paste a key from a project where it is already enabled.',
+    'sidebar.api_project_denied_banner': 'Your Gemini API key\'s Google Cloud project has been denied access by Google. Create a new project, enable the Generative Language API there, issue a fresh key, and paste it into Setup.',
     'gallery.loading_tab': 'Loading…',
     'gallery.error_prefix': 'Error:',
     'gallery.select_template': 'Please select a template.',
@@ -476,6 +480,10 @@ var I18N_STRINGS = {
     'sidebar.transcribing': 'Транскрипція…',
     'sidebar.image_fallback': 'Зображення {n}',
     'sidebar.unknown_error': 'Невідома помилка',
+    'sidebar.overload_banner': 'Gemini зараз перевантажений. Ми зробили одну повторну спробу, але сервіс усе ще недоступний. Це зазвичай стосується безкоштовного рівня у пікові години — зачекайте кілька хвилин і повторіть, або перемкніться на платну модель у налаштуваннях для стабільнішої роботи.',
+    'sidebar.overload_icon_title': 'Gemini перевантажений — спробуйте пізніше або перейдіть на платну модель',
+    'sidebar.api_not_enabled_banner': 'Ваш ключ Gemini API створений у проєкті Google Cloud, де не активовано Generative Language API. Відкрийте діалог налаштувань і натисніть посилання поруч із «Отримати ключ API», щоб активувати його, або вставте ключ з проєкту, де API вже увімкнений.',
+    'sidebar.api_project_denied_banner': 'Проєкт Google Cloud, пов’язаний із вашим ключем Gemini API, заблоковано Google. Створіть новий проєкт, увімкніть у ньому Generative Language API, випустіть новий ключ і вставте його в налаштуваннях.',
     'gallery.loading_tab': 'Завантаження…',
     'gallery.error_prefix': 'Помилка:',
     'gallery.select_template': 'Оберіть шаблон.',
@@ -784,6 +792,10 @@ var I18N_STRINGS = {
     'sidebar.transcribing': 'Транскрипция…',
     'sidebar.image_fallback': 'Изображение {n}',
     'sidebar.unknown_error': 'Неизвестная ошибка',
+    'sidebar.overload_banner': 'Gemini сейчас перегружен. Мы выполнили одну повторную попытку, но сервис всё ещё недоступен. Обычно это затрагивает бесплатный уровень в пиковые часы — подождите несколько минут и повторите, либо переключитесь на платную модель в настройках для более стабильной работы.',
+    'sidebar.overload_icon_title': 'Gemini перегружен — повторите позже или перейдите на платную модель',
+    'sidebar.api_not_enabled_banner': 'Ваш ключ Gemini API создан в проекте Google Cloud, где не включён Generative Language API. Откройте диалог настроек и перейдите по ссылке рядом с «Получить ключ API», чтобы включить его, или вставьте ключ из проекта, где API уже включён.',
+    'sidebar.api_project_denied_banner': 'Проект Google Cloud, связанный с вашим ключом Gemini API, заблокирован Google. Создайте новый проект, включите в нём Generative Language API, выпустите новый ключ и вставьте его в настройках.',
     'gallery.loading_tab': 'Загрузка…',
     'gallery.error_prefix': 'Ошибка:',
     'gallery.select_template': 'Выберите шаблон.',
@@ -976,7 +988,11 @@ function getSidebarClientI18n() {
     doneTitle: t('sidebar.done_title'),
     transcribing: t('sidebar.transcribing'),
     imageFallback: t('sidebar.image_fallback'),
-    unknownError: t('sidebar.unknown_error')
+    unknownError: t('sidebar.unknown_error'),
+    overloadBanner: t('sidebar.overload_banner'),
+    overloadIconTitle: t('sidebar.overload_icon_title'),
+    apiNotEnabledBanner: t('sidebar.api_not_enabled_banner'),
+    apiProjectDeniedBanner: t('sidebar.api_project_denied_banner')
   };
 }
 
