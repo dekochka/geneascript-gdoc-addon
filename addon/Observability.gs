@@ -58,6 +58,7 @@ function classifyErrorCode(errorMessage, httpCode) {
   var effectiveCode = httpCode || codeFromText;
   if (effectiveCode === 503 || msg.indexOf('overloaded') !== -1 || msg.indexOf('experiencing high demand') !== -1) return 'API_OVERLOADED';
   if (effectiveCode === 429 || msg.indexOf('quota') !== -1 || msg.indexOf('rate') !== -1) return 'API_RATE_LIMIT';
+  if (msg.indexOf('api key not valid') !== -1 || msg.indexOf('api_key_invalid') !== -1) return 'API_KEY_INVALID';
   if (msg.indexOf('has not been used in project') !== -1) return 'API_NOT_ENABLED';
   if (msg.indexOf('project has been denied access') !== -1) return 'API_PROJECT_DENIED';
   if (msg.indexOf('authorisation is required') !== -1 || msg.indexOf('authorization is required') !== -1) return 'AUTH_REQUIRED';

@@ -172,6 +172,10 @@ var I18N_STRINGS = {
     'sidebar.overload_icon_title': 'Gemini overload — try again later or use paid-tier model',
     'sidebar.api_not_enabled_banner': 'Your Gemini API key comes from a Google Cloud project where the Generative Language API is not enabled. Open the Setup dialog and follow the link next to "Get API key" to enable it, or paste a key from a project where it is already enabled.',
     'sidebar.api_project_denied_banner': 'Your Gemini API key\'s Google Cloud project has been denied access by Google. Create a new project, enable the Generative Language API there, issue a fresh key, and paste it into Setup.',
+    'sidebar.rate_limit_banner': 'You have hit your Gemini API rate or quota limit. Wait a minute before retrying. If this happens often, upgrade to a paid tier in Google Cloud or reduce batch size.',
+    'sidebar.rate_limit_icon_title': 'Rate limit / quota exceeded — wait a minute or upgrade tier',
+    'sidebar.key_invalid_banner': 'Your Gemini API key is not valid. Open the Setup dialog and paste a fresh key from Google AI Studio.',
+    'sidebar.key_invalid_icon_title': 'API key is not valid — open Setup and paste a new one',
     'gallery.loading_tab': 'Loading…',
     'gallery.error_prefix': 'Error:',
     'gallery.select_template': 'Please select a template.',
@@ -484,6 +488,10 @@ var I18N_STRINGS = {
     'sidebar.overload_icon_title': 'Gemini перевантажений — спробуйте пізніше або перейдіть на платну модель',
     'sidebar.api_not_enabled_banner': 'Ваш ключ Gemini API створений у проєкті Google Cloud, де не активовано Generative Language API. Відкрийте діалог налаштувань і натисніть посилання поруч із «Отримати ключ API», щоб активувати його, або вставте ключ з проєкту, де API вже увімкнений.',
     'sidebar.api_project_denied_banner': 'Проєкт Google Cloud, пов’язаний із вашим ключем Gemini API, заблоковано Google. Створіть новий проєкт, увімкніть у ньому Generative Language API, випустіть новий ключ і вставте його в налаштуваннях.',
+    'sidebar.rate_limit_banner': 'Ви перевищили ліміт або квоту Gemini API. Зачекайте хвилину перед повторною спробою. Якщо це трапляється часто — перейдіть на платний рівень у Google Cloud або зменшіть розмір пакета.',
+    'sidebar.rate_limit_icon_title': 'Перевищено квоту — зачекайте хвилину або перейдіть на платний рівень',
+    'sidebar.key_invalid_banner': 'Ваш ключ Gemini API недійсний. Відкрийте діалог налаштувань і вставте новий ключ з Google AI Studio.',
+    'sidebar.key_invalid_icon_title': 'Ключ API недійсний — відкрийте налаштування та вставте новий',
     'gallery.loading_tab': 'Завантаження…',
     'gallery.error_prefix': 'Помилка:',
     'gallery.select_template': 'Оберіть шаблон.',
@@ -796,6 +804,10 @@ var I18N_STRINGS = {
     'sidebar.overload_icon_title': 'Gemini перегружен — повторите позже или перейдите на платную модель',
     'sidebar.api_not_enabled_banner': 'Ваш ключ Gemini API создан в проекте Google Cloud, где не включён Generative Language API. Откройте диалог настроек и перейдите по ссылке рядом с «Получить ключ API», чтобы включить его, или вставьте ключ из проекта, где API уже включён.',
     'sidebar.api_project_denied_banner': 'Проект Google Cloud, связанный с вашим ключом Gemini API, заблокирован Google. Создайте новый проект, включите в нём Generative Language API, выпустите новый ключ и вставьте его в настройках.',
+    'sidebar.rate_limit_banner': 'Вы превысили лимит или квоту Gemini API. Подождите минуту перед повторной попыткой. Если это происходит часто — перейдите на платный уровень в Google Cloud или уменьшите размер пакета.',
+    'sidebar.rate_limit_icon_title': 'Превышена квота — подождите минуту или перейдите на платный уровень',
+    'sidebar.key_invalid_banner': 'Ваш ключ Gemini API недействителен. Откройте диалог настроек и вставьте новый ключ из Google AI Studio.',
+    'sidebar.key_invalid_icon_title': 'Ключ API недействителен — откройте настройки и вставьте новый',
     'gallery.loading_tab': 'Загрузка…',
     'gallery.error_prefix': 'Ошибка:',
     'gallery.select_template': 'Выберите шаблон.',
@@ -992,7 +1004,11 @@ function getSidebarClientI18n() {
     overloadBanner: t('sidebar.overload_banner'),
     overloadIconTitle: t('sidebar.overload_icon_title'),
     apiNotEnabledBanner: t('sidebar.api_not_enabled_banner'),
-    apiProjectDeniedBanner: t('sidebar.api_project_denied_banner')
+    apiProjectDeniedBanner: t('sidebar.api_project_denied_banner'),
+    rateLimitBanner: t('sidebar.rate_limit_banner'),
+    rateLimitIconTitle: t('sidebar.rate_limit_icon_title'),
+    keyInvalidBanner: t('sidebar.key_invalid_banner'),
+    keyInvalidIconTitle: t('sidebar.key_invalid_icon_title')
   };
 }
 

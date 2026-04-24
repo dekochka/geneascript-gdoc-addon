@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.3] — 2026-04-25
+
+### 🐛 Fixed
+
+- **Homepage card action no longer throws platform error** — `openSidebarFromCard` returned an empty `ActionResponse` object, which the Add-ons platform rejected with _"The value returned from Apps Script has a type that cannot be used by the add-ons platform"_. The sidebar opened anyway (the side-effect ran before the return), but every card-button click logged a platform ERROR. The function now returns `undefined` per the CardService contract for pure side-effect actions. Observed 23 such errors in one week prior to the fix.
+- **Rate-limit (HTTP 429) errors now show actionable hint** — Previously surfaced as a generic red ✗ with the raw quota URL. Now classified as `API_RATE_LIMIT` and shown as a pink sidebar banner + orange ⚠ icon on the affected image row, suggesting the user wait a minute, upgrade tier, or reduce batch size.
+- **Invalid API key errors now guide to Setup** — Previously surfaced as generic `API_HTTP_ERROR`. Now classified as `API_KEY_INVALID` ("API key not valid") and shown in a sidebar banner pointing to the Setup dialog.
+
+### 🔭 Observability
+
+- **Error metrics no longer double-counted** — Every failed transcription previously emitted both `transcribe_image_api_error` (inside `callGemini`) and `transcribe_image_error` (outer catch), so dashboard error counts were ~2× reality. Removed the inner event; the outer event now carries the full context (`model`, `httpCode`, `apiLatencyMs`, `retried`) by reading enriched properties from the thrown error. `transcribe_image_api_retry` still emits on retry (unique signal).
+- **Error context propagation** — Thrown Gemini errors now carry `model`, `apiLatencyMs`, `retried` in addition to the existing `httpCode`/`errorCode`/`apiMessage`, so outer-catch telemetry no longer loses model/latency on failure paths (including `context_extract_error`).
+
 ## [1.4.2] — 2026-04-22
 
 ### 🐛 Fixed
