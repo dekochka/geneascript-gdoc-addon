@@ -3,7 +3,7 @@
  * Override with GENEASCRIPT_TEST_DOC_URL when you use another doc or token.
  */
 export const DEFAULT_TEST_DOC_URL =
-  'https://drive.google.com/open?id=1fPALk9wQPJlEuEae2gLmj5wre_WLexVIcLZAdbAKODg&addon_dry_run=AAnXSK9GaLGlrrLUqJkarWJEgMLsG62SvXJx_kC3Nv-dNg50CyHxxGA6tvO-5qkdKnFl6tfbbn0M5jhMpL4zNsCXYOJyHbEFnGI4lsKFjEwiIPxrxPXiC0a98LCWazpzFP5cB6yeDsSx';
+  'https://docs.google.com/document/d/1fPALk9wQPJlEuEae2gLmj5wre_WLexVIcLZAdbAKODg/edit?addon_dry_run=AAnXSK-0HLM4EAIqiZmgX6yJKiBK1nlTZQpX-9rDCq7J4aT5J1o_NtZiSYccwDhDj-1f_AOAj-m1w7ScgHPl9mh_bIm8_Bv8qHxDTpy0Zl5NMbf7N8Ij800Z0LPfBzoel6nc59VBCPKl&tab=t.0#heading=h.2mkonfxtxgq';
 
 export function testDocUrl(): string {
   return process.env.GENEASCRIPT_TEST_DOC_URL || DEFAULT_TEST_DOC_URL;
