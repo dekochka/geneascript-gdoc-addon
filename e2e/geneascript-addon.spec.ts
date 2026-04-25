@@ -5,6 +5,9 @@ import {
   disableScrim,
   findGalleryFrame,
   findEditorFrame,
+  promptForGeminiKey,
+  safeSidebarClick,
+  saveGeminiKey,
   sidebarExtract,
   sidebarImport,
   sidebarRefresh,
@@ -19,7 +22,7 @@ import {
   waitForModalText,
   waitForSidebarFrame,
 } from './helpers';
-import { IMPORT_FOLDER_SEARCH, IMPORT_IMAGE_COUNT } from './constants';
+import { IMPORT_FOLDER_SEARCH, IMPORT_IMAGE_COUNT, IMPORT_TEST_FILE_IDS } from './constants';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -56,7 +59,7 @@ test('GeneaScript: empty doc — no images for refresh', async ({ page }) => {
 
   await sidebarRefresh(sidebar).click();
   // After refresh on an empty doc, expect zero image count
-  await expect(sidebarImageCount(sidebar)).toHaveText('0', { timeout: 120_000 });
+  await expect(sidebarImageCount(sidebar)).toHaveText('0', { timeout: 30_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -95,22 +98,101 @@ test('GeneaScript: no API key banner', async ({ page }) => {
 // ---------------------------------------------------------------------------
 // 6. Import images from Drive
 // ---------------------------------------------------------------------------
+// Goal: user can import multiple images from a Drive folder and the images
+// appear in the document + in the sidebar image list.
+//
+// Runs in one of two modes:
+//
+//  A) Fast path (default when GENEASCRIPT_IMPORT_FILE_IDS is set). Calls
+//     importFromDriveFileIds(ids) directly via google.script.run — same
+//     server function the picker drives. This validates the import pipeline
+//     without the fragile picker pixel-coord automation.
+//     Requires the test account to have already granted drive.file scope
+//     to those IDs (e.g. by running the picker manually once).
+//
+//  B) Full picker flow (default when GENEASCRIPT_IMPORT_FILE_IDS is NOT set).
+//     Drives the Google Picker iframe with DOM locators where possible and
+//     CDP mouse events where needed. Fragile but covers the "user-visible"
+//     selection flow.
 test('GeneaScript: Import images from Drive', async ({ page }) => {
-  if (process.env.GENEASCRIPT_RUN_IMPORT_PICKER !== '1') {
-    test.skip(true, 'Set GENEASCRIPT_RUN_IMPORT_PICKER=1 to run the full import flow.');
+  test.setTimeout(300_000);
+  const sidebar = await openGeneascriptSidebar(page);
+
+  // Fast path: either an env var or the IMPORT_TEST_FILE_IDS constant.
+  // Skip the picker, exercise the import pipeline directly.
+  const envIds = (process.env.GENEASCRIPT_IMPORT_FILE_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const providedIds = envIds.length > 0 ? envIds : IMPORT_TEST_FILE_IDS;
+  if (providedIds.length > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[e2e] Import fast-path: calling importFromDriveFileIds with ${providedIds.length} IDs`);
+
+    // The server function blocks on ui.alert('Importing', OK) to confirm with
+    // the user before starting the insert loop. We can't await the server
+    // promise from the sidebar frame because it won't resolve until that
+    // alert is dismissed. Fire the call without awaiting, then drive the UI:
+    //   1. click OK on the modal alert
+    //   2. poll getImageList() until it reports the expected count
+    const importStarted = await sidebar.evaluate((ids: string[]): boolean => {
+      const runner = (window as any).google?.script?.run;
+      if (!runner) return false;
+      (window as any).__importResult = null;
+      runner
+        .withSuccessHandler((r: any) => { (window as any).__importResult = r || { ok: true }; })
+        .withFailureHandler((e: any) => { (window as any).__importResult = { ok: false, message: e?.message || String(e) }; })
+        .importFromDriveFileIds(ids);
+      return true;
+    }, providedIds);
+    expect(importStarted, 'google.script.run was not available in the sidebar frame').toBe(true);
+
+    // Click OK on the "Importing N images..." alert. Apps Script alerts render
+    // in the main frame; the button text is simply "OK".
+    const okBtn = page.getByRole('button', { name: /^OK$/i });
+    await expect(okBtn).toBeVisible({ timeout: 30_000 });
+    await okBtn.click({ timeout: 10_000 });
+
+    // Poll getImageList until the expected number of images appear in the doc.
+    // Each image takes a few seconds to fetch + insert — 2 min budget is plenty.
+    const deadline = Date.now() + 120_000;
+    let finalCount = 0;
+    while (Date.now() < deadline) {
+      finalCount = await sidebar.evaluate(async (): Promise<number> => {
+        return new Promise((resolve) => {
+          const runner = (window as any).google?.script?.run;
+          if (!runner) { resolve(-1); return; }
+          runner
+            .withSuccessHandler((r: any) => resolve((r && r.images) ? r.images.length : 0))
+            .withFailureHandler(() => resolve(-2))
+            .getImageList();
+        });
+      });
+      if (finalCount >= providedIds.length) break;
+      await page.waitForTimeout(2000);
+    }
+    expect(finalCount, 'Doc should contain the imported images').toBeGreaterThanOrEqual(providedIds.length);
+
+    // Reload so the sidebar UI reflects the new image list cleanly.
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
+    const freshSidebar = await openGeneascriptSidebar(page);
+    await sidebarRefresh(freshSidebar).click({ timeout: 10_000 });
+    const boxes = sidebarImageCheckboxes(freshSidebar);
+    await expect(boxes.first()).toBeVisible({ timeout: 30_000 });
+    const count = await boxes.count();
+    expect(count, 'Sidebar should list at least the imported images').toBeGreaterThanOrEqual(providedIds.length);
+
+    await page.screenshot({ path: 'test-results/06-after-import.png', fullPage: true });
     return;
   }
 
-  const sidebar = await openGeneascriptSidebar(page);
+  // Full picker flow. The Google Picker lives in a nested Apps Script iframe.
+  // A Material Design scrim overlays the iframe in the main frame and blocks
+  // clicks — we neutralise it with disableScrim() before each interaction.
   await sidebarImport(sidebar).click();
 
-  // The Google Picker is inside an Apps Script dialog, rendered in nested iframes.
-  // A Material Design dialog scrim overlays the iframe in the main frame, blocking
-  // Playwright's locator.click(). Solution: temporarily disable pointer-events on
-  // the scrim overlay via CSS manipulation, then click normally.
-
   // Wait for the dialog to fully load
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: 'test-results/06-picker-dialog.png', fullPage: true });
 
   // Disable the Material Design dialog scrim so picker elements become clickable.
@@ -319,11 +401,11 @@ test('GeneaScript: refresh image list', async ({ page }) => {
 
   await sidebarRefresh(sidebar).click();
   const boxes = sidebarImageCheckboxes(sidebar);
-  await expect(boxes.first()).toBeVisible({ timeout: 120_000 });
+  await expect(boxes.first()).toBeVisible({ timeout: 30_000 });
 
   const count = await boxes.count();
   expect(count).toBeGreaterThanOrEqual(1);
-  await expect(sidebarImageCount(sidebar)).not.toHaveText('0', { timeout: 30_000 });
+  await expect(sidebarImageCount(sidebar)).not.toHaveText('0', { timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -334,7 +416,7 @@ test('GeneaScript: no image selected — transcribe disabled', async ({ page }) 
 
   // Wait for image list to load
   await sidebarRefresh(sidebar).click();
-  await expect(sidebarImageCheckboxes(sidebar).first()).toBeVisible({ timeout: 120_000 });
+  await expect(sidebarImageCheckboxes(sidebar).first()).toBeVisible({ timeout: 30_000 });
 
   // Ensure no checkboxes are checked
   const boxes = sidebarImageCheckboxes(sidebar);
@@ -344,7 +426,7 @@ test('GeneaScript: no image selected — transcribe disabled', async ({ page }) 
   }
 
   // Transcribe button should be disabled when nothing is selected
-  await expect(sidebarTranscribe(sidebar)).toBeDisabled({ timeout: 10_000 });
+  await expect(sidebarTranscribe(sidebar)).toBeDisabled({ timeout: 3_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -356,7 +438,7 @@ test('GeneaScript: Extract Context dialog', async ({ page }) => {
   // Refresh and select first image
   await sidebarRefresh(sidebar).click();
   const boxes = sidebarImageCheckboxes(sidebar);
-  await expect(boxes.first()).toBeVisible({ timeout: 120_000 });
+  await expect(boxes.first()).toBeVisible({ timeout: 30_000 });
   await boxes.nth(0).check();
 
   await expect(sidebarExtract(sidebar)).toBeEnabled();
@@ -366,7 +448,7 @@ test('GeneaScript: Extract Context dialog', async ({ page }) => {
     page,
     /Cover Image|Обкладинка|Обложка|Extract metadata|Витягніть метадані|Извлеките метаданные/i
   );
-  await expect(extractDlg.locator('#extractBtn, button').first()).toBeVisible({ timeout: 30_000 });
+  await expect(extractDlg.locator('#extractBtn, button').first()).toBeVisible({ timeout: 10_000 });
 
   await page.keyboard.press('Escape');
 });
@@ -376,14 +458,15 @@ test('GeneaScript: Extract Context dialog', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
 
   // Toggle preview pane
-  await gal.locator('#previewToggle').click({ timeout: 30_000 });
-  await expect(gal.locator('#previewWrap.open')).toBeVisible({ timeout: 30_000 });
+  await gal.locator('#previewToggle').click({ timeout: 10_000 });
+  await expect(gal.locator('#previewWrap.open')).toBeVisible({ timeout: 10_000 });
 
   // Cycle through all 5 tabs
   const tabs = [
@@ -395,12 +478,12 @@ test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
   ];
   for (const tRe of tabs) {
     await disableScrim(page);
-    await gal.getByRole('button', { name: tRe }).click({ timeout: 30_000 });
-    await expect(gal.locator('#tabContent')).not.toBeEmpty({ timeout: 30_000 });
+    await gal.getByRole('button', { name: tRe }).click({ timeout: 10_000 });
+    await expect(gal.locator('#tabContent')).not.toBeEmpty({ timeout: 10_000 });
   }
 
   await disableScrim(page);
-  await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+  await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -408,7 +491,8 @@ test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: gallery shows My Templates section', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -416,57 +500,58 @@ test('GeneaScript: gallery shows My Templates section', async ({ page }) => {
   // "My Templates" section should be present (empty state or with cards)
   await expect(
     gal.getByText(/My Templates|Мої шаблони|Мои шаблоны/i).first()
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeVisible({ timeout: 10_000 });
 
   // Create buttons should be visible
   await expect(
     gal.getByText(/Create from Template|Створити з шаблону|Создать из шаблона/i).first()
-  ).toBeVisible({ timeout: 15_000 });
+  ).toBeVisible({ timeout: 5_000 });
   await expect(
     gal.getByText(/Create Blank|Створити порожній|Создать пустой/i).first()
-  ).toBeVisible({ timeout: 15_000 });
+  ).toBeVisible({ timeout: 5_000 });
 
   await page.screenshot({ path: 'test-results/11-gallery-my-templates.png', fullPage: true });
 
   await disableScrim(page);
-  await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+  await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
 // 12. Custom Templates: Create blank, fill editor, save
 // ---------------------------------------------------------------------------
 test('GeneaScript: create blank custom template', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(120_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
 
   // Click "Create Blank"
   await disableScrim(page);
-  await gal.getByText(/Create Blank|Створити порожній|Создать пустой/i).first().click({ timeout: 30_000 });
+  await gal.getByText(/Create Blank|Створити порожній|Создать пустой/i).first().click({ timeout: 10_000 });
 
-  // Wait for the editor dialog to open (replaces gallery)
-  await page.waitForTimeout(3000);
+  // Editor dialog opens. findEditorFrame polls for up to 60s so we don't need
+  // a separate fixed sleep here.
   await disableScrim(page);
   const editor = await findEditorFrame(page);
 
   // Fill in name and description
-  await editor.locator('#tplName').fill('E2E Test Template', { timeout: 15_000 });
-  await editor.locator('#tplDesc').fill('Automated test template for E2E', { timeout: 15_000 });
+  await editor.locator('#tplName').fill('E2E Test Template', { timeout: 10_000 });
+  await editor.locator('#tplDesc').fill('Automated test template for E2E', { timeout: 10_000 });
 
   // Fill in Role section (first tab, already active)
-  await editor.locator('#sec_role').fill('You are an E2E test transcription specialist.', { timeout: 15_000 });
+  await editor.locator('#sec_role').fill('You are an E2E test transcription specialist.', { timeout: 10_000 });
 
   // Switch to Input Structure tab and fill
   await disableScrim(page);
-  await editor.getByRole('button', { name: /Input Structure|Структура введення|Структура ввода/i }).click({ timeout: 15_000 });
-  await editor.locator('#sec_inputStructure').fill('Test input structure content.', { timeout: 15_000 });
+  await editor.getByRole('button', { name: /Input Structure|Структура введення|Структура ввода/i }).click({ timeout: 10_000 });
+  await editor.locator('#sec_inputStructure').fill('Test input structure content.', { timeout: 10_000 });
 
   // Switch to Output Format tab and verify it has separate content
   await disableScrim(page);
-  await editor.getByRole('button', { name: /Output Format|Формат виводу|Формат вывода/i }).click({ timeout: 30_000 });
+  await editor.getByRole('button', { name: /Output Format|Формат виводу|Формат вывода/i }).click({ timeout: 10_000 });
   const outputVal = await editor.locator('#sec_outputFormat').inputValue();
   // Output Format should have scaffold text (not the role text we typed)
   expect(outputVal).not.toContain('E2E test transcription specialist');
@@ -475,31 +560,29 @@ test('GeneaScript: create blank custom template', async ({ page }) => {
 
   // Click Save
   await disableScrim(page);
-  await editor.locator('#saveBtn').click({ timeout: 15_000 });
+  await editor.locator('#saveBtn').click({ timeout: 10_000 });
 
-  // Wait for "Saved" status and gallery to reopen
-  await page.waitForTimeout(3000);
+  // Gallery reopens — findGalleryFrame polls up to 60s so no extra sleep needed.
   await disableScrim(page);
-
-  // Gallery should reopen with the new template visible
   const galAfter = await findGalleryFrame(page);
   await expect(
     galAfter.getByText('E2E Test Template').first()
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeVisible({ timeout: 15_000 });
 
   await page.screenshot({ path: 'test-results/12-gallery-with-custom.png', fullPage: true });
 
   await disableScrim(page);
-  await galAfter.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+  await galAfter.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
 // 13. Custom Templates: Apply custom template
 // ---------------------------------------------------------------------------
 test('GeneaScript: apply custom template', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(90_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -507,22 +590,22 @@ test('GeneaScript: apply custom template', async ({ page }) => {
   // Click on the custom template card to select it
   await disableScrim(page);
   const customCard = gal.locator('.card', { has: gal.getByText('E2E Test Template') }).first();
-  await customCard.click({ timeout: 30_000 });
+  await customCard.click({ timeout: 10_000 });
 
   // Verify it's selected
-  await expect(customCard).toHaveClass(/selected/, { timeout: 10_000 });
+  await expect(customCard).toHaveClass(/selected/, { timeout: 5_000 });
 
   // Click Apply
   await disableScrim(page);
-  await gal.locator('#applyBtn').click({ timeout: 15_000 });
+  await gal.locator('#applyBtn').click({ timeout: 10_000 });
 
-  // Wait for success status and dialog to close
-  await expect(gal.locator('#statusMsg')).toContainText(/applied|застосовано|применён/i, { timeout: 30_000 });
-  await page.waitForTimeout(2000);
+  // Status message asserts success — no extra sleep needed, the sidebar poll
+  // assertion below is the real gate for "apply actually took effect".
+  await expect(gal.locator('#statusMsg')).toContainText(/applied|застосовано|применён/i, { timeout: 15_000 });
 
   await page.screenshot({ path: 'test-results/13-applied-custom.png', fullPage: true });
 
-  // Verify sidebar template label updated (polls every 2s)
+  // Verify sidebar template label updated (client-side polls every 2s via v1.4.0 fix)
   await expect(
     sidebar.locator('#templateLabel')
   ).toContainText('E2E Test Template', { timeout: 15_000 });
@@ -532,9 +615,10 @@ test('GeneaScript: apply custom template', async ({ page }) => {
 // 14. Custom Templates: Duplicate custom template
 // ---------------------------------------------------------------------------
 test('GeneaScript: duplicate custom template', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(90_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -544,14 +628,10 @@ test('GeneaScript: duplicate custom template', async ({ page }) => {
   const duplicateBtn = gal.locator('.card', { has: gal.getByText('E2E Test Template') })
     .first()
     .locator('.action-link', { hasText: /Duplicate|Дублювати|Дублировать/i });
-  await duplicateBtn.click({ timeout: 30_000 });
+  await duplicateBtn.click({ timeout: 10_000 });
 
-  // The gallery closes and reopens — wait for the fresh gallery to render.
-  await page.waitForTimeout(5000);
-
-  // Poll until we find a gallery frame (with #previewToggle) that also
-  // contains the duplicated template name.
-  const deadline = Date.now() + 60_000;
+  // Gallery closes and reopens — poll immediately, no fixed pre-sleep.
+  const deadline = Date.now() + 45_000;
   let galAfter: import('@playwright/test').Frame | null = null;
   while (Date.now() < deadline) {
     await disableScrim(page);
@@ -563,21 +643,21 @@ test('GeneaScript: duplicate custom template', async ({ page }) => {
       } catch { /* skip */ }
     }
     if (galAfter) break;
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(500);
   }
 
   expect(galAfter).not.toBeNull();
   await page.screenshot({ path: 'test-results/14-duplicated.png', fullPage: true });
 
   await disableScrim(page);
-  await galAfter!.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 30_000 });
+  await galAfter!.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
 // 15. Custom Templates: Delete custom templates (cleanup)
 // ---------------------------------------------------------------------------
 test('GeneaScript: delete custom templates', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(120_000);
   const sidebar = await openGeneascriptSidebar(page);
 
   // Delete all custom templates created during testing (up to 3 iterations).
@@ -593,8 +673,8 @@ test('GeneaScript: delete custom templates', async ({ page }) => {
       } catch { /* skip */ }
     }
     if (!gal) {
-      await sidebarTemplateGallery(sidebar).click({ timeout: 30_000 });
-      await page.waitForTimeout(3000);
+      await disableScrim(page);
+      await safeSidebarClick(sidebarTemplateGallery(sidebar));
       await disableScrim(page);
       try {
         gal = await findGalleryFrame(page);
@@ -603,40 +683,36 @@ test('GeneaScript: delete custom templates', async ({ page }) => {
       }
     }
 
-    // Scroll down in gallery to see custom template cards
-    await disableScrim(page);
-
     // Find any Delete button in custom template cards
+    await disableScrim(page);
     const deleteBtn = gal.locator('.action-danger').first();
     if ((await deleteBtn.count()) === 0) {
       // No custom templates left — close gallery and exit
       await disableScrim(page);
-      await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 15_000 });
+      await gal.getByRole('button', { name: /Cancel|Скасувати|Отмена/i }).click({ timeout: 10_000 });
       break;
     }
 
     await disableScrim(page);
-    await deleteBtn.click({ timeout: 15_000 });
+    await deleteBtn.click({ timeout: 10_000 });
 
-    // Handle custom confirm modal
-    await page.waitForTimeout(1000);
+    // Handle custom confirm modal — poll rather than fixed sleep.
     await disableScrim(page);
     const confirmYes = gal.locator('#confirmYes');
-    if (await confirmYes.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await confirmYes.click({ timeout: 10_000 });
+    if (await confirmYes.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await confirmYes.click({ timeout: 5_000 });
     }
 
-    // Wait for gallery to reload after delete (new dialog replaces old one)
-    await page.waitForTimeout(5000);
-    // Reset gal to null so next iteration re-discovers the fresh frame
+    // Wait for gallery to reload by re-finding it next iteration.
+    // Short buffer for the reload to kick in.
+    await page.waitForTimeout(1500);
     gal = null;
   }
 
-  // Verify sidebar reverted to an OOB template label
+  // Verify sidebar reverted to an OOB template label using a polling assertion
+  // instead of a fixed sleep.
   await disableScrim(page);
-  await page.waitForTimeout(5000);
-  const label = await sidebar.locator('#templateLabel').textContent();
-  expect(label).not.toContain('E2E Test Template');
+  await expect(sidebar.locator('#templateLabel')).not.toContainText('E2E Test Template', { timeout: 10_000 });
 
   await page.screenshot({ path: 'test-results/15-deleted-all.png', fullPage: true });
 });
@@ -648,11 +724,27 @@ test('GeneaScript: batch transcribe (needs API key) [16]', async ({ page }) => {
   test.setTimeout(600_000);
   const sidebar = await openGeneascriptSidebar(page);
 
-  // Check if API key is present
+  // If no key configured yet, prompt the user for one interactively
+  // (or read GEMINI_API_KEY env var). Skip the test only if the user declines.
   const keyBanner = sidebarKeyBanner(sidebar);
   if (await keyBanner.isVisible().catch(() => false)) {
-    test.skip(true, 'No Gemini API key — complete Setup AI once, then re-run.');
-    return;
+    const key = await promptForGeminiKey();
+    if (!key) {
+      test.skip(true, 'Gemini API key not provided — skipping transcription test.');
+      return;
+    }
+    const saved = await saveGeminiKey(sidebar, key);
+    expect(saved).toBe(true);
+    // We called saveApiKeyAndModel directly (bypassing the Setup dialog and
+    // its polling in setupKey()), so the banner won't auto-hide. Hide it +
+    // re-enable Transcribe/Extract buttons by calling updBtn() in-frame.
+    await sidebar.evaluate(() => {
+      const b = document.getElementById('keyBanner');
+      if (b) (b as HTMLElement).style.display = 'none';
+      const fn = (window as any).updBtn;
+      if (typeof fn === 'function') fn();
+    });
+    await expect(keyBanner).toBeHidden({ timeout: 10_000 });
   }
 
   // Refresh image list
@@ -691,12 +783,20 @@ test('GeneaScript: batch transcribe (needs API key) [16]', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: document result structure after transcription [17]', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  void sidebar;
+
+  // This test documents the result of the transcription run in #16.
+  // If #16 was skipped (no key provided), there is nothing meaningful to
+  // capture — skip rather than save a misleading "empty result" screenshot.
+  const keyBanner = sidebarKeyBanner(sidebar);
+  if (await keyBanner.isVisible().catch(() => false)) {
+    test.skip(true, 'Transcription test #16 was skipped — no result to capture.');
+    return;
+  }
 
   // Take a full-page screenshot to visually verify transcription results
-  // are inserted below the images in the document
+  // are inserted below the images in the document.
   await page.screenshot({
-    path: 'test-results/12-document-result-structure.png',
+    path: 'test-results/17-document-result-structure.png',
     fullPage: true,
   });
 });

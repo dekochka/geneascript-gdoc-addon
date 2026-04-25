@@ -1346,6 +1346,10 @@ function runTranscribeWorker() {
       status: 'error',
       runId: runId,
       docIdHash: docIdHash,
+      model: e.model || null,
+      httpCode: e.httpCode || null,
+      apiLatencyMs: e.apiLatencyMs || null,
+      retried: !!e.retried,
       errorCode: rtwCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -1815,6 +1819,10 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
       runId: runId,
       docIdHash: docIdHash,
       bodyIndex: bodyIndex,
+      model: e.model || null,
+      httpCode: e.httpCode || null,
+      apiLatencyMs: e.apiLatencyMs || null,
+      retried: !!e.retried,
       errorCode: ctxExtractCode,
       errorMessage: sanitizeErrorMessage(message)
     });
@@ -1935,23 +1943,13 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
       return callGemini(apiKey, prompt, imageBlob, mimeType, retryTelemetry);
     }
     var errorCode = classifyErrorCode(msg, code);
-    logObsEvent('transcribe_image_api_error', {
-      operation: telemetry.operation || 'transcribe_single',
-      entrypoint: telemetry.entrypoint || 'unknown',
-      status: 'error',
-      runId: telemetry.runId || null,
-      docIdHash: telemetry.docIdHash || null,
-      model: modelId,
-      httpCode: code,
-      apiLatencyMs: Date.now() - apiStartMs,
-      errorCode: errorCode,
-      errorMessage: sanitizeErrorMessage(msg),
-      retried: !!telemetry.__isRetry
-    });
     var thrownErr = new Error(msg + ' (HTTP ' + code + ')');
     thrownErr.httpCode = code;
     thrownErr.errorCode = errorCode;
     thrownErr.apiMessage = msg;
+    thrownErr.apiLatencyMs = Date.now() - apiStartMs;
+    thrownErr.retried = !!telemetry.__isRetry;
+    thrownErr.model = modelId;
     throw thrownErr;
   }
 
@@ -1959,19 +1957,14 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   if (!json.candidates || json.candidates.length === 0) {
     var feedback = (json.promptFeedback && json.promptFeedback.blockReason) ? json.promptFeedback.blockReason : 'No candidates returned';
     Logger.log('callGemini: no candidates, feedback=' + feedback);
-    logObsEvent('transcribe_image_api_error', {
-      operation: telemetry.operation || 'transcribe_single',
-      entrypoint: telemetry.entrypoint || 'unknown',
-      status: 'error',
-      runId: telemetry.runId || null,
-      docIdHash: telemetry.docIdHash || null,
-      model: modelId,
-      httpCode: code,
-      apiLatencyMs: Date.now() - apiStartMs,
-      errorCode: 'API_EMPTY_CANDIDATES',
-      errorMessage: sanitizeErrorMessage(feedback)
-    });
-    throw new Error(feedback);
+    var noCandErr = new Error(feedback);
+    noCandErr.httpCode = code;
+    noCandErr.errorCode = 'API_EMPTY_CANDIDATES';
+    noCandErr.apiMessage = feedback;
+    noCandErr.apiLatencyMs = Date.now() - apiStartMs;
+    noCandErr.retried = !!telemetry.__isRetry;
+    noCandErr.model = modelId;
+    throw noCandErr;
   }
 
   var candidate = json.candidates[0];
@@ -2159,7 +2152,6 @@ function buildHomepageCard() {
 
 function openSidebarFromCard() {
   showTranscribeSidebar();
-  return CardService.newActionResponseBuilder().build();
 }
 
 // ---------------------------------------------------------------------------
@@ -2330,6 +2322,10 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       runId: runId,
       docIdHash: docIdHash,
       bodyIndex: effectiveBodyIndex,
+      model: e.model || null,
+      httpCode: e.httpCode || null,
+      apiLatencyMs: e.apiLatencyMs || null,
+      retried: !!e.retried,
       errorCode: tbiCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -2556,7 +2552,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.2</div>',
+    '<div class="footer">v1.4.3</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2619,6 +2615,8 @@ function getSidebarHtml() {
     '    if(m._s==="done")st=\'<span class="status st-done">\\u2713</span>\';',
     '    else if(m._s==="fail"){',
     '      if(m._c==="API_OVERLOADED")st=\'<span class="status st-warn" title="\'+esc(SI.overloadIconTitle)+\'">\\u26A0</span>\';',
+    '      else if(m._c==="API_RATE_LIMIT")st=\'<span class="status st-warn" title="\'+esc(SI.rateLimitIconTitle)+\'">\\u26A0</span>\';',
+    '      else if(m._c==="API_KEY_INVALID")st=\'<span class="status st-warn" title="\'+esc(SI.keyInvalidIconTitle)+\'">\\u26A0</span>\';',
     '      else st=\'<span class="status st-fail" title="\'+esc(m._e||SI.statusFail)+\'">\\u2717</span>\';',
     '    }',
     '    else if(m._s==="warn")st=\'<span class="status st-warn" title="\'+esc(SI.truncTitle)+\'">\\u26A0</span>\';',
@@ -2736,6 +2734,8 @@ function getSidebarHtml() {
     '  if(code==="API_OVERLOADED")msg=SI.overloadBanner;',
     '  else if(code==="API_NOT_ENABLED")msg=SI.apiNotEnabledBanner;',
     '  else if(code==="API_PROJECT_DENIED")msg=SI.apiProjectDeniedBanner;',
+    '  else if(code==="API_RATE_LIMIT")msg=SI.rateLimitBanner;',
+    '  else if(code==="API_KEY_INVALID")msg=SI.keyInvalidBanner;',
     '  if(!msg)return;',
     '  var b=el("errorBanner");',
     '  b.textContent=msg;',
@@ -2772,7 +2772,17 @@ function getSidebarHtml() {
     '  el("selAll").disabled=v;',
     '}',
 
-    'function setupKey(){google.script.run.showSetupApiKeyAndModelDialog();}',
+    'var keyPollId=null;',
+    'function setupKey(){',
+    '  google.script.run.showSetupApiKeyAndModelDialog();',
+    '  if(keyPollId)clearInterval(keyPollId);',
+    '  keyPollId=setInterval(function(){',
+    '    google.script.run.withSuccessHandler(function(k){',
+    '      if(k){document.getElementById("keyBanner").style.display="none";updBtn();clearInterval(keyPollId);keyPollId=null;}',
+    '    }).withFailureHandler(function(){}).hasApiKey();',
+    '  },2000);',
+    '  setTimeout(function(){if(keyPollId){clearInterval(keyPollId);keyPollId=null;}},120000);',
+    '}',
     'function doImport(){google.script.run.withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; }).showDrivePickerDialog();}',
     'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent=SI.extractNeedOne; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||SI.extractOpenFail; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
