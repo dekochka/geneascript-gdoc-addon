@@ -22,7 +22,7 @@ import {
   waitForModalText,
   waitForSidebarFrame,
 } from './helpers';
-import { IMPORT_FOLDER_SEARCH, IMPORT_IMAGE_COUNT } from './constants';
+import { IMPORT_FOLDER_SEARCH, IMPORT_IMAGE_COUNT, IMPORT_TEST_FILE_IDS } from './constants';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -98,22 +98,68 @@ test('GeneaScript: no API key banner', async ({ page }) => {
 // ---------------------------------------------------------------------------
 // 6. Import images from Drive
 // ---------------------------------------------------------------------------
+// Goal: user can import multiple images from a Drive folder and the images
+// appear in the document + in the sidebar image list.
+//
+// Runs in one of two modes:
+//
+//  A) Fast path (default when GENEASCRIPT_IMPORT_FILE_IDS is set). Calls
+//     importFromDriveFileIds(ids) directly via google.script.run — same
+//     server function the picker drives. This validates the import pipeline
+//     without the fragile picker pixel-coord automation.
+//     Requires the test account to have already granted drive.file scope
+//     to those IDs (e.g. by running the picker manually once).
+//
+//  B) Full picker flow (default when GENEASCRIPT_IMPORT_FILE_IDS is NOT set).
+//     Drives the Google Picker iframe with DOM locators where possible and
+//     CDP mouse events where needed. Fragile but covers the "user-visible"
+//     selection flow.
 test('GeneaScript: Import images from Drive', async ({ page }) => {
-  if (process.env.GENEASCRIPT_RUN_IMPORT_PICKER !== '1') {
-    test.skip(true, 'Set GENEASCRIPT_RUN_IMPORT_PICKER=1 to run the full import flow.');
+  test.setTimeout(300_000);
+  const sidebar = await openGeneascriptSidebar(page);
+
+  // Fast path: either an env var or the IMPORT_TEST_FILE_IDS constant.
+  // Skip the picker, exercise the import pipeline directly.
+  const envIds = (process.env.GENEASCRIPT_IMPORT_FILE_IDS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const providedIds = envIds.length > 0 ? envIds : IMPORT_TEST_FILE_IDS;
+  if (providedIds.length > 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[e2e] Import fast-path: calling importFromDriveFileIds with ${providedIds.length} IDs`);
+    const result = await sidebar.evaluate(async (ids: string[]): Promise<{ ok: boolean; added?: number; message?: string }> => {
+      return new Promise((resolve) => {
+        const runner = (window as any).google?.script?.run;
+        if (!runner) { resolve({ ok: false, message: 'google.script.run unavailable' }); return; }
+        runner
+          .withSuccessHandler((r: any) => resolve(r || { ok: false, message: 'no result' }))
+          .withFailureHandler((e: any) => resolve({ ok: false, message: e?.message || String(e) }))
+          .importFromDriveFileIds(ids);
+      });
+    }, providedIds);
+    expect(result.ok, `importFromDriveFileIds failed: ${result.message}`).toBe(true);
+
+    // Reload so the sidebar reflects the new image list without stale frame state.
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
+    const freshSidebar = await openGeneascriptSidebar(page);
+    await sidebarRefresh(freshSidebar).click({ timeout: 10_000 });
+    const boxes = sidebarImageCheckboxes(freshSidebar);
+    await expect(boxes.first()).toBeVisible({ timeout: 30_000 });
+    const count = await boxes.count();
+    expect(count, 'Sidebar should list at least the imported images').toBeGreaterThanOrEqual(providedIds.length);
+
+    await page.screenshot({ path: 'test-results/06-after-import.png', fullPage: true });
     return;
   }
 
-  const sidebar = await openGeneascriptSidebar(page);
+  // Full picker flow. The Google Picker lives in a nested Apps Script iframe.
+  // A Material Design scrim overlays the iframe in the main frame and blocks
+  // clicks — we neutralise it with disableScrim() before each interaction.
   await sidebarImport(sidebar).click();
 
-  // The Google Picker is inside an Apps Script dialog, rendered in nested iframes.
-  // A Material Design dialog scrim overlays the iframe in the main frame, blocking
-  // Playwright's locator.click(). Solution: temporarily disable pointer-events on
-  // the scrim overlay via CSS manipulation, then click normally.
-
   // Wait for the dialog to fully load
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(3000);
   await page.screenshot({ path: 'test-results/06-picker-dialog.png', fullPage: true });
 
   // Disable the Material Design dialog scrim so picker elements become clickable.
