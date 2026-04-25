@@ -6,7 +6,7 @@ const ADDON_ICON_LABEL_RE =
   /Metric Book Transcriber|GeneaScript|Транскрибатор метричних книг/i;
 
 const TOP_MENU_TITLE_RE =
-  /^GeneaScript$/i;
+  /GeneaScript(\s*[-–]\s*Metric Book Transcriber)?|Транскрибатор метричних книг/i;
 
 const OPEN_SIDEBAR_BTN_RE =
   /Open Sidebar|Open Transcriber Sidebar|Відкрити бічну панель|Открыть боковую панель/i;
@@ -50,9 +50,11 @@ export async function openGeneascriptSidebar(page: Page): Promise<Frame> {
   }
 
   async function openViaTopMenu() {
-    // Click Extensions menu first, then find the add-on submenu
+    // Click Extensions menu first, then hover the add-on submenu to expand it
     await page.getByRole('menuitem', { name: /Extensions|Розширення|Расширения/i }).click({ timeout: 20_000 });
-    await page.getByRole('menuitem', { name: TOP_MENU_TITLE_RE }).click({ timeout: 20_000 });
+    const addonItem = page.getByRole('menuitem', { name: TOP_MENU_TITLE_RE });
+    // Google Docs submenus open on hover, not click — click on a submenu parent dismisses the menu
+    await addonItem.hover({ timeout: 20_000 });
     await page.getByRole('menuitem', { name: OPEN_SIDEBAR_BTN_RE }).click({ timeout: 20_000 });
   }
 
@@ -82,6 +84,16 @@ export async function waitForSidebarFrame(page: Page): Promise<Frame> {
       }
     }
     await page.waitForTimeout(500);
+  }
+  // Detect Marketplace install dialog — this is the common failure mode when
+  // the signed-in user has not installed the add-on yet.
+  const marketplaceOpen = await page.getByRole('heading', { name: /Google Workspace Marketplace/i }).isVisible().catch(() => false);
+  if (marketplaceOpen) {
+    throw new Error(
+      'GeneaScript sidebar not found: the Google Workspace Marketplace install dialog is showing. ' +
+        'The signed-in user does not have the add-on installed. Install it manually for this user once, ' +
+        'then re-run npx tsx e2e/save-auth.ts to refresh the profile.'
+    );
   }
   throw new Error(
     'GeneaScript sidebar iframe not found (expected [data-testid="geneascript-import"]). ' +

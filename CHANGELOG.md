@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Homepage card action no longer throws platform error** — `openSidebarFromCard` returned an empty `ActionResponse` object, which the Add-ons platform rejected with _"The value returned from Apps Script has a type that cannot be used by the add-ons platform"_. The sidebar opened anyway (the side-effect ran before the return), but every card-button click logged a platform ERROR. The function now returns `undefined` per the CardService contract for pure side-effect actions. Observed 23 such errors in one week prior to the fix.
 - **Rate-limit (HTTP 429) errors now show actionable hint** — Previously surfaced as a generic red ✗ with the raw quota URL. Now classified as `API_RATE_LIMIT` and shown as a pink sidebar banner + orange ⚠ icon on the affected image row, suggesting the user wait a minute, upgrade tier, or reduce batch size.
 - **Invalid API key errors now guide to Setup** — Previously surfaced as generic `API_HTTP_ERROR`. Now classified as `API_KEY_INVALID` ("API key not valid") and shown in a sidebar banner pointing to the Setup dialog.
+- **"Set up your API key" banner now clears after Setup closes** — The yellow key-missing banner stayed visible until page reload even after a valid key was saved via Setup AI. `setupKey()` now polls `hasApiKey()` every 2 s (up to 2 min) after opening the dialog, hides the banner and re-enables Transcribe/Extract buttons as soon as a key is detected.
 
 ### 🔭 Observability
 
