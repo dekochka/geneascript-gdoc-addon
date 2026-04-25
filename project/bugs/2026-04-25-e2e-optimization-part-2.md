@@ -106,5 +106,4 @@ If a test fails, Playwright's retry or post-failure isolation might need a fresh
 - Can be iterated on without blocking v1.4.3 release
 - Part 1 already trimmed ~10–15% for free, with zero risk
 
-Owner: @dkochkin
 Earliest implementation window: post-v1.4.3 release

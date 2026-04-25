@@ -35,5 +35,3 @@ Target runtime: **~8–12 min** for a full suite.
 - All 17 existing tests still pass (no behavior changes)
 - Full run under 15 min on the test account
 - No `waitForTimeout` > 1 s remaining in `e2e/` unless annotated with a comment explaining why
-
-Owner: @dkochkin
