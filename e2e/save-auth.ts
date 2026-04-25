@@ -7,7 +7,8 @@
  *
  * Steps:
  *   1. Chromium opens to accounts.google.com
- *   2. Sign in as geneascript.support@gmail.com
+ *   2. Sign in as the dedicated E2E test account (see project/bugs/
+ *      2026-04-25-e2e-test-account-setup.md for requirements)
  *   3. Navigate to the test doc URL (printed in console)
  *   4. Wait for the doc + GeneaScript menu to load
  *   5. Come back to the terminal and press Enter — session is saved
@@ -37,7 +38,9 @@ async function main() {
   await page.goto('https://accounts.google.com', { waitUntil: 'domcontentloaded' });
 
   console.log('\n=== MANUAL STEPS ===');
-  console.log('1. Sign in as geneascript.support@gmail.com in the browser');
+  console.log('1. Sign in as the dedicated E2E test account in the browser');
+  console.log('   (credentials tracked outside this repo — see project/bugs/');
+  console.log('    2026-04-25-e2e-test-account-setup.md for requirements)');
   console.log('2. Then paste this URL in the address bar:');
   console.log(`   ${testDocUrl()}`);
   console.log('3. Wait for the doc to load and GeneaScript menu to appear under Extensions');
