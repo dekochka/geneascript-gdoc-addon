@@ -28,11 +28,10 @@ export const IMPORT_IMAGE_COUNT = 6;
  * picker manually once — Google remembers the grant).
  */
 export const IMPORT_TEST_FILE_IDS: string[] = [
-  // cover-title-page.jpg
-  // image00001.jpg
-  // image00002.jpg
-  // image00003.jpg
-  // image00004.jpg
-  // image00005.jpg
-  // TODO: fill with actual Drive file IDs for testuser1's test folder.
+  '1yu2Giu7xJBRY9u6aADngZzSgT-jpv3RL', // cover-title-page.jpg
+  '1QeJv7Rph0POsa7TYSBcxEQhJ5plKAayK', // image00001.jpg
+  '1ywFjWaM0UhfqprDdHZIkPl13ovOeudMM', // image00002.jpg
+  '1QMLrr6ZRxbo42Gw_eRWKaXUiiMcgi4Qw', // image00003.jpg
+  '1GPlYv9lfrcVhSIO4gK7oPe82q1LlVh7t', // image00004.jpg
+  '11_zZycpDIlDeW0D5Gp24_rh6uOEWqOvE', // image00005.jpg
 ];
