@@ -107,6 +107,11 @@ export async function openGeneascriptSidebar(page: Page): Promise<Frame> {
   // Docs can sit on "Loading…" but 60s is plenty; beyond that something is wrong.
   await page.getByRole('menubar').waitFor({ state: 'visible', timeout: 60_000 });
 
+  // Google sometimes pops open the account/avatar card in the top-right
+  // after the doc loads ("Hi, Name — Manage your Google Account"). It sits
+  // above the sidebar and can intercept clicks. Dismiss it unconditionally.
+  await dismissAccountPopup(page);
+
   async function openViaRailAndCard() {
     await page.getByRole('button', { name: ADDON_ICON_LABEL_RE }).first().click({ timeout: 20_000 });
     await page.getByRole('button', { name: OPEN_SIDEBAR_BTN_RE }).click({ timeout: 30_000 });
@@ -242,6 +247,26 @@ export function sidebarProgressText(sidebar: Frame): Locator {
 
 export function sidebarEmptyState(sidebar: Frame): Locator {
   return sidebar.locator('.empty-state');
+}
+
+/**
+ * Dismiss the Google account/avatar popup ("Hi, X — Manage your Google
+ * Account") that sometimes auto-opens in the top-right of Google Docs and
+ * intercepts clicks near the sidebar. Closing it is safe and idempotent;
+ * if no popup is open this is a no-op.
+ */
+export async function dismissAccountPopup(page: Page): Promise<void> {
+  // Strategy: press Escape (cheap, works when the popup is focused) + click
+  // elsewhere in the doc to move focus away from the avatar. If a dedicated
+  // close button exists, click it too.
+  try {
+    const closeBtn = page.getByRole('button', { name: /Close|Закрити|Закрыть/i }).first();
+    if (await closeBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await closeBtn.click({ timeout: 2000 }).catch(() => {});
+    }
+  } catch { /* no close button */ }
+  // Press Escape in case the popup is still open without a visible button.
+  await page.keyboard.press('Escape').catch(() => {});
 }
 
 /**
