@@ -128,19 +128,52 @@ test('GeneaScript: Import images from Drive', async ({ page }) => {
   if (providedIds.length > 0) {
     // eslint-disable-next-line no-console
     console.log(`[e2e] Import fast-path: calling importFromDriveFileIds with ${providedIds.length} IDs`);
-    const result = await sidebar.evaluate(async (ids: string[]): Promise<{ ok: boolean; added?: number; message?: string }> => {
-      return new Promise((resolve) => {
-        const runner = (window as any).google?.script?.run;
-        if (!runner) { resolve({ ok: false, message: 'google.script.run unavailable' }); return; }
-        runner
-          .withSuccessHandler((r: any) => resolve(r || { ok: false, message: 'no result' }))
-          .withFailureHandler((e: any) => resolve({ ok: false, message: e?.message || String(e) }))
-          .importFromDriveFileIds(ids);
-      });
-    }, providedIds);
-    expect(result.ok, `importFromDriveFileIds failed: ${result.message}`).toBe(true);
 
-    // Reload so the sidebar reflects the new image list without stale frame state.
+    // The server function blocks on ui.alert('Importing', OK) to confirm with
+    // the user before starting the insert loop. We can't await the server
+    // promise from the sidebar frame because it won't resolve until that
+    // alert is dismissed. Fire the call without awaiting, then drive the UI:
+    //   1. click OK on the modal alert
+    //   2. poll getImageList() until it reports the expected count
+    const importStarted = await sidebar.evaluate((ids: string[]): boolean => {
+      const runner = (window as any).google?.script?.run;
+      if (!runner) return false;
+      (window as any).__importResult = null;
+      runner
+        .withSuccessHandler((r: any) => { (window as any).__importResult = r || { ok: true }; })
+        .withFailureHandler((e: any) => { (window as any).__importResult = { ok: false, message: e?.message || String(e) }; })
+        .importFromDriveFileIds(ids);
+      return true;
+    }, providedIds);
+    expect(importStarted, 'google.script.run was not available in the sidebar frame').toBe(true);
+
+    // Click OK on the "Importing N images..." alert. Apps Script alerts render
+    // in the main frame; the button text is simply "OK".
+    const okBtn = page.getByRole('button', { name: /^OK$/i });
+    await expect(okBtn).toBeVisible({ timeout: 30_000 });
+    await okBtn.click({ timeout: 10_000 });
+
+    // Poll getImageList until the expected number of images appear in the doc.
+    // Each image takes a few seconds to fetch + insert — 2 min budget is plenty.
+    const deadline = Date.now() + 120_000;
+    let finalCount = 0;
+    while (Date.now() < deadline) {
+      finalCount = await sidebar.evaluate(async (): Promise<number> => {
+        return new Promise((resolve) => {
+          const runner = (window as any).google?.script?.run;
+          if (!runner) { resolve(-1); return; }
+          runner
+            .withSuccessHandler((r: any) => resolve((r && r.images) ? r.images.length : 0))
+            .withFailureHandler(() => resolve(-2))
+            .getImageList();
+        });
+      });
+      if (finalCount >= providedIds.length) break;
+      await page.waitForTimeout(2000);
+    }
+    expect(finalCount, 'Doc should contain the imported images').toBeGreaterThanOrEqual(providedIds.length);
+
+    // Reload so the sidebar UI reflects the new image list cleanly.
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60_000 });
     const freshSidebar = await openGeneascriptSidebar(page);
     await sidebarRefresh(freshSidebar).click({ timeout: 10_000 });
