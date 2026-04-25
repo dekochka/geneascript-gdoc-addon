@@ -5,6 +5,9 @@ import {
   disableScrim,
   findGalleryFrame,
   findEditorFrame,
+  promptForGeminiKey,
+  safeSidebarClick,
+  saveGeminiKey,
   sidebarExtract,
   sidebarImport,
   sidebarRefresh,
@@ -376,7 +379,8 @@ test('GeneaScript: Extract Context dialog', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -408,7 +412,8 @@ test('GeneaScript: Template Gallery preview tabs', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: gallery shows My Templates section', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -438,7 +443,8 @@ test('GeneaScript: gallery shows My Templates section', async ({ page }) => {
 test('GeneaScript: create blank custom template', async ({ page }) => {
   test.setTimeout(180_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -499,7 +505,8 @@ test('GeneaScript: create blank custom template', async ({ page }) => {
 test('GeneaScript: apply custom template', async ({ page }) => {
   test.setTimeout(180_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -534,7 +541,8 @@ test('GeneaScript: apply custom template', async ({ page }) => {
 test('GeneaScript: duplicate custom template', async ({ page }) => {
   test.setTimeout(180_000);
   const sidebar = await openGeneascriptSidebar(page);
-  await sidebarTemplateGallery(sidebar).click();
+  await disableScrim(page);
+  await safeSidebarClick(sidebarTemplateGallery(sidebar));
 
   await disableScrim(page);
   const gal = await findGalleryFrame(page);
@@ -593,8 +601,8 @@ test('GeneaScript: delete custom templates', async ({ page }) => {
       } catch { /* skip */ }
     }
     if (!gal) {
-      await sidebarTemplateGallery(sidebar).click({ timeout: 30_000 });
-      await page.waitForTimeout(3000);
+      await disableScrim(page);
+      await safeSidebarClick(sidebarTemplateGallery(sidebar));
       await disableScrim(page);
       try {
         gal = await findGalleryFrame(page);
@@ -648,11 +656,27 @@ test('GeneaScript: batch transcribe (needs API key) [16]', async ({ page }) => {
   test.setTimeout(600_000);
   const sidebar = await openGeneascriptSidebar(page);
 
-  // Check if API key is present
+  // If no key configured yet, prompt the user for one interactively
+  // (or read GEMINI_API_KEY env var). Skip the test only if the user declines.
   const keyBanner = sidebarKeyBanner(sidebar);
   if (await keyBanner.isVisible().catch(() => false)) {
-    test.skip(true, 'No Gemini API key — complete Setup AI once, then re-run.');
-    return;
+    const key = await promptForGeminiKey();
+    if (!key) {
+      test.skip(true, 'Gemini API key not provided — skipping transcription test.');
+      return;
+    }
+    const saved = await saveGeminiKey(sidebar, key);
+    expect(saved).toBe(true);
+    // We called saveApiKeyAndModel directly (bypassing the Setup dialog and
+    // its polling in setupKey()), so the banner won't auto-hide. Hide it +
+    // re-enable Transcribe/Extract buttons by calling updBtn() in-frame.
+    await sidebar.evaluate(() => {
+      const b = document.getElementById('keyBanner');
+      if (b) (b as HTMLElement).style.display = 'none';
+      const fn = (window as any).updBtn;
+      if (typeof fn === 'function') fn();
+    });
+    await expect(keyBanner).toBeHidden({ timeout: 10_000 });
   }
 
   // Refresh image list
@@ -691,12 +715,20 @@ test('GeneaScript: batch transcribe (needs API key) [16]', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('GeneaScript: document result structure after transcription [17]', async ({ page }) => {
   const sidebar = await openGeneascriptSidebar(page);
-  void sidebar;
+
+  // This test documents the result of the transcription run in #16.
+  // If #16 was skipped (no key provided), there is nothing meaningful to
+  // capture — skip rather than save a misleading "empty result" screenshot.
+  const keyBanner = sidebarKeyBanner(sidebar);
+  if (await keyBanner.isVisible().catch(() => false)) {
+    test.skip(true, 'Transcription test #16 was skipped — no result to capture.');
+    return;
+  }
 
   // Take a full-page screenshot to visually verify transcription results
-  // are inserted below the images in the document
+  // are inserted below the images in the document.
   await page.screenshot({
-    path: 'test-results/12-document-result-structure.png',
+    path: 'test-results/17-document-result-structure.png',
     fullPage: true,
   });
 });

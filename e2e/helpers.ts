@@ -1,5 +1,67 @@
 import type { Frame, Locator, Page } from '@playwright/test';
+import * as readline from 'readline';
 import { testDocUrl } from './constants';
+
+/**
+ * Prompt the test runner for a Gemini API key if none is configured for the
+ * current test account. Cached per-process so it is asked at most once.
+ * Returns null if the user declines (e.g. presses Enter with no input),
+ * letting the caller skip the test.
+ *
+ * Precedence:
+ *   1. GEMINI_API_KEY env var (set once, reuse for the whole run)
+ *   2. Interactive stdin prompt
+ */
+let cachedApiKey: string | null | undefined;
+export async function promptForGeminiKey(): Promise<string | null> {
+  if (cachedApiKey !== undefined) return cachedApiKey;
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim()) {
+    cachedApiKey = process.env.GEMINI_API_KEY.trim();
+    return cachedApiKey;
+  }
+  if (!process.stdin.isTTY) {
+    console.warn(
+      '\n[e2e] Gemini API key required for transcription tests but no TTY detected. ' +
+        'Set GEMINI_API_KEY env var and re-run to enable tests 16-17.\n'
+    );
+    cachedApiKey = null;
+    return null;
+  }
+
+  console.log('\n========================================================================');
+  console.log('[e2e] Transcription tests (16-17) need a Gemini API key.');
+  console.log('      Paste a key below (or press Enter to skip these tests).');
+  console.log('      Get one at: https://aistudio.google.com/app/apikey');
+  console.log('========================================================================');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer: string = await new Promise((resolve) => {
+    rl.question('Gemini API key: ', (input) => {
+      rl.close();
+      resolve(input);
+    });
+  });
+  const trimmed = answer.trim();
+  cachedApiKey = trimmed.length > 0 ? trimmed : null;
+  return cachedApiKey;
+}
+
+/**
+ * Save an API key via the add-on's saveApiKeyAndModel server function by
+ * calling google.script.run from inside the sidebar frame. Returns true on
+ * success. Requires the sidebar to be open and signed in.
+ */
+export async function saveGeminiKey(sidebar: Frame, apiKey: string): Promise<boolean> {
+  return await sidebar.evaluate(async (key: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const runner = (window as any).google?.script?.run;
+      if (!runner) { resolve(false); return; }
+      runner
+        .withSuccessHandler((r: any) => resolve(!!(r && r.ok)))
+        .withFailureHandler(() => resolve(false))
+        .saveApiKeyAndModel(key, null, null, null);
+    });
+  }, apiKey);
+}
 
 /** Manifest `addOns.common.name` (right rail icon tooltip varies). */
 const ADDON_ICON_LABEL_RE =
@@ -183,7 +245,10 @@ export function sidebarEmptyState(sidebar: Frame): Locator {
 
 /**
  * Disable the Material Design dialog scrim overlay that blocks clicks on
- * Apps Script modal dialog elements rendered in nested iframes.
+ * Apps Script modal dialog elements rendered in nested iframes. Also kills
+ * the Docs "Companion" / feedback-tooltip overlay ([data-fb]) which sits on
+ * top of #docs-chrome.companion-enabled and intercepts pointer events on
+ * the sidebar iframe area.
  */
 export async function disableScrim(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -191,6 +256,9 @@ export async function disableScrim(page: Page): Promise<void> {
       '.javascriptMaterialdesignGm3WizDialog-dialog__scrim',
       '[class*="WizDialog-dialog__scrim"]',
       '[class*="WizDialog-dialog"]',
+      '[data-fb]',
+      '#docs-chrome .docs-promotion-tooltip',
+      '.docs-promotion-chip',
     ];
     for (const sel of selectors) {
       document.querySelectorAll(sel).forEach((el) => {
@@ -201,6 +269,23 @@ export async function disableScrim(page: Page): Promise<void> {
       (el as HTMLElement).style.pointerEvents = 'auto';
     });
   });
+}
+
+/**
+ * Click a sidebar button robustly, bypassing occasional Docs overlays
+ * (`[data-fb]`, companion banner) that intercept pointer events.
+ * Uses a JS .click() dispatched inside the sidebar frame — works even when
+ * Playwright considers the element "unstable" due to off-frame overlays.
+ */
+export async function safeSidebarClick(locator: Locator): Promise<void> {
+  await locator.waitFor({ state: 'visible', timeout: 30_000 });
+  // Prefer a real user click; if overlays intercept it, dispatch a JS click
+  // inside the frame which bypasses pointer-event interception entirely.
+  try {
+    await locator.click({ timeout: 5000 });
+  } catch {
+    await locator.evaluate((el) => (el as HTMLElement).click());
+  }
 }
 
 /**

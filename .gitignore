@@ -10,3 +10,6 @@ e2e/.auth/
 # Local reference videos (e.g. in docs/)
 *.mp4
 *.mov
+
+# Claude Code per-user overrides (permissions etc.) — shared settings.json IS committed
+.claude/settings.local.json
