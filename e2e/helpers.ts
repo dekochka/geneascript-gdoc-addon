@@ -99,12 +99,13 @@ export async function openGeneascriptSidebar(page: Page): Promise<Frame> {
       } else {
         await page.getByRole('button', { name: /geneascript/i }).first().click({ timeout: 10_000 });
       }
-      await page.waitForTimeout(5000);
+      // Wait for the post-chooser redirect back to the doc URL instead of a fixed sleep.
+      await page.waitForURL(/docs\.google\.com/, { timeout: 30_000 }).catch(() => {});
     }
   } catch { /* not on account chooser page */ }
 
-  // Docs can sit on "Loading…" for a long time; wait for the editor surface.
-  await page.getByRole('menubar').waitFor({ state: 'visible', timeout: 180_000 });
+  // Docs can sit on "Loading…" but 60s is plenty; beyond that something is wrong.
+  await page.getByRole('menubar').waitFor({ state: 'visible', timeout: 60_000 });
 
   async function openViaRailAndCard() {
     await page.getByRole('button', { name: ADDON_ICON_LABEL_RE }).first().click({ timeout: 20_000 });
@@ -331,5 +332,5 @@ export async function clearDocument(page: Page): Promise<void> {
   await page.keyboard.press(`${mod}+a`);
   await page.keyboard.press('Backspace');
   // Brief wait for Google Docs to sync the deletion
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(500);
 }

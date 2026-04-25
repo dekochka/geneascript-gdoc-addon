@@ -1,5 +1,7 @@
 # E2E Suite Optimization — 2026-04-25
 
+> **Status:** Part 1 shipped in the v1.4.3 PR (branch `fix/v1.4.3-error-classification-polish`). Part 2 (shared-doc fixture, the big win) planned in `2026-04-25-e2e-optimization-part-2.md`.
+
 ## Problem
 
 The Playwright E2E suite has significant runtime waste that makes iteration slow (~25–30 min for a full run). Failures are also hard to diagnose because arbitrary sleeps hide the real wait condition.

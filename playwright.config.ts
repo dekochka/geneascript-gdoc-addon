@@ -16,8 +16,10 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
-  timeout: 10 * 60 * 1000,
-  expect: { timeout: 90_000 },
+  // Per-test default. Tests that genuinely need longer (e.g. #16 batch
+  // transcribe) call test.setTimeout() explicitly. Previously 10 min global.
+  timeout: 3 * 60 * 1000,
+  expect: { timeout: 30_000 },
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     ...devices['Desktop Chrome'],
