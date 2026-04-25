@@ -11,7 +11,7 @@ flowchart TD
     E([Assert #extractBtnSidebar is enabled])
     F[Click #extractBtnSidebar]
     G[/Server call: openExtractContextDialogFromSidebar/]
-    H[waitForModalText<br/><sub>/Cover Image|Обкладинка|Витягніть метадані/</sub>]
+    H["waitForModalText<br/><sub>regex: Cover Image / Обкладинка / Витягніть метадані</sub>"]
     I([Assert #extractBtn or first button in modal visible])
     J[Press Escape to close]
     K([Test passes])

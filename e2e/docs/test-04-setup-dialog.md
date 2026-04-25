@@ -7,7 +7,7 @@ flowchart TD
     A[Open GeneaScript sidebar]
     B[Click #setupBtn]
     C[/Server call: showSetupApiKeyAndModelDialog/]
-    D[waitForModalText<br/><sub>/Setup AI|Налаштування ШІ|Настройка ИИ/</sub>]
+    D["waitForModalText<br/><sub>regex: Setup AI / Налаштування ШІ / Настройка ИИ</sub>"]
     E([Assert first select or input in modal<br/>is visible within 30 s])
     F[Press Escape to close]
     G([Test passes])
