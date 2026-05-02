@@ -31,6 +31,11 @@ structured report in `project/operations/weeklyreports/`, and on approval
 executes prioritised fixes on a dedicated branch under hard guardrails.
 Type `/weekly-report` in Claude Code. Script: `observability/scripts/fetch-weekly-logs.sh`.
 
+**Note:** `project/operations/` is a private git submodule pointing to
+`geneascript-ops` (reports contain per-user operational data that doesn't
+belong in this public repo). Initial clone: `git clone --recurse-submodules`
+or run `git submodule update --init` after cloning.
+
 ### E2E Tests (Playwright)
 Tests drive Google Docs with a saved Google session and a test deployment (`addon_dry_run` URL).
 ```bash

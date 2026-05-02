@@ -115,12 +115,23 @@ Scan and remediate, in order:
 If any scan surfaces content that must be redacted, edit the report in
 place, then re-run all 6 scans until clean.
 
-Commit the report + the copied summary JSON on the current branch:
+Commit the report + the copied summary JSON. IMPORTANT: `project/operations/` is a
+private git submodule (the `geneascript-ops` repo) — the outer `geneascript-gdoc-addon`
+repo is public on GitHub, so reports live in the submodule only. Commit inside it:
+
 ```bash
-git add project/operations/weeklyreports/<END>-weekly-ops-report.md \
-  project/operations/weeklyreports/data/<END>-summary.json
+cd project/operations
+git add weeklyreports/<END>-weekly-ops-report.md \
+  weeklyreports/data/<END>-summary.json
 git commit -m "ops: weekly operational report for <START> → <END>"
+cd ../..
 ```
+
+After the inner commit, the outer repo will show the submodule pointer as modified.
+Do NOT commit the submodule-pointer bump to the outer (public) repo — leaving it
+uncommitted is fine and keeps the report invisible from the public side. If you
+want to pin the private repo state from the public side later, that can be done
+manually outside this routine.
 
 ### Phase 4 — Prioritisation prompt
 
@@ -189,10 +200,11 @@ user phrases follow-up requests inside this same session.
 1. **No release actions.** Never run `clasp version`, `clasp deploy`,
    `git tag`, `gh release create`, or `git push ... --tags`.
 2. **No pushes.** Never run `git push` to any remote.
-3. **No code commits to `main`.** Code from Phase 5 only lands on
-   `weekly/<END>-fixes`. The report + summary JSON in Phase 3 may
-   land on the current branch (typically `main`) because they are
-   documentation artifacts, not code.
+3. **No code commits to `main` of the public repo.** Code from Phase 5
+   only lands on the `weekly/<END>-fixes` branch of the public repo.
+   The report + summary JSON in Phase 3 land on `main` of the PRIVATE
+   `geneascript-ops` submodule at `project/operations/`, never on the
+   public repo's `main`.
 4. **No OAuth-scope changes.** Never edit `oauthScopes` in
    `addon/appsscript.json`. Fixes that would require it → `refuses`.
 5. **No new SPECs inside the routine.** Fixes that would require a

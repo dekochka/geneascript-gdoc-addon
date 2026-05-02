@@ -1,0 +1,3 @@
+[submodule "project/operations"]
+	path = project/operations
+	url = git@github-dekochka:dekochka/geneascript-ops.git
