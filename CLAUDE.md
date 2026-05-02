@@ -25,6 +25,12 @@ cd observability/scripts
 ./apply.sh
 ```
 
+### Weekly Operational Review (`/weekly-report`)
+Manually-triggered routine that pulls 7 days of GCP logs, produces a
+structured report in `project/operations/weeklyreports/`, and on approval
+executes prioritised fixes on a dedicated branch under hard guardrails.
+Type `/weekly-report` in Claude Code. Script: `observability/scripts/fetch-weekly-logs.sh`.
+
 ### E2E Tests (Playwright)
 Tests drive Google Docs with a saved Google session and a test deployment (`addon_dry_run` URL).
 ```bash
