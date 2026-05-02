@@ -330,6 +330,7 @@ function importFromDriveFileIds(fileIds) {
   var count = imageFiles.length;
   Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
   ui.alert(t('alert.importing.title'), t('alert.importing.body', { count: String(count) }), ui.ButtonSet.OK);
+  try {
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
@@ -417,6 +418,22 @@ function importFromDriveFileIds(fileIds) {
     rejected: rejectedCount,
     skippedFiles: skippedFiles
   };
+  } catch (importErr) {
+    Logger.log('importFromDriveFileIds: uncaught error during insertion phase: ' + (importErr.message || String(importErr)));
+    logObsEvent('import_drive_error', {
+      operation: 'import_drive',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      selectedFiles: normalizedIds.length,
+      imageFiles: imageFiles ? imageFiles.length : 0,
+      truncated: !!truncated,
+      importLatencyMs: Date.now() - operationStartMs,
+      errorCode: importErr.errorCode || classifyErrorCode(importErr.message || String(importErr), importErr.httpCode),
+      errorMessage: sanitizeErrorMessage(importErr.message || String(importErr))
+    });
+    throw importErr;
+  }
 }
 
 /**
@@ -1877,6 +1894,7 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
     });
     return {
       ok: true,
+      runId: runId,
       extracted: extracted,
       rawModelText: geminiResult.text,
       finishReason: geminiResult.finishReason
@@ -1901,10 +1919,17 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
   }
 }
 
-function applyExtractedContext(extracted) {
+function applyExtractedContext(extracted, extractRunId) {
   var runId = createRunId('ctx_apply');
   var doc = DocumentApp.getActiveDocument();
   var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  logObsEvent('context_apply_start', {
+    operation: 'context_apply',
+    status: 'start',
+    runId: runId,
+    extractRunId: extractRunId || null,
+    docIdHash: docIdHash
+  });
   try {
     var normalized = normalizeExtractedContext(extracted || {});
     var updatedFields = upsertContextFields(doc, normalized);
@@ -1912,6 +1937,7 @@ function applyExtractedContext(extracted) {
       operation: 'context_apply',
       status: 'success',
       runId: runId,
+      extractRunId: extractRunId || null,
       docIdHash: docIdHash,
       updatedFields: updatedFields
     });
@@ -1923,12 +1949,30 @@ function applyExtractedContext(extracted) {
       operation: 'context_apply',
       status: 'error',
       runId: runId,
+      extractRunId: extractRunId || null,
       docIdHash: docIdHash,
       errorCode: ctxApplyCode,
       errorMessage: sanitizeErrorMessage(message)
     });
     return { ok: false, errorCode: ctxApplyCode, message: t('msg.request_failed', { detail: message }) };
   }
+}
+
+/**
+ * Emits a context_apply_cancelled event when the user closes the extract dialog
+ * without clicking Apply. Called from the dialog's beforeunload hook.
+ * Accepts the extractRunId so the cancel can be correlated to the extraction run.
+ */
+function logContextApplyCancelled(extractRunId) {
+  var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  logObsEvent('context_apply_cancelled', {
+    operation: 'context_apply',
+    status: 'cancelled',
+    extractRunId: extractRunId || null,
+    docIdHash: docIdHash
+  });
+  return { ok: true };
 }
 
 /**
@@ -2418,7 +2462,26 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     return { ok: false, message: t('msg.api_no_text_reason', { reason: geminiResult.finishReason }) };
   }
 
-  var insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+  var insertedCount;
+  try {
+    insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+  } catch (insertErr) {
+    Logger.log('transcribeImageByIndex: insertTranscriptionAfter threw ' + (insertErr.message || String(insertErr)));
+    logObsEvent('transcribe_image_insert_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: effectiveBodyIndex,
+      model: geminiResult.model,
+      apiLatencyMs: geminiResult.apiLatencyMs,
+      latencyMs: Date.now() - operationStartMs,
+      errorCode: insertErr.errorCode || classifyErrorCode(insertErr.message || String(insertErr), insertErr.httpCode),
+      errorMessage: sanitizeErrorMessage(insertErr.message || String(insertErr))
+    });
+    return { ok: false, errorCode: 'DOC_INSERT_FAILED', message: t('msg.request_failed', { detail: insertErr.message || String(insertErr) }) };
+  }
   Logger.log('transcribeImageByIndex: done, finishReason=' + geminiResult.finishReason + ', insertedCount=' + insertedCount);
   logObsEvent('transcribe_image_done', {
     operation: operation,
@@ -2485,9 +2548,11 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
       'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">"+esc(EX.noImages)+"</option>"; el("extractBtn").disabled=true; setStatus("error",EX.importFirst); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; var optLabel=m.label?esc(m.label):sub(EX.imageFallback,{n:String(i+1)}); h+="<option value=\\""+m.index+"\\""+sel+">"+optLabel+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
       'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
       'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
-      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
+      'var extractRunId=null; var applyStarted=false;' +
+      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ extractRunId=r.runId||null; setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
       'el("extractBtn").onclick=runExtract;' +
-      'el("applyBtn").onclick=function(){ var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload); };' +
+      'el("applyBtn").onclick=function(){ applyStarted=true; var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; applyStarted=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; applyStarted=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload, extractRunId); };' +
+      'window.addEventListener("beforeunload",function(){ if(extractRunId&&!applyStarted){ try{ google.script.run.logContextApplyCancelled(extractRunId); }catch(_e){} } });' +
       'fillSelect(); if(locked){runExtract();}' +
     '</script>' +
     '</body></html>';
