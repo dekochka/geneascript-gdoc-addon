@@ -176,6 +176,8 @@ var I18N_STRINGS = {
     'sidebar.rate_limit_icon_title': 'Rate limit / quota exceeded — wait a minute or upgrade tier',
     'sidebar.key_invalid_banner': 'Your Gemini API key is not valid. Open the Setup dialog and paste a fresh key from Google AI Studio.',
     'sidebar.key_invalid_icon_title': 'API key is not valid — open Setup and paste a new one',
+    'sidebar.auth_required_banner': 'The add-on is missing a permission it needs to run. Open Extensions → Add-ons → Manage add-ons, remove GeneaScript, then re-add it from the Marketplace and grant all permissions when asked.',
+    'sidebar.auth_required_icon_title': 'Missing permission — remove and re-install the add-on to re-grant access',
     'gallery.loading_tab': 'Loading…',
     'gallery.error_prefix': 'Error:',
     'gallery.select_template': 'Please select a template.',
@@ -492,6 +494,8 @@ var I18N_STRINGS = {
     'sidebar.rate_limit_icon_title': 'Перевищено квоту — зачекайте хвилину або перейдіть на платний рівень',
     'sidebar.key_invalid_banner': 'Ваш ключ Gemini API недійсний. Відкрийте діалог налаштувань і вставте новий ключ з Google AI Studio.',
     'sidebar.key_invalid_icon_title': 'Ключ API недійсний — відкрийте налаштування та вставте новий',
+    'sidebar.auth_required_banner': 'Додатку бракує дозволу, потрібного для роботи. Відкрийте Розширення → Додатки → Керувати додатками, видаліть GeneaScript і встановіть його знову з Маркетплейсу, надавши всі дозволи.',
+    'sidebar.auth_required_icon_title': 'Бракує дозволу — видаліть і перевстановіть додаток, щоб надати доступ повторно',
     'gallery.loading_tab': 'Завантаження…',
     'gallery.error_prefix': 'Помилка:',
     'gallery.select_template': 'Оберіть шаблон.',
@@ -808,6 +812,8 @@ var I18N_STRINGS = {
     'sidebar.rate_limit_icon_title': 'Превышена квота — подождите минуту или перейдите на платный уровень',
     'sidebar.key_invalid_banner': 'Ваш ключ Gemini API недействителен. Откройте диалог настроек и вставьте новый ключ из Google AI Studio.',
     'sidebar.key_invalid_icon_title': 'Ключ API недействителен — откройте настройки и вставьте новый',
+    'sidebar.auth_required_banner': 'Дополнению не хватает разрешения, необходимого для работы. Откройте Расширения → Дополнения → Управление дополнениями, удалите GeneaScript и установите его снова из Marketplace, предоставив все разрешения.',
+    'sidebar.auth_required_icon_title': 'Нет нужного разрешения — удалите и переустановите дополнение, чтобы выдать доступ заново',
     'gallery.loading_tab': 'Загрузка…',
     'gallery.error_prefix': 'Ошибка:',
     'gallery.select_template': 'Выберите шаблон.',
@@ -1008,7 +1014,9 @@ function getSidebarClientI18n() {
     rateLimitBanner: t('sidebar.rate_limit_banner'),
     rateLimitIconTitle: t('sidebar.rate_limit_icon_title'),
     keyInvalidBanner: t('sidebar.key_invalid_banner'),
-    keyInvalidIconTitle: t('sidebar.key_invalid_icon_title')
+    keyInvalidIconTitle: t('sidebar.key_invalid_icon_title'),
+    authRequiredBanner: t('sidebar.auth_required_banner'),
+    authRequiredIconTitle: t('sidebar.auth_required_icon_title')
   };
 }
 
