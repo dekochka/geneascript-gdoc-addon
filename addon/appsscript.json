@@ -15,7 +15,7 @@
   ],
   "addOns": {
     "common": {
-      "name": "GeneaScript Transcriber",
+      "name": "GeneaScript",
       "logoUrl": "https://raw.githubusercontent.com/dekochka/geneascript-gdoc-addon/main/addon/img/GeneaScript_logo_128.png"
     },
     "docs": {
