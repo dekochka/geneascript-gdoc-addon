@@ -13,3 +13,9 @@ e2e/.auth/
 
 # Claude Code per-user overrides (permissions etc.) — shared settings.json IS committed
 .claude/settings.local.json
+
+# Weekly ops routine — only the sanitized weekly-summary.json is ever
+# committed to project/operations/weeklyreports/data/. Raw NDJSON and
+# raw gcloud exports must never reach the public repo.
+project/operations/weeklyreports/data/*.ndjson
+project/operations/weeklyreports/data/raw-*-gcloud.json
