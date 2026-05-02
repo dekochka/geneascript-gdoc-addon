@@ -113,6 +113,47 @@ def retry_effectiveness:
       retriesFailed:    ($retried | map(. as $r | $errRuns  | index($r)) | map(select(. != null)) | length)
     };
 
+# Nearest-rank percentile on a pre-sorted numeric array.
+def percentile(p):
+  if length == 0 then null
+  else sort as $xs
+    | ((p / 100.0) * (length - 1) | floor) as $i
+    | $xs[$i]
+  end;
+
+def latency_stats:
+  ($obs | map(select(.event == "transcribe_image_done" and (.latencyMs // null) != null) | .latencyMs)) as $ms
+  | {
+      samples: ($ms | length),
+      p50Ms: ($ms | percentile(50)),
+      p95Ms: ($ms | percentile(95)),
+      p99Ms: ($ms | percentile(99))
+    };
+
+def token_stats:
+  ($obs | map(select(.event == "transcribe_image_api_done"))) as $api
+  | {
+      promptTokensTotal: ($api | map(.promptTokens // 0) | add // 0),
+      outputTokensTotal: ($api | map(.outputTokens // 0) | add // 0),
+      totalTokensTotal:  ($api | map(.totalTokens  // 0) | add // 0),
+      estimatedCostUsdTotal: (($api | map(.estimatedCostUsd // 0) | add) // 0)
+    };
+
+def version_transitions:
+  ($obs | map(.appVersion) | map(select(. != null)) | unique | sort) as $versions
+  | if ($versions | length) == 0 then null
+    else {
+      versions: $versions,
+      firstSeenByVersion: (
+        [ $versions[] as $v
+          | { key: $v, value: (
+              $obs | map(select(.appVersion == $v)) | map(._entryTimestamp) | min
+            )}
+        ] | from_entries
+      )
+    }
+  end;
+
 {
   window: { start: $windowStart, end: $windowEnd },
   totals: {
@@ -126,8 +167,8 @@ def retry_effectiveness:
   errorCodeBreakdown: error_code_breakdown,
   perUser: per_user,
   platformErrorCategories: platform_error_categories,
-  latency: {},
-  tokens: {},
-  versionTransitions: null,
+  latency: latency_stats,
+  tokens: token_stats,
+  versionTransitions: version_transitions,
   retryEffectiveness: retry_effectiveness
 }
