@@ -78,6 +78,41 @@ def per_user:
   | sort_by(-.failures)
   | .[0:20];
 
+def platform_error_categories:
+  $platform
+  | map(
+      .message as $m
+      | . + {
+          category: (
+            if ($m | test("openSidebarFromCard|renderActions.*action"; "i")) then "openSidebarFromCard"
+            elif ($m | test("Exceeded maximum execution time"; "i")) then "execution_timeout"
+            elif ($m | test("oauth|authoriz|permission"; "i")) then "oauth_permission"
+            else "other"
+            end
+          )
+        }
+    )
+  | group_by(.category)
+  | map({
+      category: .[0].category,
+      count: length,
+      firstSeen: (map(.ts) | min),
+      lastSeen:  (map(.ts) | max),
+      severity: (.[0].severity // "ERROR"),
+      sampleMessage: (.[0].message[0:240])
+    })
+  | sort_by(-.count);
+
+def retry_effectiveness:
+  ($obs | map(select(.event == "transcribe_image_api_retry")) | map(.runId) | unique) as $retried
+  | ($obs | map(select(.event == "transcribe_image_done" and .status == "success")) | map(.runId)) as $doneRuns
+  | ($obs | map(select(.event == "transcribe_image_error")) | map(.runId)) as $errRuns
+  | {
+      retriesTriggered: ($retried | length),
+      retriesSucceeded: ($retried | map(. as $r | $doneRuns | index($r)) | map(select(. != null)) | length),
+      retriesFailed:    ($retried | map(. as $r | $errRuns  | index($r)) | map(select(. != null)) | length)
+    };
+
 {
   window: { start: $windowStart, end: $windowEnd },
   totals: {
@@ -90,9 +125,9 @@ def per_user:
   transcription: transcription_stats,
   errorCodeBreakdown: error_code_breakdown,
   perUser: per_user,
-  platformErrorCategories: [],
+  platformErrorCategories: platform_error_categories,
   latency: {},
   tokens: {},
   versionTransitions: null,
-  retryEffectiveness: {}
+  retryEffectiveness: retry_effectiveness
 }
