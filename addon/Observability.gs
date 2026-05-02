@@ -61,7 +61,11 @@ function classifyErrorCode(errorMessage, httpCode) {
   if (msg.indexOf('api key not valid') !== -1 || msg.indexOf('api_key_invalid') !== -1) return 'API_KEY_INVALID';
   if (msg.indexOf('has not been used in project') !== -1) return 'API_NOT_ENABLED';
   if (msg.indexOf('project has been denied access') !== -1) return 'API_PROJECT_DENIED';
-  if (msg.indexOf('authorisation is required') !== -1 || msg.indexOf('authorization is required') !== -1) return 'AUTH_REQUIRED';
+  if (msg.indexOf('authorisation is required') !== -1 ||
+      msg.indexOf('authorization is required') !== -1 ||
+      msg.indexOf('do not have permission to call') !== -1 ||
+      msg.indexOf('немає дозволу викликати') !== -1 ||
+      msg.indexOf('нет разрешения на вызов') !== -1) return 'AUTH_REQUIRED';
   if (msg.indexOf('no candidates returned') !== -1) return 'API_EMPTY_CANDIDATES';
   if (msg.indexOf('no image found') !== -1) return 'DOC_IMAGE_NOT_FOUND';
   if (msg.indexOf('select') !== -1 && msg.indexOf('image') !== -1) return 'DOC_SELECTION_INVALID';

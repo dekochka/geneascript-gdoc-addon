@@ -330,6 +330,7 @@ function importFromDriveFileIds(fileIds) {
   var count = imageFiles.length;
   Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
   ui.alert(t('alert.importing.title'), t('alert.importing.body', { count: String(count) }), ui.ButtonSet.OK);
+  try {
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
@@ -417,6 +418,22 @@ function importFromDriveFileIds(fileIds) {
     rejected: rejectedCount,
     skippedFiles: skippedFiles
   };
+  } catch (importErr) {
+    Logger.log('importFromDriveFileIds: uncaught error during insertion phase: ' + (importErr.message || String(importErr)));
+    logObsEvent('import_drive_error', {
+      operation: 'import_drive',
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      selectedFiles: normalizedIds.length,
+      imageFiles: imageFiles ? imageFiles.length : 0,
+      truncated: !!truncated,
+      importLatencyMs: Date.now() - operationStartMs,
+      errorCode: importErr.errorCode || classifyErrorCode(importErr.message || String(importErr), importErr.httpCode),
+      errorMessage: sanitizeErrorMessage(importErr.message || String(importErr))
+    });
+    throw importErr;
+  }
 }
 
 /**
@@ -989,7 +1006,8 @@ function showApiKeyDialog(forUpdate) {
       'var cfg=validateConfig();' +
       'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="' + t('setup.enter_key').replace(/"/g, '\\"') + '";return;}' +
       'if(!cfg.ok){document.getElementById("status").innerText=cfg.message;return;}' +
-      'document.getElementById("status").innerText="' + t('setup.saving').replace(/"/g, '\\"') + '";' +
+      'var hasNewKey=!!(key&&key.trim());' +
+      'document.getElementById("status").innerText=hasNewKey?"' + t('setup.validating_key').replace(/"/g, '\\"') + '":"' + t('setup.saving').replace(/"/g, '\\"') + '";' +
       'document.getElementById("saveBtn").disabled=true;' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
@@ -1026,6 +1044,55 @@ function showSetupApiKeyAndModelDialog() {
 /**
  * Saves the API key to User Properties (private per Google account). Called from the API key dialog.
  */
+/**
+ * Pre-flight validation: tiny text-only generateContent call against the
+ * chosen model. Returns { ok: true } on HTTP 200, or { ok: false, code, httpCode, message }
+ * on any 4xx. Transient failures (HTTP 5xx, timeouts) are treated as "can't validate"
+ * and return ok: true with a hint — we don't want to block save when Google is flaky.
+ */
+function validateApiKey(key, modelId) {
+  if (!key || typeof key !== 'string' || !key.trim()) {
+    return { ok: false, code: 'MISSING_KEY', httpCode: 0, message: 'empty key' };
+  }
+  var effectiveModel = (modelId && modelId.trim()) ? modelId.trim() : getStoredModel();
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + effectiveModel + ':generateContent?key=' + encodeURIComponent(key.trim());
+  var payload = {
+    contents: [{ parts: [{ text: 'ping' }] }],
+    generationConfig: { maxOutputTokens: 1, temperature: 0 }
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+    fetchTimeoutSeconds: 15
+  };
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var code = response.getResponseCode();
+    if (code === 200) return { ok: true };
+    var text = response.getContentText();
+    var msg = 'API error';
+    try {
+      var err = JSON.parse(text);
+      if (err.error && err.error.message) msg = err.error.message;
+    } catch (e) {}
+    if (code >= 500) {
+      Logger.log('validateApiKey: transient HTTP ' + code + ', allowing save');
+      return { ok: true, transient: true };
+    }
+    return {
+      ok: false,
+      code: classifyErrorCode(msg, code),
+      httpCode: code,
+      message: msg
+    };
+  } catch (e) {
+    Logger.log('validateApiKey: fetch threw ' + (e && e.message ? e.message : String(e)) + ' — allowing save');
+    return { ok: true, transient: true };
+  }
+}
+
 function saveApiKey(key) {
   return saveApiKeyAndModel(key, null, null);
 }
@@ -1050,9 +1117,30 @@ function saveApiKeyAndModel(key, modelId, requestConfig, uiLocaleOpt) {
     });
     return { ok: false, message: validatedConfig.message };
   }
-  if (key && typeof key === 'string' && key.trim() !== '') {
+  var submittingKey = !!(key && typeof key === 'string' && key.trim() !== '');
+  if (submittingKey) {
+    var validation = validateApiKey(key, effectiveModel);
+    if (!validation.ok) {
+      var i18nKey;
+      if (validation.code === 'API_KEY_INVALID') i18nKey = 'setup.key_invalid_save';
+      else if (validation.code === 'API_PROJECT_DENIED') i18nKey = 'setup.key_project_denied_save';
+      else if (validation.code === 'API_NOT_ENABLED') i18nKey = 'setup.key_not_enabled_save';
+      else if (validation.code === 'API_RATE_LIMIT') i18nKey = 'setup.key_rate_limit_save';
+      else i18nKey = 'setup.key_validation_failed';
+      var userMessage = t(i18nKey).replace('{code}', String(validation.httpCode || '?'));
+      logObsEvent('setup_action', {
+        operation: 'setup',
+        status: 'error',
+        action: 'save_key_model',
+        modelSelected: modelSelected,
+        errorCode: validation.code || 'UNKNOWN',
+        httpCode: validation.httpCode || null,
+        errorMessage: sanitizeErrorMessage(validation.message || '')
+      });
+      return { ok: false, message: userMessage };
+    }
     props.setProperty(API_KEY_PROPERTY, key.trim());
-    Logger.log('saveApiKeyAndModel: key saved');
+    Logger.log('saveApiKeyAndModel: key validated and saved (transient=' + !!validation.transient + ')');
   }
   if (modelId && typeof modelId === 'string' && modelId.trim() !== '') {
     props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
@@ -1349,7 +1437,10 @@ function runTranscribeWorker() {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: rtwCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -1806,6 +1897,7 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
     });
     return {
       ok: true,
+      runId: runId,
       extracted: extracted,
       rawModelText: geminiResult.text,
       finishReason: geminiResult.finishReason
@@ -1822,7 +1914,10 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: ctxExtractCode,
       errorMessage: sanitizeErrorMessage(message)
     });
@@ -1830,10 +1925,17 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
   }
 }
 
-function applyExtractedContext(extracted) {
+function applyExtractedContext(extracted, extractRunId) {
   var runId = createRunId('ctx_apply');
   var doc = DocumentApp.getActiveDocument();
   var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  logObsEvent('context_apply_start', {
+    operation: 'context_apply',
+    status: 'start',
+    runId: runId,
+    extractRunId: extractRunId || null,
+    docIdHash: docIdHash
+  });
   try {
     var normalized = normalizeExtractedContext(extracted || {});
     var updatedFields = upsertContextFields(doc, normalized);
@@ -1841,6 +1943,7 @@ function applyExtractedContext(extracted) {
       operation: 'context_apply',
       status: 'success',
       runId: runId,
+      extractRunId: extractRunId || null,
       docIdHash: docIdHash,
       updatedFields: updatedFields
     });
@@ -1852,12 +1955,30 @@ function applyExtractedContext(extracted) {
       operation: 'context_apply',
       status: 'error',
       runId: runId,
+      extractRunId: extractRunId || null,
       docIdHash: docIdHash,
       errorCode: ctxApplyCode,
       errorMessage: sanitizeErrorMessage(message)
     });
     return { ok: false, errorCode: ctxApplyCode, message: t('msg.request_failed', { detail: message }) };
   }
+}
+
+/**
+ * Emits a context_apply_cancelled event when the user closes the extract dialog
+ * without clicking Apply. Called from the dialog's beforeunload hook.
+ * Accepts the extractRunId so the cancel can be correlated to the extraction run.
+ */
+function logContextApplyCancelled(extractRunId) {
+  var doc = DocumentApp.getActiveDocument();
+  var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
+  logObsEvent('context_apply_cancelled', {
+    operation: 'context_apply',
+    status: 'cancelled',
+    extractRunId: extractRunId || null,
+    docIdHash: docIdHash
+  });
+  return { ok: true };
 }
 
 /**
@@ -1921,9 +2042,37 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
       if (err.error && err.error.message) msg = err.error.message;
     } catch (e) {}
     Logger.log('callGemini: error ' + code + ' ' + msg);
-    var retryable503 = (code === 503) && !telemetry.__isRetry;
+    // Retry policy for HTTP 503 API_OVERLOADED:
+    //   attempt 1 failed -> backoff 1s + jitter(0..500ms), then retry (retryAttempt=1)
+    //   attempt 2 failed -> backoff 3s + jitter(0..1500ms), then retry (retryAttempt=2)
+    //   attempt 3 failed -> throw API_OVERLOADED
+    // Budget guard: if cumulative apiLatencyMs across all attempts so far
+    // (telemetry.__cumulativeApiLatencyMs + this attempt's latency) would exceed
+    // 240 000 ms after the backoff, skip the retry to preserve budget for
+    // doc-insert (the Apps Script 6-minute ceiling is 360 000 ms).
+    var RETRY_BUDGET_MS = 240000;
+    var MAX_RETRIES = 2;
+    var priorRetries = telemetry.__retryCount || 0;
+    var thisAttemptLatency = Date.now() - apiStartMs;
+    var cumulativeApiLatency = (telemetry.__cumulativeApiLatencyMs || 0) + thisAttemptLatency;
+    var retryable503 = (code === 503) && (priorRetries < MAX_RETRIES);
+    var retryBudgetExceeded = false;
+    var backoffMs = 0;
     if (retryable503) {
-      Logger.log('callGemini: 503 overloaded, sleeping 5s then retrying once');
+      // attempt 1 -> 1000ms + 0..500ms; attempt 2 -> 3000ms + 0..1500ms
+      var nextRetry = priorRetries + 1;
+      var baseSleep = nextRetry === 1 ? 1000 : 3000;
+      var jitterRange = nextRetry === 1 ? 500 : 1500;
+      backoffMs = baseSleep + Math.floor(Math.random() * jitterRange);
+      if (cumulativeApiLatency + backoffMs > RETRY_BUDGET_MS) {
+        retryBudgetExceeded = true;
+        retryable503 = false;
+        Logger.log('callGemini: 503 but retry budget exceeded (cumulative ' + cumulativeApiLatency + 'ms + backoff ' + backoffMs + 'ms > ' + RETRY_BUDGET_MS + 'ms)');
+      }
+    }
+    if (retryable503) {
+      var nextAttempt = priorRetries + 1;
+      Logger.log('callGemini: 503 overloaded, sleeping ' + backoffMs + 'ms then retry attempt ' + nextAttempt + '/' + MAX_RETRIES);
       logObsEvent('transcribe_image_api_retry', {
         operation: telemetry.operation || 'transcribe_single',
         entrypoint: telemetry.entrypoint || 'unknown',
@@ -1932,13 +2081,18 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
         docIdHash: telemetry.docIdHash || null,
         model: modelId,
         httpCode: code,
-        apiLatencyMs: Date.now() - apiStartMs,
+        apiLatencyMs: thisAttemptLatency,
+        cumulativeApiLatencyMs: cumulativeApiLatency,
+        retryAttempt: nextAttempt,
+        backoffMs: backoffMs,
         errorCode: 'API_OVERLOADED',
         errorMessage: sanitizeErrorMessage(msg)
       });
-      Utilities.sleep(5000);
+      Utilities.sleep(backoffMs);
       var retryTelemetry = {};
       for (var k in telemetry) { if (Object.prototype.hasOwnProperty.call(telemetry, k)) retryTelemetry[k] = telemetry[k]; }
+      retryTelemetry.__retryCount = nextAttempt;
+      retryTelemetry.__cumulativeApiLatencyMs = cumulativeApiLatency + backoffMs;
       retryTelemetry.__isRetry = true;
       return callGemini(apiKey, prompt, imageBlob, mimeType, retryTelemetry);
     }
@@ -1947,8 +2101,11 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     thrownErr.httpCode = code;
     thrownErr.errorCode = errorCode;
     thrownErr.apiMessage = msg;
-    thrownErr.apiLatencyMs = Date.now() - apiStartMs;
-    thrownErr.retried = !!telemetry.__isRetry;
+    thrownErr.apiLatencyMs = thisAttemptLatency;
+    thrownErr.cumulativeApiLatencyMs = cumulativeApiLatency;
+    thrownErr.retryCount = priorRetries;
+    thrownErr.retryBudgetExceeded = retryBudgetExceeded;
+    thrownErr.retried = priorRetries > 0;
     thrownErr.model = modelId;
     throw thrownErr;
   }
@@ -1962,6 +2119,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     noCandErr.errorCode = 'API_EMPTY_CANDIDATES';
     noCandErr.apiMessage = feedback;
     noCandErr.apiLatencyMs = Date.now() - apiStartMs;
+    noCandErr.cumulativeApiLatencyMs = (telemetry.__cumulativeApiLatencyMs || 0) + (Date.now() - apiStartMs);
+    noCandErr.retryCount = telemetry.__retryCount || 0;
     noCandErr.retried = !!telemetry.__isRetry;
     noCandErr.model = modelId;
     throw noCandErr;
@@ -2325,7 +2484,10 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: tbiCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -2347,7 +2509,26 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     return { ok: false, message: t('msg.api_no_text_reason', { reason: geminiResult.finishReason }) };
   }
 
-  var insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+  var insertedCount;
+  try {
+    insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+  } catch (insertErr) {
+    Logger.log('transcribeImageByIndex: insertTranscriptionAfter threw ' + (insertErr.message || String(insertErr)));
+    logObsEvent('transcribe_image_insert_error', {
+      operation: operation,
+      entrypoint: entrypoint,
+      status: 'error',
+      runId: runId,
+      docIdHash: docIdHash,
+      bodyIndex: effectiveBodyIndex,
+      model: geminiResult.model,
+      apiLatencyMs: geminiResult.apiLatencyMs,
+      latencyMs: Date.now() - operationStartMs,
+      errorCode: insertErr.errorCode || classifyErrorCode(insertErr.message || String(insertErr), insertErr.httpCode),
+      errorMessage: sanitizeErrorMessage(insertErr.message || String(insertErr))
+    });
+    return { ok: false, errorCode: 'DOC_INSERT_FAILED', message: t('msg.request_failed', { detail: insertErr.message || String(insertErr) }) };
+  }
   Logger.log('transcribeImageByIndex: done, finishReason=' + geminiResult.finishReason + ', insertedCount=' + insertedCount);
   logObsEvent('transcribe_image_done', {
     operation: operation,
@@ -2414,9 +2595,11 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
       'function fillSelect(){var s=el("imgSel"); if(!images.length){s.innerHTML="<option value=\\"\\">"+esc(EX.noImages)+"</option>"; el("extractBtn").disabled=true; setStatus("error",EX.importFirst); return;} var h=""; for(var i=0;i<images.length;i++){var m=images[i]; var sel=(String(preselected)!==""&&Number(preselected)===Number(m.index))?" selected":""; var optLabel=m.label?esc(m.label):sub(EX.imageFallback,{n:String(i+1)}); h+="<option value=\\""+m.index+"\\""+sel+">"+optLabel+"</option>";} s.innerHTML=h; if(locked){s.style.display="none"; el("imgLabel").style.display="block"; el("imgLabel").textContent=currentImageLabel(preselected);} }' +
       'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
       'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
-      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
+      'var extractRunId=null; var applyStarted=false;' +
+      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ extractRunId=r.runId||null; setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
       'el("extractBtn").onclick=runExtract;' +
-      'el("applyBtn").onclick=function(){ var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload); };' +
+      'el("applyBtn").onclick=function(){ applyStarted=true; var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; applyStarted=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; applyStarted=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload, extractRunId); };' +
+      'window.addEventListener("beforeunload",function(){ if(extractRunId&&!applyStarted){ try{ google.script.run.logContextApplyCancelled(extractRunId); }catch(_e){} } });' +
       'fillSelect(); if(locked){runExtract();}' +
     '</script>' +
     '</body></html>';
@@ -2552,7 +2735,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.3</div>',
+    '<div class="footer">v1.4.4</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2617,6 +2800,7 @@ function getSidebarHtml() {
     '      if(m._c==="API_OVERLOADED")st=\'<span class="status st-warn" title="\'+esc(SI.overloadIconTitle)+\'">\\u26A0</span>\';',
     '      else if(m._c==="API_RATE_LIMIT")st=\'<span class="status st-warn" title="\'+esc(SI.rateLimitIconTitle)+\'">\\u26A0</span>\';',
     '      else if(m._c==="API_KEY_INVALID")st=\'<span class="status st-warn" title="\'+esc(SI.keyInvalidIconTitle)+\'">\\u26A0</span>\';',
+    '      else if(m._c==="AUTH_REQUIRED")st=\'<span class="status st-warn" title="\'+esc(SI.authRequiredIconTitle)+\'">\\u26A0</span>\';',
     '      else st=\'<span class="status st-fail" title="\'+esc(m._e||SI.statusFail)+\'">\\u2717</span>\';',
     '    }',
     '    else if(m._s==="warn")st=\'<span class="status st-warn" title="\'+esc(SI.truncTitle)+\'">\\u26A0</span>\';',
@@ -2736,6 +2920,7 @@ function getSidebarHtml() {
     '  else if(code==="API_PROJECT_DENIED")msg=SI.apiProjectDeniedBanner;',
     '  else if(code==="API_RATE_LIMIT")msg=SI.rateLimitBanner;',
     '  else if(code==="API_KEY_INVALID")msg=SI.keyInvalidBanner;',
+    '  else if(code==="AUTH_REQUIRED")msg=SI.authRequiredBanner;',
     '  if(!msg)return;',
     '  var b=el("errorBanner");',
     '  b.textContent=msg;',

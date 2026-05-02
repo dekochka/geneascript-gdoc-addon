@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.4] — 2026-05-02
+
+Fixes and observability improvements driven by the 2026-04-17 → 2026-05-02 weekly operational reports. No user-facing behaviour change for successful transcriptions.
+
+### 🐛 Fixed
+
+- **Scope-permission errors now classified and surfaced in localized banners** — Previously a lost `script.external_request` grant showed as raw `UrlFetchApp.fetch` exception text. One user generated 6 `UNKNOWN` transcribe errors and 10 picker scope events from this failure mode over one week. `classifyErrorCode` now recognizes the English, Ukrainian, and Russian forms of the permission error, and the sidebar shows a banner directing the user to Extensions → Add-ons → Manage to re-install the add-on.
+- **API key rejected at save time, not transcribe time** — Setup dialog now makes a minimal `generateContent` test call before persisting the key. Invalid, denied, or not-enabled keys are rejected with a specific actionable message in EN/UA/RU. Transient 5xx / network errors fall through and allow the save (don't block on Google being flaky). Over two weeks, 6 `API_HTTP_ERROR`/`API_KEY_INVALID` transcribe failures from 2 users traced back to bad keys that were persisted with no validation.
+- **Second HTTP 503 retry with jitter and 240 s budget guard** — Single-retry recovery rate was 67% in a light-overload week and 33% in a sustained-overload week. `callGemini` now retries up to 2 times: attempt 1 backs off 1 s + 0–500 ms jitter, attempt 2 backs off 3 s + 0–1500 ms jitter. A cumulative-latency budget guard (240 000 ms) skips the retry if backoff would push the run past the Apps Script 360 s ceiling.
+
+### 🔭 Observability
+
+- **Doc-insert failures now emit `transcribe_image_insert_error`** — `insertTranscriptionAfter` was called outside any try/catch. A DocumentApp exception there bubbled up as a platform error with no OBS event. Across the two weeks, 20 runs completed the API call successfully but had no `transcribe_image_done` — now visible.
+- **Import pipeline uncaught errors emit `import_drive_error`** — The insertion phase of `importFromDriveFileIds` (`ensureContextBlock`, per-image inserts) is wrapped in an outer try/catch that emits `import_drive_error` on failure and re-throws. Correlates unpaired `import_drive_start` events with `execution_timeout` platform errors.
+- **Context-apply cancel signal** — The extract-context dialog's client JS now hooks `beforeunload` and calls a new `logContextApplyCancelled` server function when the user closes the dialog without clicking Apply. Also added `context_apply_start` and an `extractRunId` correlation field so extract→apply flows are linkable. Distinguishes "user cancelled" from "silent apply failure" in the weekly report drop-off numbers.
+- **Retry telemetry gains `retryAttempt`, `backoffMs`, `cumulativeApiLatencyMs`, `retryBudgetExceeded`, `retryCount`** — Enables separating 1st-retry recovery rate from 2nd-retry recovery rate and distinguishing "gave up on budget" from "gave up on retry-count cap" in future reports.
+- **Platform-error aggregator matches Ukrainian/Russian messages** — `platform_error_categories.jq` substring matcher extended with UA/RU timeout phrases (`Перевищено максимальний час виконання` / `Превышено максимальное время выполнения`) and UA/RU permission phrases so localized platform errors no longer silently fall into `other`. (Observability tooling, not addon code.)
+
 ## [1.4.3] — 2026-04-25
 
 ### 🐛 Fixed
