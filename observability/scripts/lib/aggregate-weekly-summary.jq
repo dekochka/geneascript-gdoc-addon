@@ -11,7 +11,10 @@
 def uniq_count(key): map(.[key]) | unique | length;
 
 def event_counts:
-  $obs | group_by(.event) | map({ key: .[0].event, value: length }) | from_entries;
+  $obs | map(select(.event != null))
+       | group_by(.event)
+       | map({ key: .[0].event, value: length })
+       | from_entries;
 
 def transcription_stats:
   ($obs | map(select(.event == "transcribe_image_start")) | length) as $started
@@ -64,7 +67,7 @@ def error_code_breakdown:
 def per_user:
   ($obs | map(select(.event == "transcribe_image_done" and .status == "success"))) as $succ
   | ($obs | map(select(.event == "transcribe_image_error"))) as $fail
-  | (($succ + $fail) | map(.userKey) | unique) as $users
+  | (($succ + $fail) | map(.userKey) | map(select(. != null)) | unique) as $users
   | [ $users[] as $u
       | ($succ | map(select(.userKey == $u)) | length) as $s
       | ($fail | map(select(.userKey == $u)) | length) as $f
@@ -99,7 +102,7 @@ def platform_error_categories:
       firstSeen: (map(.ts) | min),
       lastSeen:  (map(.ts) | max),
       severity: (.[0].severity // "ERROR"),
-      sampleMessage: (.[0].message[0:240])
+      sampleMessage: (.[0].message | scrub_pii)
     })
   | sort_by(-.count);
 
@@ -117,12 +120,13 @@ def retry_effectiveness:
 def percentile(p):
   if length == 0 then null
   else sort as $xs
-    | ((p / 100.0) * (length - 1) | floor) as $i
+    | (((p / 100.0) * length) | ceil | . - 1) as $i0
+    | (if $i0 < 0 then 0 else $i0 end) as $i
     | $xs[$i]
   end;
 
 def latency_stats:
-  ($obs | map(select(.event == "transcribe_image_done" and (.latencyMs // null) != null) | .latencyMs)) as $ms
+  ($obs | map(select(.event == "transcribe_image_done" and .latencyMs != null) | .latencyMs)) as $ms
   | {
       samples: ($ms | length),
       p50Ms: ($ms | percentile(50)),
@@ -157,7 +161,7 @@ def version_transitions:
 {
   window: { start: $windowStart, end: $windowEnd },
   totals: {
-    uniqueUsers: ($obs | uniq_count("userKey")),
+    uniqueUsers: ($obs | map(.userKey) | map(select(. != null)) | unique | length),
     uniqueDocs: ($obs | map(.docId) | map(select(. != null)) | unique | length),
     eventsCount: ($obs | length),
     platformErrorsCount: ($platform | length)
