@@ -1,0 +1,58 @@
+[
+  {
+    "timestamp": "2026-04-20T09:15:23.000Z",
+    "severity": "INFO",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_start\",\"runId\":\"tx_001\",\"userKey\":\"sha256:aaa111\",\"docId\":\"doc_A\",\"ts\":\"2026-04-20T09:15:23.000Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-20T09:15:28.500Z",
+    "severity": "INFO",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_api_done\",\"runId\":\"tx_001\",\"userKey\":\"sha256:aaa111\",\"status\":\"success\",\"promptTokens\":1200,\"outputTokens\":800,\"totalTokens\":2000,\"estimatedCostUsd\":0.0032,\"imageBytes\":524288,\"ts\":\"2026-04-20T09:15:28.500Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-20T09:15:29.100Z",
+    "severity": "INFO",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_done\",\"runId\":\"tx_001\",\"userKey\":\"sha256:aaa111\",\"status\":\"success\",\"latencyMs\":5900,\"latencySec\":5.9,\"estimatedCostUsd\":0.0032,\"ts\":\"2026-04-20T09:15:29.100Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-21T14:02:11.000Z",
+    "severity": "INFO",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_api_retry\",\"runId\":\"tx_002\",\"userKey\":\"sha256:bbb222\",\"httpCode\":503,\"ts\":\"2026-04-21T14:02:11.000Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-21T14:02:18.000Z",
+    "severity": "ERROR",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_error\",\"runId\":\"tx_002\",\"userKey\":\"sha256:bbb222\",\"status\":\"error\",\"errorCode\":\"API_OVERLOADED\",\"errorMessage\":\"Model is overloaded\",\"httpCode\":503,\"ts\":\"2026-04-21T14:02:18.000Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T10:00:00.000Z",
+    "severity": "INFO",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"import_drive_done\",\"runId\":\"imp_001\",\"userKey\":\"sha256:aaa111\",\"status\":\"success\",\"addedCount\":12,\"ts\":\"2026-04-22T10:00:00.000Z\",\"appVersion\":\"v1.4.2\"}"
+    }
+  },
+  {
+    "timestamp": "2026-04-23T08:12:00.000Z",
+    "severity": "ERROR",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "OBS:{\"event\":\"transcribe_image_error\",\"runId\":\"tx_003\",\"userKey\":\"sha256:ccc333\",\"status\":\"error\",\"errorCode\":\"API_KEY_INVALID\",\"errorMessage\":\"API key not valid. Contact jane.doe@example.com or see https://docs.google.com/document/d/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit\",\"httpCode\":400,\"ts\":\"2026-04-23T08:12:00.000Z\",\"model\":\"gemini-2.5-flash\",\"appVersion\":\"v1.4.2\"}"
+    }
+  }
+]

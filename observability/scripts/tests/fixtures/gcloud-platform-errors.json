@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-04-20T11:30:00.000Z",
+    "severity": "ERROR",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "The value returned from Apps Script has a type that cannot be used by the add-ons platform. Also make sure to call build on any builder before returning it. Value: Object with values: { renderActions: { action: {} } }"
+    }
+  },
+  {
+    "timestamp": "2026-04-20T11:31:15.000Z",
+    "severity": "ERROR",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "The value returned from Apps Script has a type that cannot be used by the add-ons platform. Also make sure to call build on any builder before returning it. Value: Object with values: { renderActions: { action: {} } }"
+    }
+  },
+  {
+    "timestamp": "2026-04-22T15:44:00.000Z",
+    "severity": "ERROR",
+    "resource": { "type": "app_script_function" },
+    "jsonPayload": {
+      "message": "Exceeded maximum execution time"
+    }
+  }
+]
