@@ -76,3 +76,28 @@ mkdir -p "$OUT_DIR"
 echo "Window:  $START → $END"
 echo "Output:  $OUT_DIR"
 [[ -n "$FIXTURE_DIR" ]] && echo "Fixtures: $FIXTURE_DIR"
+
+# Window end is exclusive; pad by one day for the gcloud filter (timestamp<END_NEXT).
+RAW_OBS="$OUT_DIR/raw-obs-gcloud.json"
+RAW_PLAT="$OUT_DIR/raw-platform-gcloud.json"
+
+if [[ -n "$FIXTURE_DIR" ]]; then
+  cp "$FIXTURE_DIR/gcloud-obs-events.json"       "$RAW_OBS"
+  cp "$FIXTURE_DIR/gcloud-platform-errors.json"  "$RAW_PLAT"
+  echo "Copied fixtures into $OUT_DIR."
+else
+  # Timestamps in gcloud filters need full RFC3339. Use midnight UTC bounds.
+  START_TS="${START}T00:00:00Z"
+  END_TS="${END}T00:00:00Z"
+
+  OBS_FILTER="resource.type=\"app_script_function\" AND jsonPayload.message=~\"^OBS:\" AND timestamp>=\"$START_TS\" AND timestamp<\"$END_TS\""
+  PLAT_FILTER="resource.type=\"app_script_function\" AND severity>=ERROR AND NOT jsonPayload.message=~\"^OBS:\" AND timestamp>=\"$START_TS\" AND timestamp<\"$END_TS\""
+
+  echo "Fetching OBS events from Cloud Logging..."
+  gcloud logging read "$OBS_FILTER" --format=json --limit=20000 > "$RAW_OBS"
+  echo "  $(jq 'length' "$RAW_OBS") entries → $RAW_OBS"
+
+  echo "Fetching platform errors from Cloud Logging..."
+  gcloud logging read "$PLAT_FILTER" --format=json --limit=5000 > "$RAW_PLAT"
+  echo "  $(jq 'length' "$RAW_PLAT") entries → $RAW_PLAT"
+fi
