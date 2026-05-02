@@ -101,3 +101,27 @@ else
   gcloud logging read "$PLAT_FILTER" --format=json --limit=5000 > "$RAW_PLAT"
   echo "  $(jq 'length' "$RAW_PLAT") entries → $RAW_PLAT"
 fi
+
+OBS_NDJSON="$OUT_DIR/raw-obs-events.ndjson"
+PLAT_NDJSON="$OUT_DIR/raw-platform-errors.ndjson"
+SUMMARY="$OUT_DIR/weekly-summary.json"
+
+echo "Parsing OBS events to NDJSON..."
+jq -cf "$LIB_DIR/parse-obs-events.jq" "$RAW_OBS" > "$OBS_NDJSON"
+echo "  $(wc -l < "$OBS_NDJSON" | tr -d ' ') events → $OBS_NDJSON"
+
+echo "Parsing platform errors to NDJSON..."
+jq -cf "$LIB_DIR/parse-platform-errors.jq" "$RAW_PLAT" > "$PLAT_NDJSON"
+echo "  $(wc -l < "$PLAT_NDJSON" | tr -d ' ') errors → $PLAT_NDJSON"
+
+echo "Aggregating weekly summary..."
+jq -n \
+  --slurpfile obs "$OBS_NDJSON" \
+  --slurpfile platform "$PLAT_NDJSON" \
+  --arg windowStart "$START" \
+  --arg windowEnd   "$END" \
+  -f "$LIB_DIR/aggregate-weekly-summary.jq" \
+  > "$SUMMARY"
+
+echo "Done."
+echo "Summary: $SUMMARY"
