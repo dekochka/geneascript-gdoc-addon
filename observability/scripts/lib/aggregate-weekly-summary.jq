@@ -88,8 +88,8 @@ def platform_error_categories:
       | . + {
           category: (
             if ($m | test("openSidebarFromCard|renderActions.*action"; "i")) then "openSidebarFromCard"
-            elif ($m | test("Exceeded maximum execution time"; "i")) then "execution_timeout"
-            elif ($m | test("oauth|authoriz|permission"; "i")) then "oauth_permission"
+            elif ($m | test("Exceeded maximum execution time|Перевищено максимальний час виконання|Превышено максимальное время выполнения"; "i")) then "execution_timeout"
+            elif ($m | test("oauth|authoriz|permission|немає дозволу|нет разрешения|дозволу викликати|разрешения на вызов"; "i")) then "oauth_permission"
             else "other"
             end
           )
