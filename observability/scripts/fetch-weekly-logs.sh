@@ -59,6 +59,12 @@ date_iso() {
 [[ -z "$START" ]] && START="$(date_iso -d -7)"
 [[ -z "$OUT_DIR" ]] && OUT_DIR="/tmp/geneascript-weekly-$END"
 
+# Strict date-format validation — prevents filter-string injection.
+[[ "$START" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+  || { echo "Invalid --start date (want YYYY-MM-DD): $START" >&2; exit 2; }
+[[ "$END" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] \
+  || { echo "Invalid --end date (want YYYY-MM-DD): $END" >&2; exit 2; }
+
 # Preflight: tools.
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 3; }
 if [[ -z "$FIXTURE_DIR" ]]; then
@@ -94,12 +100,16 @@ else
   PLAT_FILTER="resource.type=\"app_script_function\" AND severity>=ERROR AND NOT jsonPayload.message=~\"^OBS:\" AND timestamp>=\"$START_TS\" AND timestamp<\"$END_TS\""
 
   echo "Fetching OBS events from Cloud Logging..."
-  gcloud logging read "$OBS_FILTER" --format=json --limit=20000 > "$RAW_OBS"
-  echo "  $(jq 'length' "$RAW_OBS") entries → $RAW_OBS"
+  gcloud logging read "$OBS_FILTER" --project="$PROJECT" --format=json --limit=20000 > "$RAW_OBS"
+  OBS_COUNT="$(jq 'length' "$RAW_OBS")"
+  echo "  $OBS_COUNT entries → $RAW_OBS"
+  [[ "$OBS_COUNT" -ge 20000 ]] && echo "WARNING: OBS fetch hit --limit=20000; data may be truncated. Rerun with a shorter window." >&2
 
   echo "Fetching platform errors from Cloud Logging..."
-  gcloud logging read "$PLAT_FILTER" --format=json --limit=5000 > "$RAW_PLAT"
-  echo "  $(jq 'length' "$RAW_PLAT") entries → $RAW_PLAT"
+  gcloud logging read "$PLAT_FILTER" --project="$PROJECT" --format=json --limit=5000 > "$RAW_PLAT"
+  PLAT_COUNT="$(jq 'length' "$RAW_PLAT")"
+  echo "  $PLAT_COUNT entries → $RAW_PLAT"
+  [[ "$PLAT_COUNT" -ge 5000 ]] && echo "WARNING: platform-error fetch hit --limit=5000; data may be truncated." >&2
 fi
 
 OBS_NDJSON="$OUT_DIR/raw-obs-events.ndjson"
