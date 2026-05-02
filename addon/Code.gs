@@ -1437,7 +1437,10 @@ function runTranscribeWorker() {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: rtwCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
@@ -1911,7 +1914,10 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: ctxExtractCode,
       errorMessage: sanitizeErrorMessage(message)
     });
@@ -2036,9 +2042,37 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
       if (err.error && err.error.message) msg = err.error.message;
     } catch (e) {}
     Logger.log('callGemini: error ' + code + ' ' + msg);
-    var retryable503 = (code === 503) && !telemetry.__isRetry;
+    // Retry policy for HTTP 503 API_OVERLOADED:
+    //   attempt 1 failed -> backoff 1s + jitter(0..500ms), then retry (retryAttempt=1)
+    //   attempt 2 failed -> backoff 3s + jitter(0..1500ms), then retry (retryAttempt=2)
+    //   attempt 3 failed -> throw API_OVERLOADED
+    // Budget guard: if cumulative apiLatencyMs across all attempts so far
+    // (telemetry.__cumulativeApiLatencyMs + this attempt's latency) would exceed
+    // 240 000 ms after the backoff, skip the retry to preserve budget for
+    // doc-insert (the Apps Script 6-minute ceiling is 360 000 ms).
+    var RETRY_BUDGET_MS = 240000;
+    var MAX_RETRIES = 2;
+    var priorRetries = telemetry.__retryCount || 0;
+    var thisAttemptLatency = Date.now() - apiStartMs;
+    var cumulativeApiLatency = (telemetry.__cumulativeApiLatencyMs || 0) + thisAttemptLatency;
+    var retryable503 = (code === 503) && (priorRetries < MAX_RETRIES);
+    var retryBudgetExceeded = false;
+    var backoffMs = 0;
     if (retryable503) {
-      Logger.log('callGemini: 503 overloaded, sleeping 5s then retrying once');
+      // attempt 1 -> 1000ms + 0..500ms; attempt 2 -> 3000ms + 0..1500ms
+      var nextRetry = priorRetries + 1;
+      var baseSleep = nextRetry === 1 ? 1000 : 3000;
+      var jitterRange = nextRetry === 1 ? 500 : 1500;
+      backoffMs = baseSleep + Math.floor(Math.random() * jitterRange);
+      if (cumulativeApiLatency + backoffMs > RETRY_BUDGET_MS) {
+        retryBudgetExceeded = true;
+        retryable503 = false;
+        Logger.log('callGemini: 503 but retry budget exceeded (cumulative ' + cumulativeApiLatency + 'ms + backoff ' + backoffMs + 'ms > ' + RETRY_BUDGET_MS + 'ms)');
+      }
+    }
+    if (retryable503) {
+      var nextAttempt = priorRetries + 1;
+      Logger.log('callGemini: 503 overloaded, sleeping ' + backoffMs + 'ms then retry attempt ' + nextAttempt + '/' + MAX_RETRIES);
       logObsEvent('transcribe_image_api_retry', {
         operation: telemetry.operation || 'transcribe_single',
         entrypoint: telemetry.entrypoint || 'unknown',
@@ -2047,13 +2081,18 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
         docIdHash: telemetry.docIdHash || null,
         model: modelId,
         httpCode: code,
-        apiLatencyMs: Date.now() - apiStartMs,
+        apiLatencyMs: thisAttemptLatency,
+        cumulativeApiLatencyMs: cumulativeApiLatency,
+        retryAttempt: nextAttempt,
+        backoffMs: backoffMs,
         errorCode: 'API_OVERLOADED',
         errorMessage: sanitizeErrorMessage(msg)
       });
-      Utilities.sleep(5000);
+      Utilities.sleep(backoffMs);
       var retryTelemetry = {};
       for (var k in telemetry) { if (Object.prototype.hasOwnProperty.call(telemetry, k)) retryTelemetry[k] = telemetry[k]; }
+      retryTelemetry.__retryCount = nextAttempt;
+      retryTelemetry.__cumulativeApiLatencyMs = cumulativeApiLatency + backoffMs;
       retryTelemetry.__isRetry = true;
       return callGemini(apiKey, prompt, imageBlob, mimeType, retryTelemetry);
     }
@@ -2062,8 +2101,11 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     thrownErr.httpCode = code;
     thrownErr.errorCode = errorCode;
     thrownErr.apiMessage = msg;
-    thrownErr.apiLatencyMs = Date.now() - apiStartMs;
-    thrownErr.retried = !!telemetry.__isRetry;
+    thrownErr.apiLatencyMs = thisAttemptLatency;
+    thrownErr.cumulativeApiLatencyMs = cumulativeApiLatency;
+    thrownErr.retryCount = priorRetries;
+    thrownErr.retryBudgetExceeded = retryBudgetExceeded;
+    thrownErr.retried = priorRetries > 0;
     thrownErr.model = modelId;
     throw thrownErr;
   }
@@ -2077,6 +2119,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     noCandErr.errorCode = 'API_EMPTY_CANDIDATES';
     noCandErr.apiMessage = feedback;
     noCandErr.apiLatencyMs = Date.now() - apiStartMs;
+    noCandErr.cumulativeApiLatencyMs = (telemetry.__cumulativeApiLatencyMs || 0) + (Date.now() - apiStartMs);
+    noCandErr.retryCount = telemetry.__retryCount || 0;
     noCandErr.retried = !!telemetry.__isRetry;
     noCandErr.model = modelId;
     throw noCandErr;
@@ -2440,7 +2484,10 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       model: e.model || null,
       httpCode: e.httpCode || null,
       apiLatencyMs: e.apiLatencyMs || null,
+      cumulativeApiLatencyMs: e.cumulativeApiLatencyMs || null,
       retried: !!e.retried,
+      retryCount: e.retryCount || 0,
+      retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: tbiCode,
       errorMessage: sanitizeErrorMessage(e.message || String(e))
     });
