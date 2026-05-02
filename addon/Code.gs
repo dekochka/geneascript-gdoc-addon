@@ -2735,7 +2735,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.3</div>',
+    '<div class="footer">v1.4.4</div>',
 
     '<script>',
     'var SI=', siJson, ';',
