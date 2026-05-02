@@ -989,7 +989,8 @@ function showApiKeyDialog(forUpdate) {
       'var cfg=validateConfig();' +
       'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="' + t('setup.enter_key').replace(/"/g, '\\"') + '";return;}' +
       'if(!cfg.ok){document.getElementById("status").innerText=cfg.message;return;}' +
-      'document.getElementById("status").innerText="' + t('setup.saving').replace(/"/g, '\\"') + '";' +
+      'var hasNewKey=!!(key&&key.trim());' +
+      'document.getElementById("status").innerText=hasNewKey?"' + t('setup.validating_key').replace(/"/g, '\\"') + '":"' + t('setup.saving').replace(/"/g, '\\"') + '";' +
       'document.getElementById("saveBtn").disabled=true;' +
       'google.script.run' +
         '.withSuccessHandler(function(r){' +
@@ -1026,6 +1027,55 @@ function showSetupApiKeyAndModelDialog() {
 /**
  * Saves the API key to User Properties (private per Google account). Called from the API key dialog.
  */
+/**
+ * Pre-flight validation: tiny text-only generateContent call against the
+ * chosen model. Returns { ok: true } on HTTP 200, or { ok: false, code, httpCode, message }
+ * on any 4xx. Transient failures (HTTP 5xx, timeouts) are treated as "can't validate"
+ * and return ok: true with a hint — we don't want to block save when Google is flaky.
+ */
+function validateApiKey(key, modelId) {
+  if (!key || typeof key !== 'string' || !key.trim()) {
+    return { ok: false, code: 'MISSING_KEY', httpCode: 0, message: 'empty key' };
+  }
+  var effectiveModel = (modelId && modelId.trim()) ? modelId.trim() : getStoredModel();
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + effectiveModel + ':generateContent?key=' + encodeURIComponent(key.trim());
+  var payload = {
+    contents: [{ parts: [{ text: 'ping' }] }],
+    generationConfig: { maxOutputTokens: 1, temperature: 0 }
+  };
+  var options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+    fetchTimeoutSeconds: 15
+  };
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var code = response.getResponseCode();
+    if (code === 200) return { ok: true };
+    var text = response.getContentText();
+    var msg = 'API error';
+    try {
+      var err = JSON.parse(text);
+      if (err.error && err.error.message) msg = err.error.message;
+    } catch (e) {}
+    if (code >= 500) {
+      Logger.log('validateApiKey: transient HTTP ' + code + ', allowing save');
+      return { ok: true, transient: true };
+    }
+    return {
+      ok: false,
+      code: classifyErrorCode(msg, code),
+      httpCode: code,
+      message: msg
+    };
+  } catch (e) {
+    Logger.log('validateApiKey: fetch threw ' + (e && e.message ? e.message : String(e)) + ' — allowing save');
+    return { ok: true, transient: true };
+  }
+}
+
 function saveApiKey(key) {
   return saveApiKeyAndModel(key, null, null);
 }
@@ -1050,9 +1100,30 @@ function saveApiKeyAndModel(key, modelId, requestConfig, uiLocaleOpt) {
     });
     return { ok: false, message: validatedConfig.message };
   }
-  if (key && typeof key === 'string' && key.trim() !== '') {
+  var submittingKey = !!(key && typeof key === 'string' && key.trim() !== '');
+  if (submittingKey) {
+    var validation = validateApiKey(key, effectiveModel);
+    if (!validation.ok) {
+      var i18nKey;
+      if (validation.code === 'API_KEY_INVALID') i18nKey = 'setup.key_invalid_save';
+      else if (validation.code === 'API_PROJECT_DENIED') i18nKey = 'setup.key_project_denied_save';
+      else if (validation.code === 'API_NOT_ENABLED') i18nKey = 'setup.key_not_enabled_save';
+      else if (validation.code === 'API_RATE_LIMIT') i18nKey = 'setup.key_rate_limit_save';
+      else i18nKey = 'setup.key_validation_failed';
+      var userMessage = t(i18nKey).replace('{code}', String(validation.httpCode || '?'));
+      logObsEvent('setup_action', {
+        operation: 'setup',
+        status: 'error',
+        action: 'save_key_model',
+        modelSelected: modelSelected,
+        errorCode: validation.code || 'UNKNOWN',
+        httpCode: validation.httpCode || null,
+        errorMessage: sanitizeErrorMessage(validation.message || '')
+      });
+      return { ok: false, message: userMessage };
+    }
     props.setProperty(API_KEY_PROPERTY, key.trim());
-    Logger.log('saveApiKeyAndModel: key saved');
+    Logger.log('saveApiKeyAndModel: key validated and saved (transient=' + !!validation.transient + ')');
   }
   if (modelId && typeof modelId === 'string' && modelId.trim() !== '') {
     props.setProperty(MODEL_ID_PROPERTY, modelId.trim());
