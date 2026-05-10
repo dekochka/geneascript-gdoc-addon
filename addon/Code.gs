@@ -373,10 +373,20 @@ function importFromDriveFileIds(fileIds) {
         bytesForError = file.getBlob().getBytes().length;
       } catch (_ignored) {}
       var sizeMB = (bytesForError / 1e6).toFixed(2);
+      var rawErrorMessage = sanitizeErrorMessage(e.message || String(e));
+      var skipReason;
+      if (bytesForError === 0) {
+        skipReason = t('import.skip_inaccessible');
+      } else {
+        skipReason = t('import.skip_failed', { sizeMB: sizeMB, detail: rawErrorMessage });
+        if (rawErrorMessage.toLowerCase().indexOf('invalid image data') !== -1) {
+          skipReason += ' ' + t('import.skip_invalid_image_hint');
+        }
+      }
       skippedFiles.push({
         name: file.getName(),
         sizeMB: sizeMB,
-        reason: bytesForError > 0 ? t('import.skip_large', { sizeMB: sizeMB }) : t('import.skip_invalid')
+        reason: skipReason
       });
       Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + sizeMB + ' error=' + (e.message || String(e)));
       Logger.log('importFromDriveFileIds: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
@@ -539,7 +549,17 @@ function getDrivePickerHtml() {
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     '<script src="https://apis.google.com/js/api.js"></script>',
-    '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px;white-space:pre-wrap;text-align:left;max-width:600px;margin-left:auto;margin-right:auto}.error{color:#d93025}</style>',
+    '<style>body{font-family:Arial,sans-serif;padding:20px;text-align:center}#status{font-size:14px;color:#5f6368;margin-top:20px;white-space:pre-wrap;text-align:left;max-width:600px;margin-left:auto;margin-right:auto}.error{color:#d93025}',
+    '#skippedPanel{display:none;max-width:680px;margin:18px auto 0;padding:12px 14px;background:#fff7e6;border:1px solid #f5c97a;border-radius:6px;text-align:left;font-size:13px;color:#5f4500}',
+    '#skippedPanel h4{margin:0 0 8px 0;font-size:13px;font-weight:bold;color:#7a4f00}',
+    '#skippedPanel ul{list-style:none;padding:0;margin:0;max-height:240px;overflow-y:auto}',
+    '#skippedPanel li{padding:4px 0;border-bottom:1px solid #f0e0bb;font-family:monospace;font-size:12px;line-height:1.4;word-break:break-all}',
+    '#skippedPanel li:last-child{border-bottom:none}',
+    '#skippedPanel .reason{color:#a05a00;font-family:Arial,sans-serif}',
+    '#skippedPanel .actions{margin-top:10px;text-align:right}',
+    '#skippedPanel button{background:#fff;border:1px solid #d4a960;color:#5f4500;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px}',
+    '#skippedPanel button:hover{background:#fdebc4}',
+    '</style>',
     '</head><body>',
     '<div id="status">', loadMsg, '</div>',
     '<div id="instructions" style="font-size:12px;color:#5f6368;margin-top:10px;display:none;">',
@@ -547,6 +567,7 @@ function getDrivePickerHtml() {
     '  ', i2, '<br>',
     '  ', i3,
     '</div>',
+    '<div id="skippedPanel"><h4 id="skippedTitle"></h4><ul id="skippedList"></ul><div class="actions"><button id="skippedClose">OK</button></div></div>',
     '<script>',
     'var PI=', piJson, ';',
     'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}',
@@ -689,24 +710,39 @@ function getDrivePickerHtml() {
     '      var msg=PI.complete+"\\n\\n";',
     '      msg+=PI.checkmark+" "+sub(PI.addedLine,{n:result.added})+"\\n";',
     '      if(result.skipped>0){',
-    '        msg+=PI.crossmark+" "+sub(PI.failedLine,{n:result.skipped})+"\\n\\n";',
-    '        msg+=PI.failedFiles+"\\n";',
-    '        for(var j=0;j<result.skippedFiles.length&&j<5;j++){',
-    '          var sf=result.skippedFiles[j];',
-    '          msg+="• "+sf.name+" - "+sf.reason+"\\n";',
-    '        }',
-    '        if(result.skippedFiles.length>5){',
-    '          msg+=sub(PI.more,{n:result.skippedFiles.length-5})+"\\n";',
-    '        }',
+    '        msg+=PI.crossmark+" "+sub(PI.failedLine,{n:result.skipped})+"\\n";',
     '      }',
     '      showStatus(msg);',
-    '      setTimeout(function(){ google.script.host.close(); }, 4000);',
+    '      if(result.skipped>0&&result.skippedFiles&&result.skippedFiles.length){',
+    '        renderSkippedPanel(result.skippedFiles);',
+    '      }else{',
+    '        setTimeout(function(){ google.script.host.close(); }, 2500);',
+    '      }',
     '    })',
     '    .withFailureHandler(function(e){',
     '      console.error("onPicked: import failed", e);',
     '      showError(PI.importFailed+": " + (e.message||String(e)));',
     '    })',
     '    .importFromDriveFileIds(ids);',
+    '}',
+    'function renderSkippedPanel(items){',
+    '  var panel=document.getElementById("skippedPanel");',
+    '  if(!panel)return;',
+    '  document.getElementById("skippedTitle").textContent=sub(PI.skippedTitle,{n:items.length});',
+    '  var list=document.getElementById("skippedList");',
+    '  list.innerHTML="";',
+    '  for(var k=0;k<items.length;k++){',
+    '    var sf=items[k];',
+    '    var li=document.createElement("li");',
+    '    li.textContent=sf.name;',
+    '    var reason=document.createElement("div");',
+    '    reason.className="reason";',
+    '    reason.textContent="↳ "+sf.reason;',
+    '    li.appendChild(reason);',
+    '    list.appendChild(li);',
+    '  }',
+    '  panel.style.display="block";',
+    '  document.getElementById("skippedClose").onclick=function(){ google.script.host.close(); };',
     '}',
     'init();',
     '</script></body></html>'
@@ -2514,6 +2550,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
   } catch (insertErr) {
     Logger.log('transcribeImageByIndex: insertTranscriptionAfter threw ' + (insertErr.message || String(insertErr)));
+    var insertClassified = insertErr.errorCode || classifyErrorCode(insertErr.message || String(insertErr), insertErr.httpCode);
     logObsEvent('transcribe_image_insert_error', {
       operation: operation,
       entrypoint: entrypoint,
@@ -2524,10 +2561,11 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       model: geminiResult.model,
       apiLatencyMs: geminiResult.apiLatencyMs,
       latencyMs: Date.now() - operationStartMs,
-      errorCode: insertErr.errorCode || classifyErrorCode(insertErr.message || String(insertErr), insertErr.httpCode),
+      errorCode: insertClassified,
       errorMessage: sanitizeErrorMessage(insertErr.message || String(insertErr))
     });
-    return { ok: false, errorCode: 'DOC_INSERT_FAILED', message: t('msg.request_failed', { detail: insertErr.message || String(insertErr) }) };
+    var clientErrorCode = (insertClassified === 'DOC_FULL' || insertClassified === 'DOC_INACCESSIBLE') ? insertClassified : 'DOC_INSERT_FAILED';
+    return { ok: false, errorCode: clientErrorCode, message: t('msg.request_failed', { detail: insertErr.message || String(insertErr) }) };
   }
   Logger.log('transcribeImageByIndex: done, finishReason=' + geminiResult.finishReason + ', insertedCount=' + insertedCount);
   logObsEvent('transcribe_image_done', {
@@ -2735,7 +2773,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.4</div>',
+    '<div class="footer">v1.4.5</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2901,7 +2939,16 @@ function getSidebarHtml() {
     '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
     '          shift+=(r.insertedCount||0);',
     '        }else{m._s="fail";m._e=(r&&r.message)||SI.unknownError;m._c=(r&&r.errorCode)||null;fail++;maybeShowBanner(m._c);}',
-    '        renderList();next(ti+1);',
+    '        renderList();',
+    '        if(m._c==="DOC_FULL"){',
+    '          var remaining=tasks.length-(ti+1);',
+    '          showDocFullBanner(num,remaining);',
+    '          stopReq=true;',
+    '          clearInterval(_timer);',
+    '          finish(done,fail,true);',
+    '          return;',
+    '        }',
+    '        next(ti+1);',
     '      })',
     '      .withFailureHandler(function(e){',
     '        m._s="fail";m._e=e.message||String(e);m._c=null;fail++;',
@@ -2910,6 +2957,13 @@ function getSidebarHtml() {
     '      .transcribeImageByIndex(task.bi+shift, m.label);',
     '  }',
     '  next(0);',
+    '}',
+
+    'function showDocFullBanner(stoppedAt,remaining){',
+    '  var b=el("errorBanner");',
+    '  if(!b)return;',
+    '  b.textContent=sub(SI.docFullBanner,{n:String(stoppedAt),next:String(stoppedAt+1),remaining:String(remaining)});',
+    '  b.style.display="block";',
     '}',
 
     'function maybeShowBanner(code){',
@@ -2921,6 +2975,7 @@ function getSidebarHtml() {
     '  else if(code==="API_RATE_LIMIT")msg=SI.rateLimitBanner;',
     '  else if(code==="API_KEY_INVALID")msg=SI.keyInvalidBanner;',
     '  else if(code==="AUTH_REQUIRED")msg=SI.authRequiredBanner;',
+    '  else if(code==="DOC_INACCESSIBLE")msg=SI.docInaccessibleBanner;',
     '  if(!msg)return;',
     '  var b=el("errorBanner");',
     '  b.textContent=msg;',
