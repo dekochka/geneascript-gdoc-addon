@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.7] — 2026-05-10
+
+### 🚀 Improved
+
+- **Sidebar opens 2–3× faster.** Previously the sidebar's `init()` function fired three sequential server calls (`hasApiKey` → `getSelectedTemplateLabelForClient` → `getImageList`), each with ~250–800 ms of fixed Apps Script JSON-RPC envelope overhead. New combined `getSidebarBootstrap()` server function returns all three in one round-trip, eliminating the staircase: API-key banner, template label, and image list now appear together instead of cascading in over ~1–2.5 s. Especially noticeable on cold sidebar opens. Closes [#35](https://github.com/dekochka/geneascript-gdoc-addon/issues/35).
+
 ## [1.4.6] — 2026-05-10
 
 ### 🚀 Improved
