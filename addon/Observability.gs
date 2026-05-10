@@ -57,7 +57,13 @@ function classifyErrorCode(errorMessage, httpCode) {
   if (m) codeFromText = parseInt(m[1], 10);
   var effectiveCode = httpCode || codeFromText;
   if (effectiveCode === 503 || msg.indexOf('overloaded') !== -1 || msg.indexOf('experiencing high demand') !== -1) return 'API_OVERLOADED';
-  if (effectiveCode === 429 || msg.indexOf('quota') !== -1 || msg.indexOf('rate') !== -1) return 'API_RATE_LIMIT';
+  if (effectiveCode === 429 ||
+      msg.indexOf('quota') !== -1 ||
+      msg.indexOf('rate limit') !== -1 ||
+      msg.indexOf('rate-limit') !== -1 ||
+      msg.indexOf('rateexceed') !== -1 ||
+      msg.indexOf('too many requests') !== -1 ||
+      msg.indexOf('resource_exhausted') !== -1) return 'API_RATE_LIMIT';
   if (msg.indexOf('api key not valid') !== -1 || msg.indexOf('api_key_invalid') !== -1) return 'API_KEY_INVALID';
   if (msg.indexOf('has not been used in project') !== -1) return 'API_NOT_ENABLED';
   if (msg.indexOf('project has been denied access') !== -1) return 'API_PROJECT_DENIED';
@@ -69,6 +75,22 @@ function classifyErrorCode(errorMessage, httpCode) {
   if (msg.indexOf('no candidates returned') !== -1) return 'API_EMPTY_CANDIDATES';
   if (msg.indexOf('no image found') !== -1) return 'DOC_IMAGE_NOT_FOUND';
   if (msg.indexOf('select') !== -1 && msg.indexOf('image') !== -1) return 'DOC_SELECTION_INVALID';
+  if (msg.indexOf('too many') !== -1 ||
+      msg.indexOf('document is too large') !== -1 ||
+      msg.indexOf('document is full') !== -1 ||
+      msg.indexOf('занадто багато') !== -1 ||
+      msg.indexOf('занадто великий') !== -1 ||
+      msg.indexOf('слишком много') !== -1 ||
+      msg.indexOf('слишком большой') !== -1 ||
+      msg.indexOf('document is over') !== -1 ||
+      msg.indexOf('exceeds the maximum') !== -1 ||
+      msg.indexOf('document size limit') !== -1) return 'DOC_FULL';
+  if (msg.indexOf('document is inaccessible') !== -1 ||
+      msg.indexOf('cannot access document') !== -1 ||
+      msg.indexOf('document not found') !== -1 ||
+      msg.indexOf('документ недоступн') !== -1 ||
+      msg.indexOf('документ не знайдено') !== -1 ||
+      msg.indexOf('нет доступа к документу') !== -1) return 'DOC_INACCESSIBLE';
   if (msg.indexOf('access not configured') !== -1 || msg.indexOf('not enabled') !== -1) return 'DRIVE_API_DISABLED';
   if (msg.indexOf('access denied') !== -1) return 'DRIVE_ACCESS_DENIED';
   if (effectiveCode && effectiveCode >= 400) return 'API_HTTP_ERROR';

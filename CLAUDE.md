@@ -176,12 +176,47 @@ Follow `.cursor/rules/release-change-management.mdc`:
    clasp version "Release vX.Y.Z"
    clasp deploy -V <version_number> -d "Release vX.Y.Z"
    ```
+7. **GitHub Project** — Close related issues (auto-moves to Done); verify board reflects release
 
 **Constraints:**
 - Never tag or version without explicit confirmation
 - Keep tag naming consistent (semver with optional suffix)
 - Never skip git hooks or amend published commits
 - **Always update the sidebar footer version** in `addon/Code.gs` (search for `<div class="footer">v`) when bumping the version — this is easily missed
+
+## GitHub Projects Integration
+
+**Project:** [GeneaScript Development](https://github.com/users/dekochka/projects/1) (Board view)
+**Project number:** 1 | **Owner:** dekochka
+
+**When to update the project:**
+- **New feature/bug identified** → Create GitHub Issue with labels, add to project in Triage
+- **Spec approved for implementation** → Move issue to Backlog, set Priority/Type
+- **Implementation starts** → Move issue to In Progress
+- **PR opened** → PR auto-added via workflow (linked to issue)
+- **Work completed** → Close issue (auto-moves to Done via workflow)
+- **Weekly ops review** → Create issues for prioritised fixes from ops report
+
+**Status columns:** Triage → Backlog → In Progress → In Review → Done
+
+**Custom fields:**
+- Priority: `High` / `Medium` / `Low`
+- Type: `Bug` / `Feature` / `Maintenance` / `Documentation` / `Template`
+
+**Labels:** `bug`, `urgent`, `enhancement`, `ui-ux`, `gas-backend`, `template-request`, `documentation`
+
+**Scope requirement:** Token must have `project` scope — run `gh auth refresh -s project` if missing.
+
+**Key IDs (for `gh project item-edit` commands):**
+- Project ID: `PVT_kwHODws4ms4BXPGR`
+- Status field: `PVTSSF_lAHODws4ms4BXPGRzhSdWgw`
+  - Triage: `a2e7a206` | Backlog: `f75ad846` | In Progress: `47fc9ee4` | In Review: `865ddf26` | Done: `98236657`
+- Priority field: `PVTSSF_lAHODws4ms4BXPGRzhSdWjI`
+  - High: `fb61c7c2` | Medium: `fe9545eb` | Low: `b80d61d0`
+- Type field: `PVTSSF_lAHODws4ms4BXPGRzhSdWjo`
+  - Bug: `40be0622` | Feature: `b66ee32a` | Maintenance: `de9e6fc3` | Documentation: `5f6817d1` | Template: `3fb161cd`
+
+**Relationship to specs:** GitHub Issues are lightweight public summaries; specs (`project/SPEC-*.md`) remain the detailed authority. Issues link to specs but don't duplicate full technical content.
 
 ## OAuth Scopes & Manifest
 
@@ -213,6 +248,19 @@ Follow `.cursor/rules/release-change-management.mdc`:
 - User activity: `geneascript_user_activity_count` (for MAU/DAU)
 
 **Dashboard:** `observability/dashboards/geneascript-observability.json`
+
+## External Communication
+
+**Always draft and confirm before posting any external-facing message.** Never post directly without showing the user the full content first and waiting for explicit approval.
+
+Applies to: GitHub issue comments / PR comments / release notes, Telegram messages to users, email replies, Slack/Discord posts, public docs site updates, Marketplace listing edits, and any other channel visible to people outside this laptop.
+
+Workflow:
+1. Draft the full message in the chat (both languages if applicable — typically EN + UK).
+2. Wait for user confirmation or revisions.
+3. Only after explicit "ok" / "post it" / equivalent — invoke the tool that publishes (e.g., `gh issue comment`, `gh pr comment`, `gh release create`).
+
+Why: external messages are public, often hard to edit cleanly, and reach real users (some non-technical, some power users tracking every word). One ambiguous claim baked into a v1.4.4 release note or a GitHub reply lives forever in search results.
 
 ## Key Constraints
 

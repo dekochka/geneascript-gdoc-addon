@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.5] — 2026-05-09
+
+Fixes for power-user pain points reported in GitHub issues #20 and #22 (large-project workflow), plus carry-over fixes from the 2026-05-08 weekly operational report.
+
+### 🐛 Fixed
+
+- **Import: skipped files no longer disappear in a flash (#22)** — Picker dialog now shows a persistent "Skipped files" panel listing each rejected file's name and the actual error message returned by Google Docs (replacing the prior heuristic "Too large" label, which silently relabelled non-size failures and was misleading). Replaces the 4-second auto-closing alert that users frequently missed when looking away — leading to silent partial imports and post-hoc manual checks.
+- **Batch transcription stops when the document hits its size limit (#20)** — Previously, when Google Docs threw "Too many symbols in a document" (the ~670-page wall in practice), the loop kept running and spent Gemini API quota on insertions that could no longer land. A new `DOC_FULL` error class is detected from EN/UA/RU error strings; on detection, the batch stops immediately and a banner tells the user which image to resume from in a new file. Eliminates silent token burn.
+- **`API_RATE_LIMIT` no longer over-matches localized URL/timeout strings** — Classifier required only the literal substring `rate`, which matched any localized error containing words like "operation" or unrelated URL fragments. Now requires `rate limit`, `rate-limit`, `rateExceed`, `too many requests`, `quota`, or `RESOURCE_EXHAUSTED`. The 2026-05-08 weekly report flagged 2 misattributed events; this prevents the wrong UX banner from appearing on unrelated errors.
+- **"Document inaccessible" errors now show a friendly message with recovery guidance** — A new `DOC_INACCESSIBLE` error class catches transient Docs API access failures (28 silent occurrences in the week of 2026-05-06) and surfaces them as a sidebar banner suggesting refresh / retry, instead of a raw exception string.
+
+### 🔭 Observability
+
+- Doc-insert failures classified as `DOC_FULL` or `DOC_INACCESSIBLE` are now propagated to the client `errorCode` (instead of being collapsed into the generic `DOC_INSERT_FAILED`), so future weekly reports can break out the doc-overflow signal directly.
+
 ## [1.4.4] — 2026-05-02
 
 Fixes and observability improvements driven by the 2026-04-17 → 2026-05-02 weekly operational reports. No user-facing behaviour change for successful transcriptions.
