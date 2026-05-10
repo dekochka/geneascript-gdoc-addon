@@ -19,7 +19,7 @@ var REQUEST_MIN_MAX_OUTPUT_TOKENS = 1;
 var REQUEST_MAX_MAX_OUTPUT_TOKENS = 65536;
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
-var MAX_IMPORT_IMAGES = 30;
+var MAX_IMPORT_IMAGES = 50;
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
@@ -2773,7 +2773,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.5</div>',
+    '<div class="footer">v1.4.6</div>',
 
     '<script>',
     'var SI=', siJson, ';',

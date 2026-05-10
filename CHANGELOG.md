@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.4.6] — 2026-05-10
+
+### 🚀 Improved
+
+- **Per-batch import cap raised from 30 to 50 images.** OBS data over 2026-04-25 → 2026-05-09 (1415 successful inline imports across 73 batches) showed users hitting the 30-cap **50 times in 2 weeks** while real per-image latency held at p50 1.5s / p95 2.1s / p99 2.7s. At those numbers, 50 images comfortably fit inside the Apps Script 360s execution ceiling (worst-case extrapolation ≈ 295s, with ~22% headroom; current 30-cap worst case was 225s). Larger batches will arrive with link-only mode in v1.5.x ([SPEC-16](project/SPEC-16-IMPORT-IMAGE-AUTO-NORMALIZE.md) / #30) — link-only inserts are ~10× faster, enabling caps in the hundreds for the lighter path.
+
 ## [1.4.5] — 2026-05-09
 
 Fixes for power-user pain points reported in GitHub issues #20 and #22 (large-project workflow), plus carry-over fixes from the 2026-05-08 weekly operational report.
