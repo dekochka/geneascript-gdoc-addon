@@ -35,6 +35,8 @@ Decouple **transcription** from **inline preview**. Try `appendImage` first (fas
 
 Add a **secondary "link-only mode" checkbox** in the import dialog so power users can opt out of embedded images entirely — making imports faster, documents dramatically smaller, and quietly addressing issue #20 (doc-overflow at ~670 pages) as a side effect for users who choose that mode.
 
+**Also: split the per-batch import cap into two values keyed off the chosen path.** Inline mode is bottlenecked by `appendImage` latency (~1.5–2 s/image at p50/p95 in production); link-only inserts are ~10–15× faster and only bottlenecked by `appendParagraph` plus a Drive metadata fetch. The unified `MAX_IMPORT_IMAGES = 50` cap (raised from 30 in v1.4.6) is appropriate for the inline path; for link-only, the safe ceiling under the Apps Script 360 s runtime is closer to 500 images per batch.
+
 ## 3. Approach: hybrid inline + link-only
 
 ### Default behaviour (auto-fallback)
@@ -94,6 +96,17 @@ The `DriveApp.getFileById(id).getBlob()` path returns raw Drive bytes without go
 - Renamed counters: `✓ added: N inline, M link-only` (when both kinds present).
 - Skipped-files panel unchanged — only used for files that genuinely couldn't be read.
 
+### Per-batch cap split
+
+Replace the single `MAX_IMPORT_IMAGES` constant with two:
+
+- `MAX_IMPORT_IMAGES_INLINE = 50` — applies when the user is in the default (inline-preferred) mode. Matches the v1.4.6 raise. Conservative: bounded by the worst-case per-image latency observed in production (~5.9 s tail; n=50 worst case ≈ 295 s under the 360 s Apps Script ceiling).
+- `MAX_IMPORT_IMAGES_LINK_ONLY = 500` — applies when the user has the opt-in link-only checkbox active OR when every file in the batch is small enough that auto-fallback never triggers. Empirically, link-only inserts are ~150 ms each at p95 (vs. ~2 s for inline); 500 × 150 ms = 75 s, well below the runtime ceiling.
+- **Picker dialog enforcement**: after the user toggles the link-only checkbox, the multiselect cap shown in the picker should switch live (Drive Picker SDK supports a `setMaxItems()` option in builder).
+- **Selection truncation copy** localized for both caps: *"Up to 50 images per batch in standard mode" / "Up to 500 images per batch in link-only mode."*
+
+Mixed-path batches (some files succeed inline, some auto-fallback to link-only) are bounded by the inline cap, since the user opted into inline mode at picker time. This keeps the policy predictable.
+
 ## 5. OAuth / Marketplace impact
 
 ### Scope changes: **None.**
@@ -126,7 +139,8 @@ No new telemetry plumbing — everything reuses existing helpers.
 
 - ☐ A previously-failing file from issue #22 (e.g. `116300570_00009.jpeg`, 2.48 MB, "Invalid image data") imports as link-only — no skip — and transcribes successfully when selected.
 - ☐ A baseline-RGB JPEG from a working batch (e.g., the Turilche set) imports inline as before — no perf regression for the happy path.
-- ☐ A user toggling the "link-only" checkbox imports 30 files in noticeably less time and produces a visibly smaller `.docx` on download.
+- ☐ A user toggling the "link-only" checkbox can select up to 500 files in the picker (vs. 50 in inline mode) and the import completes within the 360 s Apps Script ceiling.
+- ☐ A user toggling the "link-only" checkbox imports a 100-file batch in noticeably less time than the inline path would take and produces a visibly smaller `.docx` on download.
 - ☐ A genuinely corrupted file (e.g., a `.jpg` containing non-image bytes) still ends up in the skipped-files panel with the actual exception (because the Drive blob read itself fails, not just `appendImage`).
 - ☐ Both `kind: 'inline'` and `kind: 'link_only'` entries in the same document transcribe correctly when selected together in a batch.
 - ☐ E2E suite extended: a fixture file that triggers `appendImage` rejection (e.g., a CMYK JPEG checked into `e2e/fixtures/`) is imported and transcribed successfully through the auto-fallback path.
@@ -152,6 +166,7 @@ No new telemetry plumbing — everything reuses existing helpers.
 |---|---|---|
 | Refactor inline-image discovery → entry discovery (inline + link-only) | `addon/Code.gs` (`getImageList`, `findInlineImageAtBodyIndex`, plus new `findEntryAtBodyIndex` & `extractFileIdFromUrl`) | ~50 lines |
 | Auto-fallback in import loop (catch `appendImage` → write link-only, don't skip) | `addon/Code.gs` (`importFromDriveFileIds` ~339–397) | ~20 lines |
+| Split per-batch cap into `MAX_IMPORT_IMAGES_INLINE` (50) and `MAX_IMPORT_IMAGES_LINK_ONLY` (500); switch picker SDK `setMaxItems()` live based on link-only checkbox state | `addon/Code.gs` (constants, picker dialog) + `addon/I18n.gs` | ~15 lines + 2 i18n keys |
 | Drive-URL transcription path in `transcribeImageByIndex` | `addon/Code.gs` (~2443) | ~15 lines |
 | Link-only checkbox in picker dialog + Document Property persistence | `addon/Code.gs` (`getDrivePickerHtml`) + `addon/I18n.gs` | ~25 lines + 6 i18n keys |
 | Sidebar icon for link-only entries | `addon/Code.gs` (sidebar HTML list rendering) + `addon/I18n.gs` | ~15 lines + 2 i18n keys |
