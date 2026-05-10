@@ -2436,6 +2436,24 @@ function getImageList() {
 }
 
 /**
+ * Combines hasApiKey + getSelectedTemplateLabelForClient + getImageList into
+ * one server round-trip for sidebar boot. Each piece runs in its own try/catch
+ * so a transient failure in one doesn't block the others. Closes #35.
+ */
+function getSidebarBootstrap() {
+  var startMs = Date.now();
+  var result = { hasApiKey: false, templateLabel: '', images: { ok: false, images: [] } };
+  try { result.hasApiKey = hasApiKey(); }
+  catch (e) { Logger.log('getSidebarBootstrap: hasApiKey threw ' + (e.message || String(e))); }
+  try { result.templateLabel = getSelectedTemplateLabelForClient(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getSelectedTemplateLabelForClient threw ' + (e.message || String(e))); }
+  try { result.images = getImageList(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getImageList threw ' + (e.message || String(e))); }
+  Logger.log('getSidebarBootstrap: done in ' + (Date.now() - startMs) + 'ms');
+  return result;
+}
+
+/**
  * Transcribes one inline image identified by its body child index.
  * Phase 3 stub — returns mock success after a short delay.
  * Real implementation will be wired in Phase 4.
@@ -2773,7 +2791,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.6</div>',
+    '<div class="footer">v1.4.7</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2798,11 +2816,25 @@ function getSidebarHtml() {
     '}',
 
     'function init(){',
-    '  google.script.run.withSuccessHandler(function(k){',
-    '    if(!k)document.getElementById("keyBanner").style.display="block";',
-    '  }).withFailureHandler(function(){}).hasApiKey();',
-    '  loadTemplateLabel();',
-    '  refreshImages();',
+    '  document.getElementById("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.loading)+\'</div>\';',
+    '  el("goBtn").disabled=true;',
+    '  google.script.run',
+    '    .withSuccessHandler(function(boot){',
+    '      if(boot&&!boot.hasApiKey)document.getElementById("keyBanner").style.display="block";',
+    '      document.getElementById("templateLabel").textContent=(boot&&boot.templateLabel)||SI.tplNone;',
+    '      var r=boot&&boot.images;',
+    '      if(r&&r.ok){',
+    '        imgs=r.images||[];',
+    '        lastImageCount=imgs.length;',
+    '        renderList();',
+    '      }else{',
+    '        el("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.failLoad)+\'</div>\';',
+    '      }',
+    '    })',
+    '    .withFailureHandler(function(e){',
+    '      el("imgList").innerHTML=\'<div class="empty-state">\'+esc(SI.errPrefix)+" "+esc(e.message||String(e))+\'</div>\';',
+    '    })',
+    '    .getSidebarBootstrap();',
     '}',
 
     'function refreshImages(){',
