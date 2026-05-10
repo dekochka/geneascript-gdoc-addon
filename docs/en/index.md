@@ -9,6 +9,9 @@ permalink: /en/
 <img src="/GeneaScript_logo_128.png" alt="GeneaScript" width="128" height="128" />
 <h1>GeneaScript Transcriber</h1>
 <p>Free <strong>Google Docs™</strong> add-on for importing and transcribing metric book images (birth, marriage, death registers) using <strong>Google™ AI (Gemini™)</strong> with predefined templates. For genealogists and archivists working with 19th/20th-century vital records from Eastern Europe — Galicia (Austrian Empire) and the Russian Empire.</p>
+
+<p><img src="/en/v1.4.5_geneascript_en_infographics.png" alt="GeneaScript v1.4.5 — infographic in English" style="max-width:100%;height:auto;border:1px solid #e1e4e8;border-radius:6px;" /></p>
+
 <ul>
   <li><a href="https://workspace.google.com/marketplace/app/geneascript_metric_book_transcriber/440886676248">Install from Google Workspace™ Marketplace</a></li>
   <li><a href="USER_GUIDE.html">User guide</a></li>

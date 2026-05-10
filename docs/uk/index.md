@@ -11,6 +11,8 @@ permalink: /uk/
 
 <p>Безкоштовний додаток для Google Docs™, який допомагає транскрибувати зображення метричних книг (акти народження, шлюбу, смерті) за допомогою <strong>Google™ AI (Gemini™)</strong>. Для генеалогів і архівістів, які працюють з витягами XIX–XX століття зі Східної Європи — Галичини (Австрійська імперія) та Російської імперії.</p>
 
+<p><img src="/uk/v1.4.5_geneascript_ua_infographics.png" alt="GeneaScript v1.4.5 — інфографіка українською" style="max-width:100%;height:auto;border:1px solid #e1e4e8;border-radius:6px;" /></p>
+
 <ul>
   <li><a href="https://workspace.google.com/marketplace/app/geneascript_metric_book_transcriber/440886676248">Встановити з Google Workspace™ Marketplace</a></li>
   <li><a href="USER_GUIDE.html">Посібник користувача</a></li>
