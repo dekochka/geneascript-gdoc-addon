@@ -222,8 +222,8 @@ Follow `.cursor/rules/release-change-management.mdc`:
 
 **Current scopes** (in `addon/appsscript.json`):
 - `documents.currentonly` — Read/write active document
-- `drive.readonly` — Read Drive folders for import
-- `script.external_request` — Call Gemini API
+- `drive.file` — Access Drive files explicitly opened by the user via the picker
+- `script.external_request` — Call Gemini API (whitelist locked to `generativelanguage.googleapis.com` and `www.googleapis.com`)
 - `script.container.ui` — Show dialogs/sidebar
 
 **Scope changes require:**
@@ -249,6 +249,15 @@ Follow `.cursor/rules/release-change-management.mdc`:
 
 **Dashboard:** `observability/dashboards/geneascript-observability.json`
 
+**GCP project:** `geneascript-extension` (NOT `geneascript`). Required for any `gcloud logging read`, `gcloud logging metrics`, or `gcloud monitoring` command. Set as default via `gcloud config set project geneascript-extension`.
+
+**Fetch structured OBS events directly:**
+```bash
+gcloud logging read 'resource.type="app_script_function" AND jsonPayload.message:"OBS:" AND timestamp >= "YYYY-MM-DDTHH:MM:SSZ"' \
+  --format=json --limit 5000
+```
+Server-side cap is 5000 entries per call. Parse to NDJSON via `jq -r '.[] | .jsonPayload.message' | grep '"event":"<name>"' | sed 's/^OBS://' | jq -c '.'`. The pre-built weekly summary (`observability/scripts/fetch-weekly-logs.sh`) wraps this and writes aggregated JSON to `project/operations/weeklyreports/data/`.
+
 ## External Communication
 
 **Always draft and confirm before posting any external-facing message.** Never post directly without showing the user the full content first and waiting for explicit approval.
@@ -267,7 +276,7 @@ Why: external messages are public, often hard to edit cleanly, and reach real us
 - **No secrets in code** — API keys stored in User Properties only
 - **Single-file Apps Script pattern** — Prefer inline HTML in `Code.gs` over separate `.html` unless spec requires it
 - **E2E tests require saved Google session** — Cannot run in stateless CI without `e2e/.auth/google.json`
-- **Context size limits** — MAX_CONTEXT_PARAGRAPHS = 50, MAX_IMPORT_IMAGES = 30
+- **Context size limits** — MAX_CONTEXT_PARAGRAPHS = 50, MAX_IMPORT_IMAGES = 50 (raised from 30 in v1.4.6 based on OBS latency data; SPEC-16 will split this into separate inline/link-only caps)
 - **Image MIME types** — JPEG, PNG, WebP only
 - **Timeout** — 60 seconds for Gemini API calls
 
