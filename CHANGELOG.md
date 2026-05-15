@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.0] — 2026-05-16
+
+Hybrid inline + link-only import — fixes the long-standing issue where `DocumentApp.appendImage()` silently rejects valid images (100% failure above 2 MB, 12–19% below) that Gemini transcribes fine. Users no longer lose files on import. Closes [#30](https://github.com/dekochka/geneascript-gdoc-addon/issues/30).
+
+### ✨ Added
+
+- **Link-only import mode (🔗 checkbox).** A new toggle next to the Import button lets users import files as link-only entries — heading + Drive link, no embedded image. Faster imports, smaller documents, and a raised cap of **500 files per batch** (vs 50 for inline). The setting persists per document via Document Properties. Ideal for large books (300+ scans).
+- **Auto-fallback on failed `appendImage`.** When Google Docs rejects an image during inline import (format quirks, oversized blobs), the file is automatically imported as a link-only entry instead of being skipped. The heading and Drive link are preserved; nothing is lost.
+- **Link-only entries are fully transcribable.** The transcription engine fetches the original blob from Google Drive via the file's source URL, so link-only entries produce identical transcription output to inline images.
+- **Hover tooltips on all sidebar buttons.** Every action button now shows a descriptive tooltip on hover, compensating for shorter labels and helping new users discover features.
+- **Dynamic Import dialog title.** When link-only mode is active, the Import dialog title changes to "Import Drive Images (Link-Only 🔗)" so users always know which mode is in effect.
+- **Differentiated import progress messages.** Status text and confirmation dialogs now distinguish "Importing N images…" from "Importing N links…" depending on the active mode.
+
+### 🔄 Changed
+
+- **"Extract Context from Selected Image" → "Cover → Context".** Shorter sidebar button label; full description available via tooltip. The menu item name and `data-testid` are unchanged.
+- **Link-only entries in the sidebar image list** appear dimmed (`opacity: 0.7`), italic, with a 🔗 icon prefix and a tooltip ("No embedded preview — transcribed from Drive link").
+- **Cover → Context button disabled for link-only entries** — context extraction requires an inline image.
+- **Mixed import result messages.** After import, the result dialog shows separate inline and link-only counts (e.g. "✓ Added: 3 inline, 2 link-only") when both types are present.
+
+### 🔭 Observability
+
+- `import_drive_image_processed` events now include `outcome` (`inline_added` / `link_only_added` / `skipped`) and `linkOnlyMode` fields.
+- `import_drive_done` events include `addedInline` and `addedLinkOnly` counters.
+- `transcribe_image_start` / `transcribe_image_done` / `transcribe_image_error` events include `imageSource` (`inline` / `drive_url`).
+
+### 🌍 Localization
+
+- All new UI strings translated to English, Ukrainian, and Russian.
+
 ## [1.4.7] — 2026-05-10
 
 ### 🚀 Improved

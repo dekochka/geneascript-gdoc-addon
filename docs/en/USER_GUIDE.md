@@ -76,22 +76,26 @@ Use this to create a document with a Context section and scan images from your *
    - **Images tab**: Flat view of all accessible images (JPEG, PNG, WebP only)
    - **Folders tab**: Browse folder structure with breadcrumb navigation
    - Use the **search bar** to find files by name
-   - **Multi-select** supported: select up to 30 images at once
+   - **Multi-select** supported: select up to 50 images at once (or up to 500 in link-only mode)
    - Click **Select** when ready (or **Cancel** to abort)
 
    ![Google Picker™ showing Folders tab with folder navigation](app-screenshots/v0.9-export-from-drive-folder-filter.jpg)
 
 5. The add-on imports selected files and:
    - Adds a **Context** section at the top (full sample template with bold labels: archive name, reference, villages, common surnames, etc. — you can edit it).
-   - Imports **up to 30 selected images** (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
+   - Imports **up to 50 selected images** (**JPEG, PNG, WebP** only), **natural-sorted** by filename (e.g. page_2 before page_10).
    - For each image: a **Heading 2** with the image name (no extension), a **Source Image Link** line (clickable link to the file in **Google Drive™**), then the image (scaled to content width), then a page break.
+   - If an image cannot be embedded (format rejected by Google Docs), it is automatically imported as a **link-only** entry — the heading and Drive link are kept, but no inline image is inserted. These entries can still be transcribed normally.
 
-6. When the import finishes, a status message shows how many images were added (and how many skipped, if any). You can now run **Transcribe Image** on any of them (see below).
+6. **🔗 Link-only mode (optional):** Check the **🔗** checkbox next to the Import button to import all files as link-only entries (no embedded images). This is faster, produces smaller documents, and supports up to **500 files** per batch — ideal for large books (300+ scans). The checkbox setting is saved per document.
+
+7. When the import finishes, a status message shows how many images were added (inline and/or link-only) and how many skipped, if any. You can now run **Transcribe Selected** on any of them (see below).
 
 **📌 Notes:** 
 - Only files you select via **Google Picker™** are accessible to the add-on (narrower OAuth scope for better security).
 - Non-image files are automatically filtered out and skipped with a message.
-- Very large images or inaccessible files may be skipped; the add-on reports counts.
+- Very large images or inaccessible files may be skipped or auto-converted to link-only entries; the add-on reports counts.
+- Link-only entries appear dimmed with a 🔗 icon in the sidebar image list. Hovering shows a tooltip confirming they have no embedded preview.
 - Edit the Context block with your actual archive and locality details before transcribing for best results.
 
 ---
@@ -118,8 +122,8 @@ Use this to create a document with a Context section and scan images from your *
 The sidebar is the easiest way to transcribe one or many images at once.
 
 1. Open **Extensions** → **GeneaScript** → **Open Sidebar**, or click the add-on icon in the right-side panel and then **Open Transcriber Sidebar**.
-2. The sidebar shows the top action flow in order: **Import from Drive Folder**, **Setup AI**, **Extract Context from Selected Image**, then the image list and **Transcribe Selected** action.
-3. The image list shows inline images labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark.
+2. The sidebar shows the top action flow in order: **Import from Drive Files** (with optional **🔗** link-only toggle), **Setup AI**, **Cover → Context**, then the image list and **Transcribe Selected** action. Hover over any button for a tooltip describing its function.
+3. The image list shows images labeled by their **Heading 2** title (or "Image 1", "Image 2" if no heading). Images that already have a transcription below them are marked with a green checkmark. Link-only entries appear dimmed with a 🔗 icon.
 4. **Select images** — check the images you want to transcribe, or use **Select All**. You can select a single image or multiple.
 5. Click **Transcribe Selected**. If any selected images already have transcription text below them, a confirmation dialog asks whether to replace it.
 6. The sidebar processes images in document order. For each image it shows:
@@ -149,7 +153,7 @@ This feature helps you populate the `Context` section automatically from a cover
 1. Import images with **Import Book from Drive Files**.
 2. Start extraction using either:
    - **Extensions** → **GeneaScript** → **Extract Context from Cover Image**, or
-   - Sidebar action **Extract Context from Selected Image** (select exactly one image first).
+   - Sidebar button **Cover → Context** (select exactly one inline image first).
 3. Select the cover/title image and click **Extract**.
 4. Review AI-extracted fields (archive name/reference, document description, date range, villages, surnames, notes).
 5. Edit any field as needed and click **Apply Context**.
@@ -309,7 +313,7 @@ Blank lines separate records for readability. You can edit any of this text in t
 | **Sidebar shows "No images found"** | The document has no inline images. Import scans via **Import Book from Drive Files** or paste images directly into the document, then click **Refresh**. |
 | **Sidebar image failed (red X)** | Hover over the red X to see the error. Common causes: API rate limit (429), image too large, network timeout. The batch continues with the remaining images. You can retry the failed image afterward. |
 | **Orange warning on sidebar image** | The model's output was truncated (`MAX_TOKENS`). The transcription was inserted but may be incomplete. Try a smaller or clearer image, or switch to a model with higher output limits. |
-| **Extract Context action says select one image** | In the sidebar, check exactly one image before running **Extract Context from Selected Image**. |
+| **Extract Context action says select one image** | In the sidebar, check exactly one inline image before running **Cover → Context**. Link-only entries are not supported for context extraction. |
 | **Context extraction returns unusable text** | Try a clearer cover image, rerun extraction, then edit fields manually before apply. |
 | **"No homepage card" on right panel icon** | Ensure the latest code is deployed. The right-side icon shows a Card with an "Open Transcriber Sidebar" button. If you see this error, redeploy via `clasp push --force` or update the test deployment. |
 
