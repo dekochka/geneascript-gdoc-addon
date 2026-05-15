@@ -20,6 +20,8 @@ var REQUEST_MAX_MAX_OUTPUT_TOKENS = 65536;
 var CONTEXT_HEADING = 'Context';
 var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 50;
+var MAX_IMPORT_IMAGES_LINK_ONLY = 500;
+var LINK_ONLY_IMPORT_PROPERTY = 'LINK_ONLY_IMPORT';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
@@ -227,6 +229,30 @@ function appendImageNameAndSourceLink(body, file) {
   textObj.setLinkUrl(prefix.length, fullText.length - 1, url || '');
 }
 
+function getLinkOnlyImportSetting() {
+  return PropertiesService.getDocumentProperties().getProperty(LINK_ONLY_IMPORT_PROPERTY) === 'true';
+}
+
+function setLinkOnlyImportSetting(value) {
+  PropertiesService.getDocumentProperties().setProperty(LINK_ONLY_IMPORT_PROPERTY, value ? 'true' : 'false');
+}
+
+function extractFileIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  var match = url.match(/\/file\/d\/([^\/\?]+)/) || url.match(/[?&]id=([^&]+)/);
+  return match ? match[1] : null;
+}
+
+function extractFirstLinkUrl(para) {
+  var text = para.editAsText();
+  var indices = text.getTextAttributeIndices();
+  for (var k = 0; k < indices.length; k++) {
+    var linkUrl = text.getLinkUrl(indices[k]);
+    if (linkUrl) return linkUrl;
+  }
+  return null;
+}
+
 /**
  * Legacy/manual import path that prompts for Drive file URLs/IDs.
  * Used as a fallback when picker setup is missing.
@@ -322,18 +348,23 @@ function importFromDriveFileIds(fileIds) {
     return { ok: false, message: t('msg.no_accessible_images') };
   }
   imageFiles = naturalSortFiles(imageFiles);
+  var linkOnlyMode = getLinkOnlyImportSetting();
+  var maxImport = linkOnlyMode ? MAX_IMPORT_IMAGES_LINK_ONLY : MAX_IMPORT_IMAGES;
   var truncated = false;
-  if (imageFiles.length > MAX_IMPORT_IMAGES) {
-    imageFiles = imageFiles.slice(0, MAX_IMPORT_IMAGES);
+  if (imageFiles.length > maxImport) {
+    imageFiles = imageFiles.slice(0, maxImport);
     truncated = true;
   }
   var count = imageFiles.length;
-  Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' MAX_IMPORT_IMAGES=' + MAX_IMPORT_IMAGES);
-  ui.alert(t('alert.importing.title'), t('alert.importing.body', { count: String(count) }), ui.ButtonSet.OK);
+  Logger.log('importFromDriveFileIds: after sort count=' + count + ' truncated=' + truncated + ' maxImport=' + maxImport + ' linkOnlyMode=' + linkOnlyMode);
+  var importBodyKey = linkOnlyMode ? 'alert.importing.body_link_only' : 'alert.importing.body';
+  ui.alert(t('alert.importing.title'), t(importBodyKey, { count: String(count) }), ui.ButtonSet.OK);
   try {
   ensureContextBlock(doc);
   var body = doc.getBody();
   var contentWidthPt = body.getPageWidth() - body.getMarginLeft() - body.getMarginRight();
+  var addedInline = 0;
+  var addedLinkOnly = 0;
   var skipped = 0;
   var skippedFiles = [];
   for (var i = 0; i < imageFiles.length; i++) {
@@ -344,69 +375,110 @@ function importFromDriveFileIds(fileIds) {
       var blob = file.getBlob();
       var bytes = blob.getBytes().length;
       Logger.log('importFromDriveFileIds: H1/H3 blobSize index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytes + ' blobSizeMB=' + (bytes / 1e6).toFixed(2));
-      appendImageNameAndSourceLink(body, file);
-      var inlineImage = body.appendImage(blob);
-      var w = inlineImage.getWidth();
-      var h = inlineImage.getHeight();
-      if (w > contentWidthPt) {
-        var newW = contentWidthPt;
-        var newH = h * (contentWidthPt / w);
-        inlineImage.setWidth(newW);
-        inlineImage.setHeight(newH);
+      if (linkOnlyMode) {
+        appendImageNameAndSourceLink(body, file);
+        body.appendPageBreak();
+        addedLinkOnly++;
+        logObsEvent('import_drive_image_processed', {
+          operation: 'import_drive',
+          status: 'success',
+          outcome: 'link_only_added',
+          linkOnlyMode: true,
+          runId: runId,
+          docIdHash: docIdHash,
+          selectedFiles: normalizedIds.length,
+          imageOrdinal: i + 1,
+          fileName: file.getName(),
+          blobSizeBytes: bytes,
+          imageImportLatencyMs: Date.now() - imageStartMs
+        });
+      } else {
+        appendImageNameAndSourceLink(body, file);
+        var inlineImage = body.appendImage(blob);
+        var w = inlineImage.getWidth();
+        var h = inlineImage.getHeight();
+        if (w > contentWidthPt) {
+          var newW = contentWidthPt;
+          var newH = h * (contentWidthPt / w);
+          inlineImage.setWidth(newW);
+          inlineImage.setHeight(newH);
+        }
+        body.appendPageBreak();
+        addedInline++;
+        logObsEvent('import_drive_image_processed', {
+          operation: 'import_drive',
+          status: 'success',
+          outcome: 'inline_added',
+          linkOnlyMode: false,
+          runId: runId,
+          docIdHash: docIdHash,
+          selectedFiles: normalizedIds.length,
+          imageOrdinal: i + 1,
+          fileName: file.getName(),
+          blobSizeBytes: bytes,
+          imageImportLatencyMs: Date.now() - imageStartMs
+        });
       }
-      body.appendPageBreak();
-      logObsEvent('import_drive_image_processed', {
-        operation: 'import_drive',
-        status: 'success',
-        runId: runId,
-        docIdHash: docIdHash,
-        selectedFiles: normalizedIds.length,
-        imageOrdinal: i + 1,
-        fileName: file.getName(),
-        blobSizeBytes: bytes,
-        imageImportLatencyMs: Date.now() - imageStartMs
-      });
     } catch (e) {
-      skipped++;
       var bytesForError = 0;
       try {
         bytesForError = file.getBlob().getBytes().length;
       } catch (_ignored) {}
       var sizeMB = (bytesForError / 1e6).toFixed(2);
       var rawErrorMessage = sanitizeErrorMessage(e.message || String(e));
-      var skipReason;
-      if (bytesForError === 0) {
-        skipReason = t('import.skip_inaccessible');
+      var isInvalidImage = rawErrorMessage.toLowerCase().indexOf('invalid image data') !== -1;
+      if (isInvalidImage && !linkOnlyMode) {
+        body.appendPageBreak();
+        addedLinkOnly++;
+        Logger.log('importFromDriveFileIds: appendImage failed, auto-fallback to link-only index=' + (i + 1) + ' fileName=' + file.getName());
+        logObsEvent('import_drive_image_processed', {
+          operation: 'import_drive',
+          status: 'success',
+          outcome: 'link_only_added',
+          linkOnlyMode: false,
+          runId: runId,
+          docIdHash: docIdHash,
+          selectedFiles: normalizedIds.length,
+          imageOrdinal: i + 1,
+          fileName: file.getName(),
+          blobSizeBytes: bytesForError,
+          appendImageError: rawErrorMessage,
+          imageImportLatencyMs: Date.now() - imageStartMs
+        });
       } else {
-        skipReason = t('import.skip_failed', { sizeMB: sizeMB, detail: rawErrorMessage });
-        if (rawErrorMessage.toLowerCase().indexOf('invalid image data') !== -1) {
-          skipReason += ' ' + t('import.skip_invalid_image_hint');
+        skipped++;
+        var skipReason;
+        if (bytesForError === 0) {
+          skipReason = t('import.skip_inaccessible');
+        } else {
+          skipReason = t('import.skip_failed', { sizeMB: sizeMB, detail: rawErrorMessage });
         }
+        skippedFiles.push({
+          name: file.getName(),
+          sizeMB: sizeMB,
+          reason: skipReason
+        });
+        Logger.log('importFromDriveFileIds: FAILED index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + sizeMB + ' error=' + (e.message || String(e)));
+        logObsEvent('import_drive_image_processed', {
+          operation: 'import_drive',
+          status: 'error',
+          outcome: 'skipped',
+          linkOnlyMode: linkOnlyMode,
+          runId: runId,
+          docIdHash: docIdHash,
+          selectedFiles: normalizedIds.length,
+          imageOrdinal: i + 1,
+          fileName: file.getName(),
+          blobSizeBytes: bytesForError,
+          imageImportLatencyMs: Date.now() - imageStartMs,
+          errorCode: e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode),
+          errorMessage: rawErrorMessage
+        });
       }
-      skippedFiles.push({
-        name: file.getName(),
-        sizeMB: sizeMB,
-        reason: skipReason
-      });
-      Logger.log('importFromDriveFileIds: FAILED H1/H3 index=' + (i + 1) + ' fileName=' + file.getName() + ' blobSizeBytes=' + bytesForError + ' blobSizeMB=' + sizeMB + ' error=' + (e.message || String(e)));
-      Logger.log('importFromDriveFileIds: skipped image ' + (i + 1) + ' "' + file.getName() + '": ' + (e.message || String(e)));
-      logObsEvent('import_drive_image_processed', {
-        operation: 'import_drive',
-        status: 'error',
-        runId: runId,
-        docIdHash: docIdHash,
-        selectedFiles: normalizedIds.length,
-        imageOrdinal: i + 1,
-        fileName: file.getName(),
-        blobSizeBytes: bytesForError,
-        imageImportLatencyMs: Date.now() - imageStartMs,
-        errorCode: e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode),
-        errorMessage: sanitizeErrorMessage(e.message || String(e))
-      });
     }
   }
-  var added = count - skipped;
-  Logger.log('importFromDriveFileIds: done added=' + added + ' skipped=' + skipped + ' count=' + count);
+  var added = addedInline + addedLinkOnly;
+  Logger.log('importFromDriveFileIds: done addedInline=' + addedInline + ' addedLinkOnly=' + addedLinkOnly + ' skipped=' + skipped + ' count=' + count);
   logObsEvent('import_drive_done', {
     operation: 'import_drive',
     status: 'success',
@@ -415,18 +487,24 @@ function importFromDriveFileIds(fileIds) {
     selectedFiles: normalizedIds.length,
     imageFiles: imageFiles.length,
     addedCount: added,
+    addedInline: addedInline,
+    addedLinkOnly: addedLinkOnly,
     skippedCount: skipped + rejectedCount,
     count: count,
     truncated: truncated,
-    maxImportImages: MAX_IMPORT_IMAGES,
+    maxImportImages: maxImport,
+    linkOnlyMode: linkOnlyMode,
     importLatencyMs: Date.now() - operationStartMs
   });
   return {
     ok: true,
     added: added,
+    addedInline: addedInline,
+    addedLinkOnly: addedLinkOnly,
     skipped: skipped,
     rejected: rejectedCount,
-    skippedFiles: skippedFiles
+    skippedFiles: skippedFiles,
+    linkOnlyMode: linkOnlyMode
   };
   } catch (importErr) {
     Logger.log('importFromDriveFileIds: uncaught error during insertion phase: ' + (importErr.message || String(importErr)));
@@ -526,8 +604,9 @@ function showDrivePickerDialog() {
   var html = HtmlService.createHtmlOutput(getDrivePickerHtml())
     .setWidth(1100)
     .setHeight(700);
-  Logger.log('showDrivePickerDialog: showing modal dialog');
-  DocumentApp.getUi().showModalDialog(html, t('dialog.import_drive.title'));
+  var titleKey = getLinkOnlyImportSetting() ? 'dialog.import_drive.title_link_only' : 'dialog.import_drive.title';
+  Logger.log('showDrivePickerDialog: showing modal dialog linkOnly=' + getLinkOnlyImportSetting());
+  DocumentApp.getUi().showModalDialog(html, t(titleKey));
   Logger.log('showDrivePickerDialog: dialog shown');
 }
 
@@ -541,6 +620,7 @@ function showImportError(errorMessage) {
 }
 
 function getDrivePickerHtml() {
+  var linkOnlyMode = getLinkOnlyImportSetting();
   var piJson = stringifyForHtmlScript(getPickerClientI18n());
   var loadMsg = t('picker.loading').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   var i1 = t('picker.instr_line1').replace(/</g, '&lt;');
@@ -570,6 +650,7 @@ function getDrivePickerHtml() {
     '<div id="skippedPanel"><h4 id="skippedTitle"></h4><ul id="skippedList"></ul><div class="actions"><button id="skippedClose">OK</button></div></div>',
     '<script>',
     'var PI=', piJson, ';',
+    'var linkOnlyMode=', String(linkOnlyMode), ';',
     'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}',
     'var pickerConfig=null;',
     'function setStatus(msg,isError){',
@@ -696,7 +777,7 @@ function getDrivePickerHtml() {
     '    console.log("onPicked: skipped "+skipped+" non-image files");',
     '  }',
     '  console.log("onPicked: starting import for", ids.length, "files");',
-    '  var impKey=ids.length===1?"importing_one":"importing_many";',
+    '  var impKey=linkOnlyMode?(ids.length===1?"importing_one_link":"importing_many_links"):(ids.length===1?"importing_one":"importing_many");',
     '  var statusMsg=sub(PI[impKey]||PI.importing_many,{n:ids.length});',
     '  if(skipped>0)statusMsg+=sub(skipped===1?PI.skipped_one:PI.skipped_many,{n:skipped});',
     '  showStatus(statusMsg);',
@@ -708,7 +789,9 @@ function getDrivePickerHtml() {
     '        return;',
     '      }',
     '      var msg=PI.complete+"\\n\\n";',
-    '      msg+=PI.checkmark+" "+sub(PI.addedLine,{n:result.added})+"\\n";',
+    '      if(result.addedInline>0&&result.addedLinkOnly>0){msg+=PI.checkmark+" "+sub(PI.resultMixed,{inline:result.addedInline,linkOnly:result.addedLinkOnly})+"\\n";}',
+    '      else if(result.addedLinkOnly>0&&!result.addedInline){msg+=PI.checkmark+" "+sub(PI.resultLinkOnly,{linkOnly:result.addedLinkOnly})+"\\n";}',
+    '      else{msg+=PI.checkmark+" "+sub(PI.addedLine,{n:result.added})+"\\n";}',
     '      if(result.skipped>0){',
     '        msg+=PI.crossmark+" "+sub(PI.failedLine,{n:result.skipped})+"\\n";',
     '      }',
@@ -2410,6 +2493,7 @@ function getImageList() {
   var images = [];
   var imageCounter = 0;
   var lastHeading2 = '';
+  var lastHeading2Index = -1;
 
   for (var i = 0; i < numChildren; i++) {
     var child = body.getChild(i);
@@ -2417,21 +2501,55 @@ function getImageList() {
     var para = child.asParagraph();
     if (para.getHeading() === DocumentApp.ParagraphHeading.HEADING2) {
       lastHeading2 = para.getText().trim();
+      lastHeading2Index = i;
     }
+    var hasInline = false;
     for (var j = 0; j < para.getNumChildren(); j++) {
       if (para.getChild(j).getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+        hasInline = true;
         imageCounter++;
         images.push({
           index: i,
           label: lastHeading2 || t('sidebar.image_fallback', { n: imageCounter }),
-          hasTranscription: hasTranscriptionBelow(doc, i)
+          hasTranscription: hasTranscriptionBelow(doc, i),
+          kind: 'inline'
         });
         break;
       }
     }
+    if (!hasInline && para.getText().indexOf('Source Image Link') === 0) {
+      var sourceUrl = extractFirstLinkUrl(para);
+      if (sourceUrl) {
+        var nextHasImage = false;
+        for (var ni = i + 1; ni < numChildren && ni <= i + 3; ni++) {
+          var nc = body.getChild(ni);
+          if (nc.getType() !== DocumentApp.ElementType.PARAGRAPH) continue;
+          var np = nc.asParagraph();
+          for (var nj = 0; nj < np.getNumChildren(); nj++) {
+            if (np.getChild(nj).getType() === DocumentApp.ElementType.INLINE_IMAGE) {
+              nextHasImage = true;
+              break;
+            }
+          }
+          if (nextHasImage) break;
+          if (np.getText().trim().length > 0) break;
+        }
+        if (!nextHasImage) {
+          imageCounter++;
+          images.push({
+            index: lastHeading2Index >= 0 ? lastHeading2Index : i,
+            linkParaIndex: i,
+            label: lastHeading2 || t('sidebar.image_fallback', { n: imageCounter }),
+            hasTranscription: hasTranscriptionBelow(doc, i),
+            kind: 'link_only',
+            sourceUrl: sourceUrl
+          });
+        }
+      }
+    }
   }
 
-  Logger.log('getImageList: found ' + images.length + ' images');
+  Logger.log('getImageList: found ' + images.length + ' entries (inline + link-only)');
   return { ok: true, images: images };
 }
 
@@ -2449,21 +2567,23 @@ function getSidebarBootstrap() {
   catch (e) { Logger.log('getSidebarBootstrap: getSelectedTemplateLabelForClient threw ' + (e.message || String(e))); }
   try { result.images = getImageList(); }
   catch (e) { Logger.log('getSidebarBootstrap: getImageList threw ' + (e.message || String(e))); }
+  try { result.linkOnlyImport = getLinkOnlyImportSetting(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getLinkOnlyImportSetting threw ' + (e.message || String(e))); }
   Logger.log('getSidebarBootstrap: done in ' + (Date.now() - startMs) + 'ms');
   return result;
 }
 
 /**
- * Transcribes one inline image identified by its body child index.
- * Phase 3 stub — returns mock success after a short delay.
- * Real implementation will be wired in Phase 4.
+ * Transcribes one image by body child index. Supports both inline images and
+ * link-only entries (entryMeta.kind === 'link_only') that fetch the blob from Drive.
  */
-function transcribeImageByIndex(bodyIndex, expectedLabel) {
-  Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex);
+function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
+  Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex + ' kind=' + (entryMeta && entryMeta.kind || 'inline'));
   var runId = createRunId('tx');
   var operationStartMs = Date.now();
   var operation = 'transcribe_single';
   var entrypoint = 'sidebar';
+  var imageSource = 'inline';
   var apiKey = PropertiesService.getUserProperties().getProperty(API_KEY_PROPERTY);
   var doc = DocumentApp.getActiveDocument();
   var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
@@ -2485,34 +2605,71 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     status: 'start',
     runId: runId,
     docIdHash: docIdHash,
-    bodyIndex: bodyIndex
+    bodyIndex: bodyIndex,
+    imageSource: (entryMeta && entryMeta.kind === 'link_only') ? 'drive_url' : 'inline'
   });
-  var effectiveBodyIndex = bodyIndex;
-  var hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
-  if (!hit && expectedLabel) {
-    var resolvedIndex = resolveImageBodyIndexByLabel(expectedLabel);
-    if (typeof resolvedIndex === 'number' && !isNaN(resolvedIndex)) {
-      effectiveBodyIndex = resolvedIndex;
-      hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
-    }
-  }
-  if (!hit) {
-    logObsEvent('transcribe_image_error', {
-      operation: operation,
-      entrypoint: entrypoint,
-      status: 'error',
-      runId: runId,
-      docIdHash: docIdHash,
-      bodyIndex: bodyIndex,
-      errorCode: 'DOC_IMAGE_NOT_FOUND',
-      errorMessage: 'No image found at provided body index'
-    });
-    return { ok: false, message: t('msg.no_image_refresh', { index: bodyIndex }) };
-  }
 
-  var blob = hit.inlineImage.getBlob();
-  var mimeType = blob.getContentType() || 'image/png';
-  if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+  var blob, mimeType, hit;
+  var effectiveBodyIndex = bodyIndex;
+
+  if (entryMeta && entryMeta.kind === 'link_only') {
+    imageSource = 'drive_url';
+    var fileId = extractFileIdFromUrl(entryMeta.sourceUrl);
+    if (!fileId) {
+      logObsEvent('transcribe_image_error', {
+        operation: operation, entrypoint: entrypoint, status: 'error',
+        runId: runId, docIdHash: docIdHash, bodyIndex: bodyIndex,
+        imageSource: imageSource,
+        errorCode: 'LINK_ONLY_BAD_URL',
+        errorMessage: 'Cannot extract file ID from source URL'
+      });
+      return { ok: false, message: 'Cannot extract file ID from source URL' };
+    }
+    try {
+      var driveFile = getDriveFileById_(fileId);
+      blob = driveFile.getBlob();
+      mimeType = blob.getContentType() || 'image/png';
+      if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+    } catch (driveErr) {
+      logObsEvent('transcribe_image_error', {
+        operation: operation, entrypoint: entrypoint, status: 'error',
+        runId: runId, docIdHash: docIdHash, bodyIndex: bodyIndex,
+        imageSource: imageSource,
+        errorCode: 'LINK_ONLY_DRIVE_ACCESS',
+        errorMessage: sanitizeErrorMessage(driveErr.message || String(driveErr))
+      });
+      return { ok: false, message: t('msg.request_failed', { detail: driveErr.message || String(driveErr) }) };
+    }
+    var body = doc.getBody();
+    var linkIdx = entryMeta.linkParaIndex || bodyIndex;
+    hit = { container: body.getChild(Math.min(linkIdx, body.getNumChildren() - 1)) };
+  } else {
+    hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+    if (!hit && expectedLabel) {
+      var resolvedIndex = resolveImageBodyIndexByLabel(expectedLabel);
+      if (typeof resolvedIndex === 'number' && !isNaN(resolvedIndex)) {
+        effectiveBodyIndex = resolvedIndex;
+        hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+      }
+    }
+    if (!hit) {
+      logObsEvent('transcribe_image_error', {
+        operation: operation,
+        entrypoint: entrypoint,
+        status: 'error',
+        runId: runId,
+        docIdHash: docIdHash,
+        bodyIndex: bodyIndex,
+        imageSource: imageSource,
+        errorCode: 'DOC_IMAGE_NOT_FOUND',
+        errorMessage: 'No image found at provided body index'
+      });
+      return { ok: false, message: t('msg.no_image_refresh', { index: bodyIndex }) };
+    }
+    blob = hit.inlineImage.getBlob();
+    mimeType = blob.getContentType() || 'image/png';
+    if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+  }
 
   var context = getContextFromDocument(doc);
   var prompt = buildPrompt(context);
@@ -2543,7 +2700,8 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       retryCount: e.retryCount || 0,
       retryBudgetExceeded: !!e.retryBudgetExceeded,
       errorCode: tbiCode,
-      errorMessage: sanitizeErrorMessage(e.message || String(e))
+      errorMessage: sanitizeErrorMessage(e.message || String(e)),
+      imageSource: imageSource
     });
     return { ok: false, errorCode: tbiCode, message: t('msg.api_error', { detail: e.message || String(e) }) };
   }
@@ -2557,6 +2715,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       runId: runId,
       docIdHash: docIdHash,
       bodyIndex: effectiveBodyIndex,
+      imageSource: imageSource,
       errorCode: 'API_EMPTY_CANDIDATES',
       errorMessage: 'The API returned no text'
     });
@@ -2580,7 +2739,8 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
       apiLatencyMs: geminiResult.apiLatencyMs,
       latencyMs: Date.now() - operationStartMs,
       errorCode: insertClassified,
-      errorMessage: sanitizeErrorMessage(insertErr.message || String(insertErr))
+      errorMessage: sanitizeErrorMessage(insertErr.message || String(insertErr)),
+      imageSource: imageSource
     });
     var clientErrorCode = (insertClassified === 'DOC_FULL' || insertClassified === 'DOC_INACCESSIBLE') ? insertClassified : 'DOC_INSERT_FAILED';
     return { ok: false, errorCode: clientErrorCode, message: t('msg.request_failed', { detail: insertErr.message || String(insertErr) }) };
@@ -2606,7 +2766,8 @@ function transcribeImageByIndex(bodyIndex, expectedLabel) {
     apiLatencyMs: geminiResult.apiLatencyMs,
     apiLatencySec: geminiResult.apiLatencyMs ? Number((geminiResult.apiLatencyMs / 1000).toFixed(3)) : null,
     latencyMs: Date.now() - operationStartMs,
-    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3))
+    latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3)),
+    imageSource: imageSource
   });
   return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex };
 }
@@ -2704,6 +2865,8 @@ function getSidebarHtml() {
     '.image-list{max-height:40vh;overflow-y:auto;border:1px solid #e0e0e0;border-radius:4px}',
     '.image-row{display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid #f0f0f0}',
     '.image-row:last-child{border-bottom:none}',
+    '.image-row.link-only{opacity:0.7}',
+    '.image-row.link-only label{font-style:italic}',
     '.image-row label{flex:1;font-size:12px;margin-left:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.image-row .status{font-size:11px;margin-left:4px;flex-shrink:0}',
     '.st-done{color:#2e7d32}.st-fail{color:#c62828}.st-warn{color:#e65100}.st-active{color:#1a73e8}',
@@ -2742,10 +2905,15 @@ function getSidebarHtml() {
     '<div id="errorBanner" class="banner banner-error" style="display:none"></div>',
 
     '<div class="section">',
-    '  <button id="importBtn" type="button" data-testid="geneascript-import" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="doImport()">&#8681; ', t('sidebar.btn_import'), '</button>',
-    '  <button id="setupBtn" type="button" data-testid="geneascript-setup-ai" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()">&#9881; ', t('sidebar.btn_setup'), '</button>',
-    '  <button id="extractBtnSidebar" type="button" data-testid="geneascript-extract" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="extractContextFromSelected()" disabled>&#9998; ', t('sidebar.btn_extract'), '</button>',
-    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()">&#128218; <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
+    '  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">',
+    '    <button id="importBtn" type="button" data-testid="geneascript-import" class="btn btn-primary" style="flex:1" onclick="doImport()" title="', t('sidebar.btn_import_tooltip'), '">&#8681; ', t('sidebar.btn_import'), '</button>',
+    '    <label style="display:flex;align-items:center;gap:3px;font-size:11px;white-space:nowrap;cursor:pointer;padding:4px 6px;border:1px solid #ddd;border-radius:4px;background:#fafafa" title="', t('sidebar.link_only_tooltip'), '">',
+    '      <input type="checkbox" id="linkOnlyCb" onchange="saveLinkOnly(this.checked)"> &#128279;',
+    '    </label>',
+    '  </div>',
+    '  <button id="setupBtn" type="button" data-testid="geneascript-setup-ai" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="setupKey()" title="', t('sidebar.btn_setup_tooltip'), '">&#9881; ', t('sidebar.btn_setup'), '</button>',
+    '  <button id="extractBtnSidebar" type="button" data-testid="geneascript-extract" class="btn btn-primary" style="width:100%;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="extractContextFromSelected()" disabled title="', t('sidebar.btn_extract_tooltip'), '">&#9998; ', t('sidebar.btn_extract_short'), '</button>',
+    '  <button id="templateGalleryBtn" type="button" data-testid="geneascript-template-gallery" class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="openTemplateGallery()" title="', t('sidebar.btn_template_tooltip'), '">&#128218; <span id="templateLabel" style="color:#1a73e8;font-weight:bold">', t('sidebar.loading'), '</span></button>',
     '</div>',
 
     '<div class="section">',
@@ -2763,7 +2931,7 @@ function getSidebarHtml() {
     '</div>',
 
     '<div class="section">',
-    '  <button id="goBtn" type="button" data-testid="geneascript-transcribe" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled>&#9654; ', t('sidebar.transcribe'), '</button>',
+    '  <button id="goBtn" type="button" data-testid="geneascript-transcribe" class="btn btn-primary" style="width:100%;margin-bottom:6px" onclick="transcribeSelected()" disabled title="', t('sidebar.btn_transcribe_tooltip'), '">&#9654; ', t('sidebar.transcribe'), '</button>',
     '  <button id="stopBtn" type="button" data-testid="geneascript-stop" class="btn btn-danger" style="width:100%;display:none" onclick="stopBatch()">&#9632; ', t('sidebar.stop'), '</button>',
     '</div>',
 
@@ -2791,7 +2959,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.4.7</div>',
+    '<div class="footer">v1.5.0</div>',
 
     '<script>',
     'var SI=', siJson, ';',
@@ -2821,6 +2989,7 @@ function getSidebarHtml() {
     '  google.script.run',
     '    .withSuccessHandler(function(boot){',
     '      if(boot&&!boot.hasApiKey)document.getElementById("keyBanner").style.display="block";',
+    '      if(boot&&boot.linkOnlyImport)document.getElementById("linkOnlyCb").checked=true;',
     '      document.getElementById("templateLabel").textContent=(boot&&boot.templateLabel)||SI.tplNone;',
     '      var r=boot&&boot.images;',
     '      if(r&&r.ok){',
@@ -2836,6 +3005,8 @@ function getSidebarHtml() {
     '    })',
     '    .getSidebarBootstrap();',
     '}',
+
+    'function saveLinkOnly(val){google.script.run.setLinkOnlyImportSetting(val);}',
 
     'function refreshImages(){',
     '  var prev={};',
@@ -2876,8 +3047,12 @@ function getSidebarHtml() {
     '    else if(m._s==="warn")st=\'<span class="status st-warn" title="\'+esc(SI.truncTitle)+\'">\\u26A0</span>\';',
     '    else if(m._s==="active")st=\'<span class="status st-active">\\u231B</span>\';',
     '    else if(m.hasTranscription)st=\'<span class="status st-done" title="\'+esc(SI.doneTitle)+\'">\\u2713</span>\';',
-    '    h+=\'<div class="image-row"><input type="checkbox" class="ic" data-i="\'+i+\'" onchange="updBtn()"\'+',
-    '      (running?" disabled":"")+\'><label>\'+esc(m.label)+\'</label>\'+st+\'</div>\';',
+    '    var isLink=m.kind==="link_only";',
+    '    var rowCls="image-row"+(isLink?" link-only":"");',
+    '    var icon=isLink?"\\uD83D\\uDD17 ":"";',
+    '    var tip=isLink?" title=\\""+esc(SI.linkOnlyTip)+"\\"":"";',
+    '    h+=\'<div class="\'+rowCls+\'"\'+tip+\'><input type="checkbox" class="ic" data-i="\'+i+\'" onchange="updBtn()"\'+',
+    '      (running?" disabled":"")+\'><label>\'+icon+esc(m.label)+\'</label>\'+st+\'</div>\';',
     '  }',
     '  c.innerHTML=h;',
     '  updBtn();',
@@ -2895,7 +3070,8 @@ function getSidebarHtml() {
     '  b.disabled=n===0||!hasKey||running;',
     '  b.textContent=n>1?("\\u25B6 "+sub(SI.transcribeN,{n:String(n)})):("\\u25B6 "+SI.transcribe);',
     '  var e=el("extractBtnSidebar");',
-    '  e.disabled=n!==1||!hasKey||running;',
+    '  var selIsLinkOnly=n===1&&imgs[checked()[0]]&&imgs[checked()[0]].kind==="link_only";',
+    '  e.disabled=n!==1||!hasKey||running||selIsLinkOnly;',
     '}',
 
     'function toggleAll(v){',
@@ -2986,7 +3162,7 @@ function getSidebarHtml() {
     '        m._s="fail";m._e=e.message||String(e);m._c=null;fail++;',
     '        renderList();next(ti+1);',
     '      })',
-    '      .transcribeImageByIndex(task.bi+shift, m.label);',
+    '      .transcribeImageByIndex(task.bi+shift, m.label, m.kind==="link_only"?{kind:"link_only",sourceUrl:m.sourceUrl,linkParaIndex:(m.linkParaIndex||0)+shift}:null);',
     '  }',
     '  next(0);',
     '}',

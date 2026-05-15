@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPEC-16 Sidebar Mockup — Before / After</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600&display=swap');
+
+  :root {
+    --ink: #1c1917;
+    --ink-muted: #78716c;
+    --parchment: #faf7f2;
+    --parchment-dark: #f0ead6;
+    --accent: #1a73e8;
+    --accent-hover: #1557b0;
+    --accent-disabled: #94c2f8;
+    --warn-bg: #fffde7;
+    --warn-border: #fff9c4;
+    --warn-text: #6d4c00;
+    --border: #e0e0e0;
+    --link-only-bg: rgba(26,115,232,0.04);
+    --done: #2e7d32;
+    --fail: #c62828;
+    --sidebar-w: 340px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #e8e0d4;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(26,115,232,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(180,160,130,0.1) 0%, transparent 50%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 64px;
+    color: var(--ink);
+  }
+
+  h1 {
+    font-family: 'EB Garamond', serif;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+    color: var(--ink);
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--ink-muted);
+    margin-bottom: 28px;
+    text-align: center;
+  }
+
+  /* ─── Toggle ─── */
+  .toggle-bar {
+    display: flex;
+    gap: 0;
+    background: #d6cfc3;
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 28px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .toggle-bar button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    padding: 7px 22px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--ink-muted);
+    transition: all 0.2s;
+  }
+  .toggle-bar button.active {
+    background: var(--parchment);
+    color: var(--ink);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+
+  /* ─── Comparison container ─── */
+  .comparison {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .panel-label {
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Sidebar frame (mimics Google Docs sidebar) ─── */
+  .sidebar-frame {
+    width: var(--sidebar-w);
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+    transition: transform 0.3s ease;
+  }
+  .sidebar-frame:hover { transform: translateY(-2px); }
+
+  /* ─── Sidebar internals (matching real styles) ─── */
+  .sb {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 13px;
+    color: #333;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+  }
+  .sb .section { margin-bottom: 14px; }
+  .sb .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .sb .section-title { font-weight: bold; font-size: 13px; }
+  .sb .btn { padding: 6px 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; font-family: Georgia, "Times New Roman", serif; }
+  .sb .btn:hover { background: #f5f5f5; }
+  .sb .btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+  .sb .btn-primary:hover { background: #1557b0; }
+  .sb .btn-primary:disabled { background: #94c2f8; border-color: #94c2f8; cursor: default; }
+  .sb .btn-sm { padding: 3px 8px; font-size: 11px; }
+  .sb .image-list { max-height: 40vh; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; }
+  .sb .image-row { display: flex; align-items: center; padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
+  .sb .image-row:last-child { border-bottom: none; }
+  .sb .image-row label { flex: 1; font-size: 12px; margin-left: 6px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sb .image-row .status { font-size: 11px; margin-left: 4px; flex-shrink: 0; }
+  .sb .st-done { color: #2e7d32; }
+  .sb .st-warn { color: #e65100; }
+  .sb .select-all { display: flex; align-items: center; padding: 4px 0; margin-bottom: 4px; font-size: 12px; }
+  .sb .select-all label { margin-left: 6px; cursor: pointer; }
+  .sb .banner { padding: 8px; border-radius: 4px; font-size: 12px; margin-bottom: 12px; }
+  .sb .action-link { display: block; padding: 4px 0; font-size: 12px; color: #1a73e8; text-decoration: none; cursor: pointer; }
+  .sb .action-link:hover { text-decoration: underline; }
+  .sb .footer { margin-top: auto; padding-top: 10px; font-size: 11px; color: #999; text-align: center; }
+
+  /* ─── NEW: link-only row styling ─── */
+  .sb .image-row.link-only { opacity: 0.7; }
+  .sb .image-row.link-only label { font-style: italic; }
+  .sb .link-icon { font-size: 10px; margin-right: 2px; }
+
+  /* ─── NEW: import row flex layout ─── */
+  .sb .import-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .sb .import-row .btn { flex: 1; margin-bottom: 0; }
+  .sb .link-only-toggle {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    white-space: nowrap;
+    cursor: pointer;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fafafa;
+    transition: background 0.15s, border-color 0.15s;
+    user-select: none;
+  }
+  .sb .link-only-toggle:hover {
+    background: #f0f0f0;
+    border-color: #bbb;
+  }
+  .sb .link-only-toggle input { margin: 0; }
+
+  /* ─── Tooltip styling ─── */
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 6px);
+    background: #333;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-style: normal;
+    padding: 5px 9px;
+    border-radius: 4px;
+    white-space: normal;
+    max-width: 220px;
+    line-height: 1.35;
+    z-index: 10;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    animation: tipFade 0.15s ease;
+  }
+  [data-tip]:hover::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 2px);
+    border: 4px solid transparent;
+    border-top-color: #333;
+    z-index: 10;
+    pointer-events: none;
+    animation: tipFade 0.15s ease;
+  }
+  @keyframes tipFade { from { opacity: 0; transform: translateX(-50%) translateY(3px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+  /* ─── Change callouts ─── */
+  .callout {
+    position: relative;
+    outline: 2px dashed rgba(220,60,40,0.45);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .callout-tag {
+    position: absolute;
+    top: -9px;
+    right: 4px;
+    background: #dc3828;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    z-index: 5;
+  }
+
+  /* ─── State badges (view selector) ─── */
+  .state-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .state-tab {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 14px;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--ink-muted);
+  }
+  .state-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .state-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ─── Legend ─── */
+  .legend {
+    margin-top: 28px;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    max-width: 620px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink-muted);
+  }
+  .legend h3 {
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .legend code {
+    font-size: 11px;
+    background: #f0ead6;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+  .legend ul { padding-left: 18px; }
+  .legend li { margin-bottom: 2px; }
+  .legend .tag-sample {
+    display: inline-block;
+    background: #dc3828;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-right: 2px;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<h1>SPEC-16 — Sidebar UI Changes</h1>
+<p class="subtitle">Hybrid inline + link-only import &middot; GeneaScript Transcriber</p>
+
+<!-- View selector -->
+<div class="state-tabs">
+  <button class="state-tab active" onclick="showState('default')">Default (mixed)</button>
+  <button class="state-tab" onclick="showState('linkonly')">Link-Only Mode</button>
+  <button class="state-tab" onclick="showState('batch')">Batch in Progress</button>
+</div>
+
+<div class="comparison">
+
+<!-- ═══ BEFORE ═══ -->
+<div class="panel">
+  <div class="panel-label">Current (v1.4.7)</div>
+  <div class="sidebar-frame">
+    <div class="sb">
+
+      <div class="banner" style="background:#fffde7;border:1px solid #fff9c4;color:#6d4c00;font-size:11px;line-height:1.4">
+        AI transcription provides a best-guess result and may not be accurate. Always review and cross-check output against the original image.
+      </div>
+
+      <div class="section">
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px">⬇ Import from Drive Files</button>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px">⚙ Setup AI</button>
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px">✏ Extract Context from Selected Image</button>
+        <button class="btn" style="width:100%;margin-bottom:6px;text-align:left">📚 <span style="color:#1a73e8;font-weight:bold">Galician Greek Catholic (19th c.)</span></button>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">Images (29)</span>
+          <button class="btn btn-sm">↻ Refresh</button>
+        </div>
+        <div class="select-all">
+          <input type="checkbox"> <label>Select All</label>
+        </div>
+        <div class="image-list" id="before-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="section">
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px">▶ Transcribe Selected</button>
+      </div>
+
+      <div style="font-size:12px">
+        <a class="action-link" href="#">Help / User Guide ↗</a>
+        <a class="action-link" href="#">Report an issue ↗</a>
+      </div>
+
+      <div class="footer">v1.4.7</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AFTER ═══ -->
+<div class="panel">
+  <div class="panel-label">After (SPEC-16)</div>
+  <div class="sidebar-frame">
+    <div class="sb">
+
+      <div class="banner" style="background:#fffde7;border:1px solid #fff9c4;color:#6d4c00;font-size:11px;line-height:1.4">
+        AI transcription provides a best-guess result and may not be accurate. Always review and cross-check output against the original image.
+      </div>
+
+      <div class="section">
+        <!-- CHANGE 1: Import row with link-only checkbox -->
+        <div class="callout import-row">
+          <span class="callout-tag">new</span>
+          <button class="btn btn-primary" style="flex:1"
+                  data-tip="Import images from Google Drive into this document">⬇ Import from Drive Files</button>
+          <label class="link-only-toggle" id="linkOnlyLabel"
+                 data-tip="Link-only import — no embedded images. Faster, smaller document. Supports up to 500 files.">
+            <input type="checkbox" id="linkOnlyCb" onchange="toggleLinkOnlyDemo(this.checked)"> 🔗
+          </label>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px"
+                data-tip="Configure Gemini API key, model, and transcription settings">⚙ Setup AI</button>
+
+        <!-- CHANGE 2: Renamed button + tooltip -->
+        <div class="callout" style="margin-bottom:6px">
+          <span class="callout-tag">renamed</span>
+          <button class="btn btn-primary" style="width:100%"
+                  data-tip="Extract metadata from a cover page image into the Context section">✏ Cover → Context</button>
+        </div>
+
+        <button class="btn" style="width:100%;margin-bottom:6px;text-align:left"
+                data-tip="Select a transcription template for this document">📚 <span style="color:#1a73e8;font-weight:bold">Galician Greek Catholic (19th c.)</span></button>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">Images (<span id="afterImgCount">29</span>)</span>
+          <button class="btn btn-sm"
+                  data-tip="Refresh the image list from the document">↻ Refresh</button>
+        </div>
+        <div class="select-all">
+          <input type="checkbox"> <label>Select All</label>
+        </div>
+        <div class="image-list" id="after-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="section">
+        <button class="btn btn-primary" style="width:100%;margin-bottom:6px"
+                data-tip="Transcribe checked images using AI (Gemini)">▶ Transcribe Selected</button>
+
+        <!-- batch progress (hidden by default) -->
+        <div id="batchProgress" class="hidden" style="background:#e3f2fd;border-radius:4px;padding:8px;font-size:12px;margin-top:6px">
+          <div>Transcribing 3 of 8…</div>
+          <div style="height:4px;background:#e0e0e0;border-radius:2px;margin:6px 0">
+            <div style="height:100%;width:37%;background:#1a73e8;border-radius:2px;transition:width 0.3s"></div>
+          </div>
+          <div style="font-size:11px;color:#666">119651514_00003 &middot; Elapsed: 1m 24s &middot; ~2m 30s left</div>
+        </div>
+      </div>
+
+      <div style="font-size:12px">
+        <a class="action-link" href="#">Help / User Guide ↗</a>
+        <a class="action-link" href="#">Report an issue ↗</a>
+      </div>
+
+      <div class="footer">v1.5.0</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /comparison -->
+
+<!-- Legend -->
+<div class="legend">
+  <h3>Changes Summary</h3>
+  <ul>
+    <li><span class="tag-sample">NEW</span> <strong>Import row:</strong> button shrinks to flex, 🔗 checkbox on right. Persists per document via <code>LINK_ONLY_IMPORT</code> Document Property.</li>
+    <li><span class="tag-sample">RENAMED</span> <strong>"Extract Context from Selected Image"</strong> → <strong>"Cover → Context"</strong> — shorter label, same <code>data-testid</code>.</li>
+    <li><strong>Tooltips</strong> on every button (hover to see). Compensates for shorter labels.</li>
+    <li><strong>Link-only image rows:</strong> 🔗 icon, dimmed (<code>opacity:0.7</code>), italic label, tooltip "No embedded preview — transcribed from Drive link".</li>
+    <li>Use the <strong>state tabs</strong> above to preview Link-Only mode (all entries dimmed) and Batch in Progress.</li>
+  </ul>
+</div>
+
+<script>
+// Image data
+var images = [
+  { name: '119651514_00001', kind: 'inline', done: false },
+  { name: '119651514_00123', kind: 'inline', done: true },
+  { name: '119651514_00124', kind: 'inline', done: true },
+  { name: '119651514_00125', kind: 'inline', done: false },
+  { name: '119651514_00126', kind: 'link_only', done: true },
+  { name: '119651514_00127', kind: 'inline', done: false },
+  { name: '119651514_00128', kind: 'link_only', done: true },
+  { name: '119651514_00129', kind: 'inline', done: false },
+  { name: '119651514_00130', kind: 'inline', done: true },
+  { name: '119651514_00131', kind: 'link_only', done: false },
+  { name: '119651514_00132', kind: 'inline', done: false },
+  { name: '119651514_00133', kind: 'inline', done: false },
+  { name: '119651514_00134', kind: 'inline', done: true },
+];
+
+function renderBefore() {
+  var el = document.getElementById('before-list');
+  el.innerHTML = images.map(function(img) {
+    var st = img.done ? '<span class="status st-done">✓</span>' : '';
+    return '<div class="image-row">' +
+      '<input type="checkbox">' +
+      '<label>' + img.name + '</label>' +
+      st +
+      '</div>';
+  }).join('');
+}
+
+function renderAfter(allLinkOnly) {
+  var el = document.getElementById('after-list');
+  el.innerHTML = images.map(function(img) {
+    var isLink = allLinkOnly || img.kind === 'link_only';
+    var cls = isLink ? ' link-only' : '';
+    var icon = isLink ? '<span class="link-icon">🔗</span>' : '';
+    var tip = isLink ? ' data-tip="No embedded preview — transcribed from Drive link"' : '';
+    var st = img.done ? '<span class="status st-done">✓</span>' : '';
+    return '<div class="image-row' + cls + '"' + tip + '>' +
+      '<input type="checkbox">' +
+      '<label>' + icon + img.name + '</label>' +
+      st +
+      '</div>';
+  }).join('');
+}
+
+function toggleLinkOnlyDemo(checked) {
+  renderAfter(checked);
+}
+
+function showState(state) {
+  // Update tabs
+  document.querySelectorAll('.state-tab').forEach(function(t) { t.classList.remove('active'); });
+  event.target.classList.add('active');
+
+  var cb = document.getElementById('linkOnlyCb');
+  var progress = document.getElementById('batchProgress');
+
+  if (state === 'default') {
+    cb.checked = false;
+    progress.classList.add('hidden');
+    renderAfter(false);
+  } else if (state === 'linkonly') {
+    cb.checked = true;
+    progress.classList.add('hidden');
+    renderAfter(true);
+  } else if (state === 'batch') {
+    cb.checked = false;
+    progress.classList.remove('hidden');
+    renderAfter(false);
+  }
+}
+
+// Initial render
+renderBefore();
+renderAfter(false);
+</script>
+
+</body>
+</html>
