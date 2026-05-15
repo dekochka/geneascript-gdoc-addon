@@ -858,7 +858,7 @@ function transcribeSelectedImage() {
 function getModelOptions() {
   return [
     { id: 'gemini-flash-latest', label: t('model.gemini_flash_latest') },
-    { id: 'gemini-3.1-flash-lite-preview', label: t('model.gemini_31_flash_lite') },
+    { id: 'gemini-3.1-flash-lite', label: t('model.gemini_31_flash_lite') },
     { id: 'gemini-3.1-pro-preview', label: t('model.gemini_31_pro') }
   ];
 }
@@ -2959,7 +2959,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.5.0</div>',
+    '<div class="footer">v1.5.1</div>',
 
     '<script>',
     'var SI=', siJson, ';',

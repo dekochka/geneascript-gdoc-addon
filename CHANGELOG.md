@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.1] — 2026-05-16
+
+### 🔄 Changed
+
+- **Gemini 3.1 Flash Lite model ID updated from preview to GA.** `gemini-3.1-flash-lite-preview` → `gemini-3.1-flash-lite`. Google is discontinuing the preview model on May 25, 2026. No prompt or logic changes needed — identical model architecture.
+
 ## [1.5.0] — 2026-05-16
 
 Hybrid inline + link-only import — fixes the long-standing issue where `DocumentApp.appendImage()` silently rejects valid images (100% failure above 2 MB, 12–19% below) that Gemini transcribes fine. Users no longer lose files on import. Closes [#30](https://github.com/dekochka/geneascript-gdoc-addon/issues/30).
