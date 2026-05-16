@@ -25,6 +25,7 @@ var LINK_ONLY_IMPORT_PROPERTY = 'LINK_ONLY_IMPORT';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
+var ADDON_VERSION = 'v1.6.0';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -2415,16 +2416,57 @@ function insertFormattedText(body, startIndex, text) {
 // Card Service — homepage card for the right-side panel icon
 // ---------------------------------------------------------------------------
 
-function buildHomepageCard() {
-  var action = CardService.newAction().setFunctionName('openSidebarFromCard');
-  var button = CardService.newTextButton()
-    .setText(t('card.button'))
-    .setOnClickAction(action);
-  var section = CardService.newCardSection()
-    .addWidget(CardService.newTextParagraph().setText(t('card.blurb')))
-    .addWidget(button);
+function buildHomepageCard(e) {
+  var locale = getLocaleForOpenEvent(e);
+
+  var openAction = CardService.newAction().setFunctionName('openSidebarFromCard');
+  var ctaButton = CardService.newTextButton()
+    .setText(t('card.button', null, e))
+    .setOnClickAction(openAction)
+    .setTextButtonStyle(CardService.TextButtonStyle.FILLED);
+  var ctaSection = CardService.newCardSection()
+    .addWidget(CardService.newButtonSet().addButton(ctaButton));
+
+  var steps = '';
+  for (var i = 1; i <= 8; i++) {
+    steps += t('card.step.' + i, null, e);
+    if (i < 8) steps += '\n';
+  }
+  var howSection = CardService.newCardSection()
+    .setHeader(t('card.how_it_works', null, e))
+    .addWidget(CardService.newTextParagraph().setText(steps));
+
+  var guideUrl = 'https://geneascript.com/' + locale + '/USER_GUIDE.html';
+  var guideBtn = CardService.newTextButton()
+    .setText(t('card.link.guide', null, e))
+    .setOpenLink(CardService.newOpenLink().setUrl(guideUrl));
+  var ytBtn = CardService.newTextButton()
+    .setText(t('card.link.youtube', null, e))
+    .setOpenLink(CardService.newOpenLink().setUrl('https://www.youtube.com/@GeneaMetricBooksTranscriber'));
+  var tgBtn = CardService.newTextButton()
+    .setText(t('card.link.telegram', null, e))
+    .setOpenLink(CardService.newOpenLink().setUrl('https://t.me/geneascript'));
+  var emailBtn = CardService.newTextButton()
+    .setText(t('card.link.email', null, e))
+    .setOpenLink(CardService.newOpenLink().setUrl('mailto:geneascript.support@gmail.com'));
+  var resourcesSection = CardService.newCardSection()
+    .setHeader(t('card.resources', null, e))
+    .addWidget(CardService.newButtonSet().addButton(guideBtn).addButton(ytBtn))
+    .addWidget(CardService.newButtonSet().addButton(tgBtn).addButton(emailBtn));
+
+  var footerSection = CardService.newCardSection()
+    .addWidget(CardService.newTextParagraph().setText(ADDON_VERSION));
+
+  var header = CardService.newCardHeader()
+    .setTitle(t('card.title', null, e))
+    .setSubtitle(t('card.blurb', null, e));
+
   return CardService.newCardBuilder()
-    .addSection(section)
+    .setHeader(header)
+    .addSection(ctaSection)
+    .addSection(howSection)
+    .addSection(resourcesSection)
+    .addSection(footerSection)
     .build();
 }
 
@@ -2959,7 +3001,7 @@ function getSidebarHtml() {
     '  </div>',
     '</div>',
 
-    '<div class="footer">v1.5.1</div>',
+    '<div class="footer">' + ADDON_VERSION + '</div>',
 
     '<script>',
     'var SI=', siJson, ';',

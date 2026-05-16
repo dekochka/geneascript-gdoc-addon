@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.0] — 2026-05-17
+
+### ✨ Added
+
+- **Enriched homepage card.** The add-on panel card now shows a branded header with title/subtitle, an 8-step "How it works" workflow guide, locale-aware resource links (User Guide, YouTube, Telegram, Email Support), and a version footer — instead of just a plain "Open sidebar" button.
+- **ADDON_VERSION constant.** Single source of truth for version string used by both the homepage card and sidebar footer. No more hardcoded version in HTML.
+- **Locale-aware workflow infographic images** for EN/UK/RU (hosted on geneascript.com, available for future use in the card).
+
+### 🔄 Changed
+
+- **"Open GeneaScript sidebar" → "Open GeneaScript"** (EN card button label). UK/RU were already concise.
+- **Shortened resource link labels** for UK ("Посібник") and RU ("Руководство") to fit the 2×2 button grid layout.
+
 ## [1.5.1] — 2026-05-16
 
 ### 🔄 Changed
