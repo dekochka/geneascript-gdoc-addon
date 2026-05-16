@@ -309,4 +309,4 @@ Why: external messages are public, often hard to edit cleanly, and reach real us
 - **Model changes:** Update constants in `Code.gs` (MODEL_ID, etc.) and model list in setup dialog
 - **New scopes:** Update `addon/appsscript.json` + review privacy/Marketplace implications
 - **New metrics:** Add to `observability/scripts/apply.sh` + update dashboard JSON
-- **Docs updates:** Keep `docs/en/USER_GUIDE.md` and `docs/en/INSTALLATION.md` in sync with UI/behavior changes (and localized site pages when applicable)
+- **Docs updates:** Keep `docs/en/USER_GUIDE.md` and `docs/en/INSTALLATION.md` in sync with UI/behavior changes. **Always update all 3 locales** (`docs/en/`, `docs/uk/`, `docs/ru/`) in the same commit — don't update EN alone
