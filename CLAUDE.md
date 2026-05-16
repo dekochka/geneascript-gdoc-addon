@@ -182,7 +182,7 @@ Follow `.cursor/rules/release-change-management.mdc`:
 - Never tag or version without explicit confirmation
 - Keep tag naming consistent (semver with optional suffix)
 - Never skip git hooks or amend published commits
-- **Always update the sidebar footer version** in `addon/Code.gs` (search for `<div class="footer">v`) when bumping the version — this is easily missed
+- **Always update `ADDON_VERSION`** in `addon/Code.gs` (line ~28) when bumping the version — this constant drives both the homepage card footer and the sidebar footer. Search for `var ADDON_VERSION`
 
 ## GitHub Projects Integration
 
