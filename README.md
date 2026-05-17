@@ -22,10 +22,6 @@ More videos on the [YouTube channel](https://www.youtube.com/@GeneaMetricBooksTr
 
 ![Template Gallery dialog showing available templates](docs/app-screenshots/v1.0-gallery-template.jpg)
 
-**Usage Stats panel (opt-in via Setup AI):**
-
-![Usage Stats sidebar section showing token counts and estimated cost](docs/app-screenshots/v1.6.1-en-UsageStats-section-feature.jpg)
-
 ## 📊 Overview
 
 ```mermaid
