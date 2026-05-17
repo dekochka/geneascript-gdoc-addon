@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Setup AI — Height Test</title>
+<style>
+  body { margin: 0; padding: 24px; background: #e8eaed; font-family: system-ui; display: flex; gap: 32px; justify-content: center; align-items: flex-start; }
+  .mock-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px; text-align: center; }
+  .dialog-frame {
+    width: 520px; background: #fff; border: 1px solid #dadce0;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  }
+  /* Simulate the 560px Google Docs modal: titlebar ~0px (embedded), body = 560px */
+  .dialog-body-constrained {
+    height: 560px; overflow: hidden; position: relative;
+    font-family: Arial, sans-serif; font-size: 13px; color: #333; padding: 14px;
+    box-sizing: border-box;
+  }
+  .dialog-body-constrained.show-overflow { overflow: auto; }
+  .cutoff-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    border-top: 2px dashed #c62828; background: rgba(198,40,40,0.05);
+    padding: 2px 8px; font-size: 10px; color: #c62828; text-align: center;
+  }
+  label.field { display: block; margin-bottom: 3px; font-weight: bold; }
+  select, input[type="text"], input[type="number"] {
+    width: 100%; padding: 5px; box-sizing: border-box; font-size: 13px; margin-bottom: 8px;
+    border: 1px solid #dadce0; border-radius: 4px;
+  }
+  .hint { margin: 0 0 6px; font-size: 12px; color: #555; line-height: 1.3; }
+  .hint-small { margin: 4px 0 0; font-size: 11px; color: #5f6368; line-height: 1.3; }
+  .behavior-card { border: 1px solid #DADCE0; border-radius: 8px; padding: 10px; margin: 6px 0 8px; }
+  .card-title { margin: 0 0 6px; font-size: 12px; font-weight: bold; color: #3C4043; }
+  .behavior-row { display: grid; grid-template-columns: 42% 58%; gap: 8px; align-items: start; margin-bottom: 6px; }
+  .behavior-row .hint-right { margin: 19px 0 0; font-size: 11px; color: #5f6368; line-height: 1.25; }
+  .save-btn { padding: 8px 16px; font-size: 13px; cursor: pointer; border: 0; border-radius: 4px; color: #fff; background: #1A73E8; }
+  .stats-toggle-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 10px 0 4px; padding: 8px 10px;
+    background: #f8f9fa; border: 1px solid #e8eaed; border-radius: 6px;
+  }
+  .stats-toggle-row input[type="checkbox"] { margin: 2px 0 0; flex-shrink: 0; width: auto; }
+  .stats-toggle-row .toggle-content { flex: 1; }
+  .stats-toggle-row .toggle-label { font-size: 13px; font-weight: bold; color: #202124; cursor: pointer; }
+  .stats-toggle-row .toggle-hint { font-size: 11px; color: #5f6368; line-height: 1.3; margin-top: 2px; }
+
+  /* Compact variant */
+  .stats-toggle-compact {
+    display: flex; align-items: center; gap: 8px;
+    margin: 8px 0 4px;
+  }
+  .stats-toggle-compact input[type="checkbox"] { margin: 0; flex-shrink: 0; width: auto; }
+  .stats-toggle-compact label { font-size: 12px; color: #5f6368; cursor: pointer; }
+
+  #heightA, #heightB, #heightC { display: inline-block; font-weight: bold; color: #1a73e8; }
+</style>
+</head>
+<body>
+
+<!-- COLUMN A: Current (no toggle) -->
+<div>
+  <div class="mock-label">Current — no toggle (height: <span id="heightA">?</span>px)</div>
+  <div class="dialog-frame">
+    <div class="dialog-body-constrained" id="dialogA">
+      <p style="margin:0 0 6px; font-size:13px; line-height:1.35;">Configure your Gemini API key, model, and transcription settings. All settings are private to your Google account.</p>
+
+      <label class="field">Language</label>
+      <select><option selected>Auto-detect</option><option>English</option><option>Українська</option><option>Русский</option></select>
+
+      <p class="hint">See <a href="#">Gemini API pricing</a> for token costs per model.</p>
+
+      <label class="field">Model</label>
+      <select><option selected>gemini-2.5-flash</option></select>
+
+      <div class="behavior-card">
+        <p class="card-title">Request behavior</p>
+        <div class="behavior-row">
+          <div><label class="field">Strictness (temperature)</label><input type="number" value="0.2"></div>
+          <p class="hint-right">Lower = more faithful to the source. Higher = more creative.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Max output tokens</label><input type="number" value="8192"></div>
+          <p class="hint-right">Maximum length of the transcription output.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Reasoning mode</label><select><option selected>Auto</option><option>Minimal</option></select></div>
+          <p class="hint-right">Controls model thinking depth.</p>
+        </div>
+      </div>
+
+      <label class="field">API key</label>
+      <input type="text" placeholder="(unchanged — enter new key to replace)">
+      <p class="hint-small">Your key is stored privately. <a href="#">Get API key</a></p>
+
+      <div id="statusA" style="color:#C62828; margin-top:5px; font-size:12px;"></div>
+      <p style="margin:6px 0 0; font-size:12px;"><a href="#">Clear saved API key</a></p>
+
+      <div style="text-align:right; margin-top:8px;"><button class="save-btn">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- COLUMN B: With card toggle (original proposal) -->
+<div>
+  <div class="mock-label">+ Card toggle (height: <span id="heightB">?</span>px)</div>
+  <div class="dialog-frame">
+    <div class="dialog-body-constrained" id="dialogB">
+      <p style="margin:0 0 6px; font-size:13px; line-height:1.35;">Configure your Gemini API key, model, and transcription settings. All settings are private to your Google account.</p>
+
+      <label class="field">Language</label>
+      <select><option selected>Auto-detect</option></select>
+
+      <p class="hint">See <a href="#">Gemini API pricing</a> for token costs per model.</p>
+
+      <label class="field">Model</label>
+      <select><option selected>gemini-2.5-flash</option></select>
+
+      <div class="behavior-card">
+        <p class="card-title">Request behavior</p>
+        <div class="behavior-row">
+          <div><label class="field">Strictness (temperature)</label><input type="number" value="0.2"></div>
+          <p class="hint-right">Lower = more faithful to the source. Higher = more creative.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Max output tokens</label><input type="number" value="8192"></div>
+          <p class="hint-right">Maximum length of the transcription output.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Reasoning mode</label><select><option selected>Auto</option></select></div>
+          <p class="hint-right">Controls model thinking depth.</p>
+        </div>
+      </div>
+
+      <label class="field">API key</label>
+      <input type="text" placeholder="(unchanged — enter new key to replace)">
+      <p class="hint-small">Your key is stored privately. <a href="#">Get API key</a></p>
+
+      <!-- Card toggle -->
+      <div class="stats-toggle-row">
+        <input type="checkbox" id="statsToggleB">
+        <div class="toggle-content">
+          <label class="toggle-label" for="statsToggleB">Show Usage Stats in sidebar</label>
+          <div class="toggle-hint">Display token counts and estimated cost per session.</div>
+        </div>
+      </div>
+
+      <div id="statusB" style="color:#C62828; margin-top:5px; font-size:12px;"></div>
+      <p style="margin:6px 0 0; font-size:12px;"><a href="#">Clear saved API key</a></p>
+
+      <div style="text-align:right; margin-top:8px;"><button class="save-btn">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- COLUMN C: Compact inline checkbox -->
+<div>
+  <div class="mock-label">+ Compact checkbox (height: <span id="heightC">?</span>px)</div>
+  <div class="dialog-frame">
+    <div class="dialog-body-constrained" id="dialogC">
+      <p style="margin:0 0 6px; font-size:13px; line-height:1.35;">Configure your Gemini API key, model, and transcription settings. All settings are private to your Google account.</p>
+
+      <label class="field">Language</label>
+      <select><option selected>Auto-detect</option></select>
+
+      <p class="hint">See <a href="#">Gemini API pricing</a> for token costs per model.</p>
+
+      <label class="field">Model</label>
+      <select><option selected>gemini-2.5-flash</option></select>
+
+      <div class="behavior-card">
+        <p class="card-title">Request behavior</p>
+        <div class="behavior-row">
+          <div><label class="field">Strictness (temperature)</label><input type="number" value="0.2"></div>
+          <p class="hint-right">Lower = more faithful to the source. Higher = more creative.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Max output tokens</label><input type="number" value="8192"></div>
+          <p class="hint-right">Maximum length of the transcription output.</p>
+        </div>
+        <div class="behavior-row">
+          <div><label class="field">Reasoning mode</label><select><option selected>Auto</option></select></div>
+          <p class="hint-right">Controls model thinking depth.</p>
+        </div>
+      </div>
+
+      <label class="field">API key</label>
+      <input type="text" placeholder="(unchanged — enter new key to replace)">
+      <p class="hint-small">Your key is stored privately. <a href="#">Get API key</a></p>
+
+      <div id="statusC" style="color:#C62828; margin-top:5px; font-size:12px;"></div>
+      <p style="margin:6px 0 0; font-size:12px;"><a href="#">Clear saved API key</a></p>
+
+      <!-- Compact inline checkbox — same line as "Clear saved API key" area -->
+      <div class="stats-toggle-compact">
+        <input type="checkbox" id="statsToggleC">
+        <label for="statsToggleC">Show Usage Stats in sidebar</label>
+      </div>
+
+      <div style="text-align:right; margin-top:8px;"><button class="save-btn">Save</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function measure() {
+    ['A','B','C'].forEach(function(id) {
+      var el = document.getElementById('dialog' + id);
+      var inner = el.scrollHeight;
+      document.getElementById('height' + id).textContent = inner;
+      // If content overflows 560px, show red indicator
+      if (inner > 560) {
+        el.style.outline = '2px solid #c62828';
+      } else {
+        el.style.outline = '2px solid #2e7d32';
+      }
+    });
+  }
+  measure();
+</script>
+</body>
+</html>

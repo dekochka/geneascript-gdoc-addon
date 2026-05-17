@@ -22,10 +22,11 @@ var MAX_CONTEXT_PARAGRAPHS = 50;
 var MAX_IMPORT_IMAGES = 50;
 var MAX_IMPORT_IMAGES_LINK_ONLY = 500;
 var LINK_ONLY_IMPORT_PROPERTY = 'LINK_ONLY_IMPORT';
+var SHOW_USAGE_STATS_PROPERTY = 'SHOW_USAGE_STATS';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
-var ADDON_VERSION = 'v1.6.0';
+var ADDON_VERSION = 'v1.6.1';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -1048,6 +1049,7 @@ function showApiKeyDialog(forUpdate) {
   var vcJson = stringifyForHtmlScript(getSetupClientValidationI18n());
   var authEsc = getAuthRequiredMessage().replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '');
   var clearConfirmEsc = t('setup.clear_confirm').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+  var statsEnabled = getUsageStatsEnabled();
   var storedUi = (getUiLocaleRaw() || '').trim().toLowerCase();
   var selAuto = !storedUi || (storedUi !== 'en' && storedUi !== 'uk' && storedUi !== 'ru');
   var selEn = storedUi === 'en';
@@ -1107,6 +1109,7 @@ function showApiKeyDialog(forUpdate) {
     '<p style="margin:4px 0 0; font-size:11px; color:#5f6368; line-height:1.3;">' + t('setup.key_hint') + '</p>' +
     '<div id="status" style="color:#C62828; margin-top:5px; font-size:12px;"></div>' +
     (forUpdate ? '<p style="margin:6px 0 0; font-size:12px;"><a href="#" onclick="if(confirm(\'' + clearConfirmEsc + '\')){ google.script.run.withSuccessHandler(function(){ google.script.host.close(); }).clearApiKey(); } return false;">' + t('setup.clear_link') + '</a></p>' : '') +
+    '<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px"><input type="checkbox" id="showStats"' + (statsEnabled ? ' checked' : '') + ' style="margin:0;flex-shrink:0;width:auto"><label for="showStats" style="font-size:12px;color:#5f6368;cursor:pointer">' + t('setup.show_stats') + '</label></div>' +
     '<div style="text-align:right; margin-top:8px;">' +
     '<button id="saveBtn" onclick="save()" style="padding:8px 16px; font-size:13px; cursor:pointer; border:0; border-radius:4px; color:#fff; background:#1A73E8;">' + btnLabel + '</button></div>' +
     '<script>' +
@@ -1123,6 +1126,7 @@ function showApiKeyDialog(forUpdate) {
       'var key=document.getElementById("apiKey").value;' +
       'var modelId=document.getElementById("model").value;' +
       'var uiLoc=document.getElementById("uiLocale").value;' +
+      'var statsOn=document.getElementById("showStats").checked;' +
       'var cfg=validateConfig();' +
       'if(!forUpdate&&(!key||!key.trim())){document.getElementById("status").innerText="' + t('setup.enter_key').replace(/"/g, '\\"') + '";return;}' +
       'if(!cfg.ok){document.getElementById("status").innerText=cfg.message;return;}' +
@@ -1136,6 +1140,7 @@ function showApiKeyDialog(forUpdate) {
         '})' +
         '.withFailureHandler(function(err){ document.getElementById("status").innerText=err.message||String(err); document.getElementById("saveBtn").disabled=false; })' +
         '.saveApiKeyAndModel(key, modelId, cfg.value, uiLoc);' +
+      'google.script.run.setUsageStatsEnabled(statsOn);' +
     '}' +
     'function esc(s){ if(!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }' +
     'var AUTH_MSG="' + authEsc + '";' +
@@ -1152,7 +1157,7 @@ function showApiKeyDialog(forUpdate) {
     '}' +
     'populateFromState();' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(560), dialogTitle);
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(600), dialogTitle);
 }
 
 /** Opens Setup AI dialog from the Extension menu (key optional, save and close). */
@@ -2249,11 +2254,14 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   var candidate = json.candidates[0];
   var finishReason = candidate.finishReason || 'UNKNOWN';
   var usage = json.usageMetadata || {};
+  var promptDetails = usage.promptTokensDetails || {};
   Logger.log('callGemini: finishReason=' + finishReason +
     ', promptTokens=' + (usage.promptTokenCount || '?') +
     ', candidatesTokens=' + (usage.candidatesTokenCount || '?') +
     ', totalTokens=' + (usage.totalTokenCount || '?') +
-    ', thoughtsTokens=' + (usage.thoughtsTokenCount || '?'));
+    ', thoughtsTokens=' + (usage.thoughtsTokenCount || '?') +
+    ', promptTextTokens=' + (promptDetails.textTokenCount || '?') +
+    ', promptImageTokens=' + (promptDetails.imageTokenCount || '?'));
 
   if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
     Logger.log('callGemini: empty content in candidate');
@@ -2284,6 +2292,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   var outputTokens = usage.candidatesTokenCount || null;
   var totalTokens = usage.totalTokenCount || null;
   var thoughtTokens = usage.thoughtsTokenCount || null;
+  var promptTextTokens = promptDetails.textTokenCount || null;
+  var promptImageTokens = promptDetails.imageTokenCount || null;
   var estimatedCostUsd = estimateGeminiCostUsd(modelId, promptTokens, outputTokens);
   var imageKBytes = Number((imageBytes / 1024).toFixed(3));
   logObsEvent('transcribe_image_api_done', {
@@ -2295,6 +2305,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     model: modelId,
     finishReason: finishReason,
     promptTokens: promptTokens,
+    promptTextTokens: promptTextTokens,
+    promptImageTokens: promptImageTokens,
     outputTokens: outputTokens,
     totalTokens: totalTokens,
     thoughtTokens: thoughtTokens,
@@ -2302,8 +2314,7 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     pricingVersion: GEMINI_PRICING_VERSION,
     imageBytes: imageBytes,
     imageKBytes: imageKBytes,
-    apiLatencyMs: Date.now() - apiStartMs
-    ,
+    apiLatencyMs: Date.now() - apiStartMs,
     apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
   });
   return {
@@ -2311,6 +2322,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     finishReason: finishReason,
     model: modelId,
     promptTokens: promptTokens,
+    promptTextTokens: promptTextTokens,
+    promptImageTokens: promptImageTokens,
     outputTokens: outputTokens,
     totalTokens: totalTokens,
     thoughtTokens: thoughtTokens,
@@ -2318,8 +2331,7 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     pricingVersion: GEMINI_PRICING_VERSION,
     imageBytes: imageBytes,
     imageKBytes: imageKBytes,
-    apiLatencyMs: Date.now() - apiStartMs
-    ,
+    apiLatencyMs: Date.now() - apiStartMs,
     apiLatencySec: Number(((Date.now() - apiStartMs) / 1000).toFixed(3))
   };
 }
@@ -2611,8 +2623,56 @@ function getSidebarBootstrap() {
   catch (e) { Logger.log('getSidebarBootstrap: getImageList threw ' + (e.message || String(e))); }
   try { result.linkOnlyImport = getLinkOnlyImportSetting(); }
   catch (e) { Logger.log('getSidebarBootstrap: getLinkOnlyImportSetting threw ' + (e.message || String(e))); }
+  try { result.modelId = getStoredModel(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getStoredModel threw ' + (e.message || String(e))); result.modelId = ''; }
+  try { result.usageStats = getDocUsageStats(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getDocUsageStats threw ' + (e.message || String(e))); }
+  try { result.showUsageStats = getUsageStatsEnabled(); }
+  catch (e) { Logger.log('getSidebarBootstrap: getUsageStatsEnabled threw ' + (e.message || String(e))); result.showUsageStats = false; }
   Logger.log('getSidebarBootstrap: done in ' + (Date.now() - startMs) + 'ms');
   return result;
+}
+
+function getDocUsageStatsKey_() {
+  var doc = DocumentApp.getActiveDocument();
+  var docId = doc && doc.getId ? doc.getId() : null;
+  if (!docId) return null;
+  var hash = hashId(docId);
+  return 'USAGE_STATS_' + hash;
+}
+
+function getDocUsageStats() {
+  var key = getDocUsageStatsKey_();
+  if (!key) return null;
+  var raw = PropertiesService.getUserProperties().getProperty(key);
+  if (!raw) return null;
+  try { return JSON.parse(raw); }
+  catch (e) { return null; }
+}
+
+function saveDocUsageStats(statsJson) {
+  var key = getDocUsageStatsKey_();
+  if (!key) return;
+  PropertiesService.getUserProperties().setProperty(key, JSON.stringify(statsJson));
+}
+
+function clearDocUsageStats() {
+  var key = getDocUsageStatsKey_();
+  if (!key) return;
+  PropertiesService.getUserProperties().deleteProperty(key);
+}
+
+function getUsageStatsEnabled() {
+  return PropertiesService.getUserProperties().getProperty(SHOW_USAGE_STATS_PROPERTY) === 'true';
+}
+
+function setUsageStatsEnabled(enabled) {
+  var props = PropertiesService.getUserProperties();
+  if (enabled) {
+    props.setProperty(SHOW_USAGE_STATS_PROPERTY, 'true');
+  } else {
+    props.deleteProperty(SHOW_USAGE_STATS_PROPERTY);
+  }
 }
 
 /**
@@ -2811,7 +2871,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
     latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3)),
     imageSource: imageSource
   });
-  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex };
+  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex, promptTokens: geminiResult.promptTokens || 0, promptTextTokens: geminiResult.promptTextTokens || 0, promptImageTokens: geminiResult.promptImageTokens || 0, outputTokens: geminiResult.outputTokens || 0, totalTokens: geminiResult.totalTokens || 0, thoughtTokens: geminiResult.thoughtTokens || 0, estimatedCostUsd: geminiResult.estimatedCostUsd || 0 };
 }
 
 function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
@@ -2959,16 +3019,21 @@ function getSidebarHtml() {
     '</div>',
 
     '<div class="section">',
-    '  <div class="section-header">',
+    '  <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 0;border-radius:4px;user-select:none" onclick="toggleImages()">',
     '    <span class="section-title">', t('sidebar.section_images'), ' (<span id="imgCount">0</span>)</span>',
-    '    <button id="refreshImgBtn" type="button" data-testid="geneascript-refresh" class="btn btn-sm" onclick="refreshImages()" title="', t('sidebar.refresh_title'), '">&#8635; ', t('sidebar.refresh_button'), '</button>',
+    '    <span style="display:flex;align-items:center;gap:6px">',
+    '      <button id="refreshImgBtn" type="button" data-testid="geneascript-refresh" class="btn btn-sm" onclick="event.stopPropagation();refreshImages()" title="', t('sidebar.refresh_title'), '">&#8635; ', t('sidebar.refresh_button'), '</button>',
+    '      <span id="imagesToggle" style="font-size:10px;color:#999;display:inline-block;transition:transform 0.2s ease;transform:rotate(90deg)">&#9654;</span>',
+    '    </span>',
     '  </div>',
-    '  <div class="select-all">',
-    '    <input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">',
-    '    <label for="selAll">', t('sidebar.select_all'), '</label>',
-    '  </div>',
-    '  <div id="imgList" class="image-list">',
-    '    <div class="empty-state">', t('sidebar.loading'), '</div>',
+    '  <div id="imagesBody">',
+    '    <div class="select-all">',
+    '      <input type="checkbox" id="selAll" onchange="toggleAll(this.checked)">',
+    '      <label for="selAll">', t('sidebar.select_all'), '</label>',
+    '    </div>',
+    '    <div id="imgList" class="image-list">',
+    '      <div class="empty-state">', t('sidebar.loading'), '</div>',
+    '    </div>',
     '  </div>',
     '</div>',
 
@@ -2984,6 +3049,47 @@ function getSidebarHtml() {
     '  <div id="progTime" style="font-size:11px;color:#666;margin-top:2px"></div>',
     '</div>',
 
+    '<div id="statsSection" class="section" style="display:none">',
+    '  <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 0;border-radius:4px;user-select:none" onclick="toggleStats()">',
+    '    <span class="section-title">&#128202; ', t('sidebar.stats_title'), '</span>',
+    '    <span id="statsToggle" style="font-size:10px;color:#999;display:inline-block;transition:transform 0.2s ease">&#9654;</span>',
+    '  </div>',
+    '  <div id="statsBody" style="display:none;background:#f8f9fa;border:1px solid #e0e0e0;border-radius:4px;padding:8px 10px;font-size:11px;margin-top:4px;line-height:1.7;color:#555">',
+    '    <div id="statsModel" style="font-size:10px;color:#888;margin-bottom:4px;padding-bottom:4px;border-bottom:1px dashed #e0e0e0"></div>',
+    '    <div style="font-size:10px;font-weight:bold;color:#888;margin-bottom:2px">', t('sidebar.stats_session'), '</div>',
+    '    <div id="sImages" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '    <div id="sInput" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '    <div id="sInputText" style="display:none;justify-content:space-between;padding-left:10px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '    <div id="sInputImage" style="display:none;justify-content:space-between;padding-left:10px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '    <div id="sOutput" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '    <div id="sThinking" style="display:none;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '    <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">',
+    '    <div id="sTotal" style="display:flex;justify-content:space-between;font-weight:bold"><span style="color:#333"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '    <div id="sCost" style="display:flex;justify-content:space-between;margin-top:2px;font-weight:bold"><span style="color:#333"></span><span style="color:#2e7d32"></span></div>',
+    '    <div id="sAvg" style="display:none;justify-content:space-between;margin-top:2px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '    <div id="lastRunSection" style="display:none;margin-top:6px;padding-top:5px;border-top:1px dashed #e0e0e0">',
+    '      <div style="font-size:10px;font-weight:bold;color:#888;margin-bottom:2px">', t('sidebar.stats_last_run'), '</div>',
+    '      <div id="lrImages" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '      <div id="lrInput" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '      <div id="lrInputText" style="display:none;justify-content:space-between;padding-left:10px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '      <div id="lrInputImage" style="display:none;justify-content:space-between;padding-left:10px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '      <div id="lrOutput" style="display:flex;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '      <div id="lrThinking" style="display:none;justify-content:space-between"><span style="color:#666"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '      <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">',
+    '      <div id="lrTotal" style="display:flex;justify-content:space-between;font-weight:bold"><span style="color:#333"></span><span style="font-variant-numeric:tabular-nums;color:#333"></span></div>',
+    '      <div id="lrCost" style="display:flex;justify-content:space-between;margin-top:2px;font-weight:bold"><span style="color:#333"></span><span style="color:#2e7d32"></span></div>',
+    '      <div id="lrAvg" style="display:none;justify-content:space-between;margin-top:2px;font-size:10px;color:#888"><span></span><span style="font-variant-numeric:tabular-nums"></span></div>',
+    '    </div>',
+    '    <div style="margin-top:6px;padding-top:5px;border-top:1px dashed #e0e0e0;display:flex;justify-content:space-between;align-items:center;font-size:10px">',
+    '      <div style="display:flex;gap:10px">',
+    '        <a href="https://ai.google.dev/pricing" target="_blank" style="color:#1a73e8;text-decoration:none">', t('sidebar.stats_rates'), ' &#8599;</a>',
+    '        <a href="https://aistudio.google.com/spend" target="_blank" style="color:#1a73e8;text-decoration:none">', t('sidebar.stats_spend'), ' &#8599;</a>',
+    '      </div>',
+    '      <a href="#" onclick="resetStats();return false" style="color:#999;text-decoration:none;font-size:10px" title="', t('sidebar.stats_reset_title'), '">', t('sidebar.stats_reset'), '</a>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+
     '<div class="section" style="font-size:12px">',
     '  <a class="action-link" href="' + helpUrl + '" target="_blank">', t('menu.help'), ' &#8599;</a>',
     '  <a class="action-link" href="' + issueUrl + '" target="_blank">', t('menu.report_issue'), ' &#8599;</a>',
@@ -2991,9 +3097,9 @@ function getSidebarHtml() {
 
     '<div id="confirmModal" class="modal-overlay" style="display:none">',
     '  <div class="modal">',
-    '    <div class="modal-title">', t('sidebar.modal_title'), '</div>',
+    '    <div class="modal-title" id="confirmTitle">', t('sidebar.modal_title'), '</div>',
     '    <div id="confirmBody"></div>',
-    '    <div class="modal-note">', t('sidebar.modal_note'), '</div>',
+    '    <div class="modal-note" id="confirmNote">', t('sidebar.modal_note'), '</div>',
     '    <div class="modal-actions">',
     '      <button class="btn" id="confirmNo">', t('sidebar.cancel'), '</button>',
     '      <button class="btn btn-primary" id="confirmYes">', t('sidebar.continue'), '</button>',
@@ -3007,6 +3113,10 @@ function getSidebarHtml() {
     'var SI=', siJson, ';',
     'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}',
     'var imgs=[],stopReq=false,running=false;',
+    'var statsOpen=false,imagesOpen=true;',
+    'var session={input:0,inputText:0,inputImage:0,output:0,thinking:0,total:0,cost:0,images:0,model:""};',
+    'var lastRun={input:0,inputText:0,inputImage:0,output:0,thinking:0,total:0,cost:0,images:0};',
+    'var runBuf={input:0,inputText:0,inputImage:0,output:0,thinking:0,total:0,cost:0,images:0};',
 
     'var lastImageCount=0;',
     'var tplPollId=null;',
@@ -3033,6 +3143,10 @@ function getSidebarHtml() {
     '      if(boot&&!boot.hasApiKey)document.getElementById("keyBanner").style.display="block";',
     '      if(boot&&boot.linkOnlyImport)document.getElementById("linkOnlyCb").checked=true;',
     '      document.getElementById("templateLabel").textContent=(boot&&boot.templateLabel)||SI.tplNone;',
+    '      if(boot&&boot.modelId)session.model=boot.modelId;',
+    '      if(boot&&boot.showUsageStats){el("statsSection").style.display="block";}else{el("statsSection").style.display="none";}',
+    '      if(boot&&boot.usageStats){var us=boot.usageStats;session.input=us.input||0;session.inputText=us.inputText||0;session.inputImage=us.inputImage||0;session.output=us.output||0;session.thinking=us.thinking||0;session.total=us.total||0;session.cost=us.cost||0;session.images=us.images||0;}',
+    '      initStatsUi();',
     '      var r=boot&&boot.images;',
     '      if(r&&r.ok){',
     '        imgs=r.images||[];',
@@ -3150,6 +3264,7 @@ function getSidebarHtml() {
     '  running=true;stopReq=false;',
     '  var total=tasks.length,done=0,fail=0,shift=0;',
     '  var avgSec=0;',
+    '  runBuf={input:0,output:0,thinking:0,total:0,cost:0,images:0};',
     '  _start=Date.now();',
     '  el("goBtn").disabled=true;',
     '  el("stopBtn").style.display="block";',
@@ -3188,6 +3303,10 @@ function getSidebarHtml() {
     '        if(r&&r.ok){',
     '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
     '          shift+=(r.insertedCount||0);',
+    '          var pt=r.promptTokens||0,ptt=r.promptTextTokens||0,pit=r.promptImageTokens||0,ot=r.outputTokens||0,tt=r.thoughtTokens||0,tl=r.totalTokens||0,cu=r.estimatedCostUsd||0;',
+    '          session.input+=pt;session.inputText+=ptt;session.inputImage+=pit;session.output+=ot;session.thinking+=tt;session.total+=tl;session.cost+=cu;session.images++;',
+    '          runBuf.input+=pt;runBuf.inputText+=ptt;runBuf.inputImage+=pit;runBuf.output+=ot;runBuf.thinking+=tt;runBuf.total+=tl;runBuf.cost+=cu;runBuf.images++;',
+    '          updateStatsUi();',
     '        }else{m._s="fail";m._e=(r&&r.message)||SI.unknownError;m._c=(r&&r.errorCode)||null;fail++;maybeShowBanner(m._c);}',
     '        renderList();',
     '        if(m._c==="DOC_FULL"){',
@@ -3239,6 +3358,8 @@ function getSidebarHtml() {
     '}',
 
     'function finish(done,fail,stopped){',
+    '  lastRun={input:runBuf.input,inputText:runBuf.inputText,inputImage:runBuf.inputImage,output:runBuf.output,thinking:runBuf.thinking,total:runBuf.total,cost:runBuf.cost,images:runBuf.images};',
+    '  updateStatsUi();',
     '  running=false;',
     '  el("stopBtn").style.display="none";',
     '  el("stopBtn").disabled=false;',
@@ -3262,7 +3383,7 @@ function getSidebarHtml() {
     '  el("selAll").disabled=v;',
     '}',
 
-    'var keyPollId=null;',
+    'var keyPollId=null,statsPollId=null;',
     'function setupKey(){',
     '  google.script.run.showSetupApiKeyAndModelDialog();',
     '  if(keyPollId)clearInterval(keyPollId);',
@@ -3272,11 +3393,81 @@ function getSidebarHtml() {
     '    }).withFailureHandler(function(){}).hasApiKey();',
     '  },2000);',
     '  setTimeout(function(){if(keyPollId){clearInterval(keyPollId);keyPollId=null;}},120000);',
+    '  if(statsPollId)clearInterval(statsPollId);',
+    '  statsPollId=setInterval(function(){',
+    '    google.script.run.withSuccessHandler(function(on){',
+    '      el("statsSection").style.display=on?"block":"none";',
+    '    }).withFailureHandler(function(){}).getUsageStatsEnabled();',
+    '  },2000);',
+    '  setTimeout(function(){if(statsPollId){clearInterval(statsPollId);statsPollId=null;}},120000);',
     '}',
     'function doImport(){google.script.run.withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; }).showDrivePickerDialog();}',
     'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent=SI.extractNeedOne; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||SI.extractOpenFail; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
+
+    'function toggleImages(){',
+    '  imagesOpen=!imagesOpen;',
+    '  el("imagesBody").style.display=imagesOpen?"block":"none";',
+    '  el("imagesToggle").style.transform=imagesOpen?"rotate(90deg)":"";',
+    '}',
+
+    'function toggleStats(){',
+    '  statsOpen=!statsOpen;',
+    '  el("statsBody").style.display=statsOpen?"block":"none";',
+    '  el("statsToggle").style.transform=statsOpen?"rotate(90deg)":"";',
+    '}',
+
+    'function fmtNum(n){return Number(n).toLocaleString();}',
+
+    'function fillRow(prefix,label,val){var r=el(prefix);r.children[0].textContent=label;r.children[1].textContent=fmtNum(val);}',
+
+    'function fillSection(prefix,s){',
+    '  fillRow(prefix+"Images",SI.statsImages,s.images);',
+    '  fillRow(prefix+"Input",SI.statsInput,s.input);',
+    '  if(s.inputText>0||s.inputImage>0){var it=el(prefix+"InputText");it.style.display="flex";it.children[0].textContent=SI.statsInputText;it.children[1].textContent=fmtNum(s.inputText);var ii=el(prefix+"InputImage");ii.style.display="flex";ii.children[0].textContent=SI.statsInputImage;ii.children[1].textContent=fmtNum(s.inputImage);}',
+    '  else{el(prefix+"InputText").style.display="none";el(prefix+"InputImage").style.display="none";}',
+    '  fillRow(prefix+"Output",SI.statsOutput,s.output);',
+    '  if(s.thinking>0){el(prefix+"Thinking").style.display="flex";fillRow(prefix+"Thinking",SI.statsThinking,s.thinking);}',
+    '  else{el(prefix+"Thinking").style.display="none";}',
+    '  fillRow(prefix+"Total",SI.statsTotal,s.total);',
+    '  var c=el(prefix+"Cost");c.children[0].textContent=SI.statsCost;c.children[1].textContent="$"+s.cost.toFixed(6);',
+    '  var avg=el(prefix+"Avg");if(avg){if(s.images>0){avg.style.display="flex";avg.children[0].textContent=SI.statsAvgImage;avg.children[1].textContent="~"+fmtNum(Math.round(s.total/s.images))+" / $"+(s.cost/s.images).toFixed(6);}else{avg.style.display="none";}}',
+    '}',
+
+    'function initStatsUi(){',
+    '  el("statsModel").textContent=session.model;',
+    '  fillSection("s",session);',
+    '}',
+
+    'function persistStats(){',
+    '  google.script.run.saveDocUsageStats({input:session.input,inputText:session.inputText,inputImage:session.inputImage,output:session.output,thinking:session.thinking,total:session.total,cost:session.cost,images:session.images});',
+    '}',
+
+    'function updateStatsUi(){',
+    '  el("statsModel").textContent=session.model;',
+    '  fillSection("s",session);',
+    '  if(lastRun.images>0){el("lastRunSection").style.display="block";fillSection("lr",lastRun);}',
+    '  persistStats();',
+    '}',
+
+    'function resetStats(){',
+    '  var origTitle=el("confirmTitle").textContent,origNote=el("confirmNote").textContent;',
+    '  el("confirmTitle").textContent=SI.statsResetConfirm;',
+    '  el("confirmBody").innerHTML="";',
+    '  el("confirmNote").style.display="none";',
+    '  el("confirmModal").style.display="flex";',
+    '  el("confirmYes").onclick=function(){',
+    '    el("confirmModal").style.display="none";el("confirmTitle").textContent=origTitle;el("confirmNote").textContent=origNote;el("confirmNote").style.display="";',
+    '    session.input=0;session.inputText=0;session.inputImage=0;session.output=0;session.thinking=0;session.total=0;session.cost=0;session.images=0;',
+    '    lastRun={input:0,inputText:0,inputImage:0,output:0,thinking:0,total:0,cost:0,images:0};',
+    '    runBuf={input:0,inputText:0,inputImage:0,output:0,thinking:0,total:0,cost:0,images:0};',
+    '    el("lastRunSection").style.display="none";',
+    '    fillSection("s",session);',
+    '    google.script.run.clearDocUsageStats();',
+    '  };',
+    '  el("confirmNo").onclick=function(){el("confirmModal").style.display="none";el("confirmTitle").textContent=origTitle;el("confirmNote").textContent=origNote;el("confirmNote").style.display="";};',
+    '}',
 
     'init();',
     '</script>',
