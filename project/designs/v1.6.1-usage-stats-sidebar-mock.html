@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>v1.6.1 Usage Stats — Sidebar Mock</title>
+<style>
+  /* Page layout — two panels side by side */
+  body { margin: 0; padding: 24px; background: #e8eaed; font-family: system-ui; display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .mock-label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 8px; text-align: center; letter-spacing: 0.5px; }
+
+  /* ========== Sidebar chrome (mimics Google Docs sidebar) ========== */
+  .sidebar-frame {
+    width: 300px; background: #fff; border: 1px solid #dadce0;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .sidebar {
+    padding: 12px; font-family: Georgia, "Times New Roman", serif;
+    font-size: 13px; color: #333;
+    display: flex; flex-direction: column;
+  }
+
+  /* ========== Existing sidebar styles (copied from addon) ========== */
+  .section { margin-bottom: 14px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .section-title { font-weight: bold; font-size: 13px; }
+  .btn { padding: 6px 12px; font-size: 12px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer; font-family: Georgia, "Times New Roman", serif; }
+  .btn:hover { background: #f5f5f5; }
+  .btn-primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: #94c2f8; border-color: #94c2f8; cursor: default; }
+  .btn-danger { color: #c62828; border-color: #c62828; }
+  .btn-sm { padding: 3px 8px; font-size: 11px; }
+  .progress { background: #e3f2fd; border-radius: 4px; padding: 8px; font-size: 12px; }
+  .bar { height: 4px; background: #e0e0e0; border-radius: 2px; margin: 6px 0; }
+  .bar-fill { height: 100%; background: #1a73e8; border-radius: 2px; }
+  .action-link { display: block; padding: 4px 0; font-size: 12px; color: #1a73e8; text-decoration: none; cursor: pointer; font-family: Georgia, "Times New Roman", serif; }
+  .action-link:hover { text-decoration: underline; }
+  .footer { margin-top: auto; padding-top: 10px; font-size: 11px; color: #999; text-align: center; }
+
+  /* ========== NEW: Usage Stats section ========== */
+  .stats-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; padding: 2px 0; border-radius: 4px;
+    user-select: none;
+  }
+  .stats-header:hover { background: #f5f5f5; }
+  .stats-toggle { font-size: 10px; color: #999; transition: transform 0.2s ease; display: inline-block; }
+  .stats-toggle.open { transform: rotate(90deg); }
+
+  .stats-body {
+    background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 4px;
+    padding: 8px 10px; font-size: 11px; margin-top: 4px;
+    line-height: 1.7; color: #555;
+    overflow: hidden; transition: max-height 0.25s ease, opacity 0.2s ease;
+  }
+  .stats-body.collapsed { max-height: 0; padding: 0 10px; border-color: transparent; opacity: 0; margin-top: 0; }
+  .stats-body.expanded { max-height: 240px; opacity: 1; }
+
+  .stats-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .stats-label { color: #666; }
+  .stats-value { font-variant-numeric: tabular-nums; color: #333; }
+  .stats-divider { border: none; border-top: 1px solid #e0e0e0; margin: 4px 0; }
+  .stats-total .stats-label, .stats-total .stats-value { font-weight: bold; color: #333; }
+  .stats-cost .stats-value { color: #2e7d32; font-weight: bold; }
+  .stats-model { font-size: 10px; color: #888; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px dashed #e0e0e0; }
+  .stats-links { margin-top: 6px; padding-top: 5px; border-top: 1px dashed #e0e0e0; display: flex; gap: 10px; font-size: 10px; }
+  .stats-links a { color: #1a73e8; text-decoration: none; font-family: Georgia, "Times New Roman", serif; }
+  .stats-links a:hover { text-decoration: underline; }
+
+  /* Placeholder elements for context */
+  .placeholder { background: #f5f5f5; border: 1px dashed #ccc; border-radius: 4px; padding: 8px; font-size: 11px; color: #999; text-align: center; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<!-- ============ STATE A: Collapsed (default after first transcription completes) ============ -->
+<div>
+  <div class="mock-label">A — Collapsed (default)</div>
+  <div class="sidebar-frame">
+    <div class="sidebar">
+      <!-- ... earlier sections omitted for brevity ... -->
+      <div class="placeholder">▲ Controls · Image List · Transcribe/Stop buttons</div>
+
+      <!-- Progress section (mid-batch) -->
+      <div class="progress section">
+        <div>Transcribing 3 of 5…</div>
+        <div class="bar"><div class="bar-fill" style="width:60%"></div></div>
+        <div style="font-size:11px;color:#555">IMG_0047.jpg</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">Elapsed: 1m 24s · ~58s left</div>
+      </div>
+
+      <!-- ★ NEW: Usage Stats — collapsed -->
+      <div class="section" id="statsA">
+        <div class="stats-header" onclick="toggleA()">
+          <span class="section-title">&#128202; Usage Stats</span>
+          <span class="stats-toggle" id="toggleA">&#9654;</span>
+        </div>
+        <div class="stats-body collapsed" id="bodyA"></div>
+      </div>
+
+      <!-- Help links -->
+      <div class="section" style="font-size:12px">
+        <a class="action-link" href="#">Help / User Guide ↗</a>
+        <a class="action-link" href="#">Report an issue ↗</a>
+      </div>
+
+      <div class="footer">v1.6.1</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STATE B: Expanded (user clicked to open) ============ -->
+<div>
+  <div class="mock-label">B — Expanded (mid-batch, 3 of 5 done)</div>
+  <div class="sidebar-frame">
+    <div class="sidebar">
+      <div class="placeholder">▲ Controls · Image List · Transcribe/Stop buttons</div>
+
+      <!-- Progress section (mid-batch) -->
+      <div class="progress section">
+        <div>Transcribing 4 of 5…</div>
+        <div class="bar"><div class="bar-fill" style="width:80%"></div></div>
+        <div style="font-size:11px;color:#555">IMG_0048.jpg</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">Elapsed: 1m 52s · ~28s left</div>
+      </div>
+
+      <!-- ★ NEW: Usage Stats — expanded -->
+      <div class="section">
+        <div class="stats-header" onclick="toggleB()">
+          <span class="section-title">&#128202; Usage Stats</span>
+          <span class="stats-toggle open" id="toggleB">&#9654;</span>
+        </div>
+        <div class="stats-body expanded" id="bodyB">
+          <div class="stats-model">gemini-2.5-flash</div>
+          <div class="stats-row">
+            <span class="stats-label">Input tokens</span>
+            <span class="stats-value">12,847</span>
+          </div>
+          <div class="stats-row">
+            <span class="stats-label">Output tokens</span>
+            <span class="stats-value">4,231</span>
+          </div>
+          <div class="stats-row">
+            <span class="stats-label">Thinking tokens</span>
+            <span class="stats-value">1,506</span>
+          </div>
+          <hr class="stats-divider">
+          <div class="stats-row stats-total">
+            <span class="stats-label">Total tokens</span>
+            <span class="stats-value">18,584</span>
+          </div>
+          <div class="stats-row stats-cost">
+            <span class="stats-label">Est. cost</span>
+            <span class="stats-value">$0.019241</span>
+          </div>
+          <div class="stats-links">
+            <a href="https://ai.google.dev/pricing" target="_blank">Rates ↗</a>
+            <a href="https://aistudio.google.com/spend" target="_blank">My Spend ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Help links -->
+      <div class="section" style="font-size:12px">
+        <a class="action-link" href="#">Help / User Guide ↗</a>
+        <a class="action-link" href="#">Report an issue ↗</a>
+      </div>
+
+      <div class="footer">v1.6.1</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ STATE C: Batch complete, no thinking tokens ============ -->
+<div>
+  <div class="mock-label">C — Batch complete, no thinking tokens</div>
+  <div class="sidebar-frame">
+    <div class="sidebar">
+      <div class="placeholder">▲ Controls · Image List · Transcribe/Stop buttons</div>
+
+      <!-- Progress section (done) -->
+      <div class="progress section">
+        <div>Done: 5 succeeded in 2m 48s</div>
+        <div class="bar"><div class="bar-fill" style="width:100%"></div></div>
+      </div>
+
+      <!-- ★ NEW: Usage Stats — expanded, flash model, no thinking -->
+      <div class="section">
+        <div class="stats-header" onclick="toggleC()">
+          <span class="section-title">&#128202; Usage Stats</span>
+          <span class="stats-toggle open" id="toggleC">&#9654;</span>
+        </div>
+        <div class="stats-body expanded" id="bodyC">
+          <div class="stats-model">gemini-flash-latest</div>
+          <div class="stats-row">
+            <span class="stats-label">Input tokens</span>
+            <span class="stats-value">21,340</span>
+          </div>
+          <div class="stats-row">
+            <span class="stats-label">Output tokens</span>
+            <span class="stats-value">8,512</span>
+          </div>
+          <!-- Thinking row hidden — flash model has 0 thinking tokens -->
+          <hr class="stats-divider">
+          <div class="stats-row stats-total">
+            <span class="stats-label">Total tokens</span>
+            <span class="stats-value">29,852</span>
+          </div>
+          <div class="stats-row stats-cost">
+            <span class="stats-label">Est. cost</span>
+            <span class="stats-value">$0.036192</span>
+          </div>
+          <div class="stats-links">
+            <a href="https://ai.google.dev/pricing" target="_blank">Rates ↗</a>
+            <a href="https://aistudio.google.com/spend" target="_blank">My Spend ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Help links -->
+      <div class="section" style="font-size:12px">
+        <a class="action-link" href="#">Help / User Guide ↗</a>
+        <a class="action-link" href="#">Report an issue ↗</a>
+      </div>
+
+      <div class="footer">v1.6.1</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggleA() {
+    var body = document.getElementById('bodyA');
+    var icon = document.getElementById('toggleA');
+    if (body.classList.contains('collapsed')) {
+      body.classList.remove('collapsed'); body.classList.add('expanded');
+      body.innerHTML = document.getElementById('bodyB').innerHTML;
+      icon.classList.add('open');
+    } else {
+      body.classList.remove('expanded'); body.classList.add('collapsed');
+      icon.classList.remove('open');
+    }
+  }
+  function toggleB() {
+    var body = document.getElementById('bodyB');
+    var icon = document.getElementById('toggleB');
+    if (body.classList.contains('expanded')) {
+      body.classList.remove('expanded'); body.classList.add('collapsed');
+      icon.classList.remove('open');
+    } else {
+      body.classList.remove('collapsed'); body.classList.add('expanded');
+      icon.classList.add('open');
+    }
+  }
+  function toggleC() {
+    var body = document.getElementById('bodyC');
+    var icon = document.getElementById('toggleC');
+    if (body.classList.contains('expanded')) {
+      body.classList.remove('expanded'); body.classList.add('collapsed');
+      icon.classList.remove('open');
+    } else {
+      body.classList.remove('collapsed'); body.classList.add('expanded');
+      icon.classList.add('open');
+    }
+  }
+</script>
+</body>
+</html>
