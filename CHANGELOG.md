@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.1] — 2026-05-17
+
+### ✨ Added
+
+- **Usage Stats sidebar section.** Opt-in collapsible panel showing document-wide and per-run token usage (input/output/thinking with text/image breakdown), estimated cost, model name, average per image, and external links to Google AI pricing and AI Studio spend dashboard. Stats persist across sidebar reloads via User Properties keyed by document ID hash. Includes styled reset confirmation modal and "Last run" breakdown. Closes [#48](https://github.com/dekochka/geneascript-gdoc-addon/issues/48).
+- **"Show Usage Stats in sidebar" toggle in Setup AI.** Compact checkbox at the bottom of the dialog (OFF by default). Persisted as `SHOW_USAGE_STATS` User Property. Sidebar auto-detects the change after dialog save — no reload needed.
+- **Collapsible Images section.** The sidebar Images list is now collapsible with the same expand/collapse toggle pattern as Usage Stats (expanded by default).
+- **Prompt token breakdown.** `callGemini()` now extracts `promptTokensDetails` (text vs image token counts) from the Gemini API response, surfaced in the stats panel when available.
+
+### 🔄 Changed
+
+- **"Session total" → "Document total"** in Usage Stats labels (EN/UK/RU) to better reflect cross-session persistence.
+- **Setup AI dialog height** increased from 560px to 600px to accommodate the new checkbox without pushing the Save button below the fold.
+
+![Usage Stats sidebar section](docs/app-screenshots/v1.6.1-en-UsageStats-section-feature.jpg)
+
 ## [1.6.0] — 2026-05-17
 
 ### ✨ Added
