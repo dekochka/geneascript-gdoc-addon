@@ -4,6 +4,24 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.2] — 2026-05-21
+
+### ✨ Added
+
+- **Model info card in Setup AI.** Inline card below the model dropdown shows: quality description, free/paid rate limits (img/min, img/day), pricing per 1M tokens, estimated images per $1, and direct links to Google AI Studio Pricing, Rate Limits, and Spend dashboards. Updates dynamically on model selection change.
+
+### 🔄 Changed
+
+- **Corrected Gemini Flash pricing.** `gemini-flash-latest` now reflects actual Gemini 3.5 Flash pricing ($1.50/$9.00 per 1M tokens, was $0.50/$3.00).
+- **Model dropdown labels simplified.** Rate/tier details moved from cramped dropdown labels into the info card.
+- **`gemini-3.1-pro-preview` marked as paid-only.** Clear indicator in both dropdown label and info card (red "Paid tier only" message).
+- **Usage Stats model updates live.** Model name in sidebar stats now updates from actual API response on each transcription, not just on sidebar load.
+- **Setup AI dialog height** increased from 600px to 640px; removed redundant intro text to keep Save button visible without scrolling.
+
+### 🐛 Fixed
+
+- **Observability pricing key mismatch.** `gemini-3.1-flash-lite-preview` corrected to `gemini-3.1-flash-lite` to match the actual model ID in the dropdown.
+
 ## [1.6.1] — 2026-05-17
 
 ### ✨ Added
