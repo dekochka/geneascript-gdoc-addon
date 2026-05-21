@@ -26,7 +26,7 @@ var SHOW_USAGE_STATS_PROPERTY = 'SHOW_USAGE_STATS';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
-var ADDON_VERSION = 'v1.6.1';
+var ADDON_VERSION = 'v1.6.2';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -1040,7 +1040,7 @@ function showApiKeyDialog(forUpdate) {
     return '<option value="' + o.id + '"' + sel + '>' + o.label + '</option>';
   }).join('');
   var introHtml = forUpdate
-    ? '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">' + t('setup.intro_update') + '</p>'
+    ? ''
     : '<p style="margin:0 0 6px; font-size:13px; line-height:1.35;">' + t('setup.intro_key') + '</p>' +
       '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.35;">' + t('setup.intro_key2') + '</p>';
   var btnLabel = forUpdate ? t('setup.btn_save') : t('setup.btn_save_continue');
@@ -1067,9 +1067,9 @@ function showApiKeyDialog(forUpdate) {
     '<body style="font-family: Arial, sans-serif; padding: 14px;">' +
     introHtml +
     langBlock +
-    '<p style="margin:0 0 6px; font-size:12px; color:#555; line-height:1.3;">' + t('setup.pricing') + '</p>' +
     '<label style="display:block; margin-bottom:3px; font-weight:bold;">' + t('setup.model_label') + '</label>' +
-    '<select id="model" onchange="onModelChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px; margin-bottom:8px;">' + optionsHtml + '</select>' +
+    '<select id="model" onchange="onModelChange()" style="width:100%; padding:5px; box-sizing:border-box; font-size:13px; margin-bottom:4px;">' + optionsHtml + '</select>' +
+    '<div id="modelInfoCard" style="background:#fafafa; border:1px solid #DADCE0; border-radius:6px; padding:8px 10px; margin:0 0 8px; font-size:11px; color:#5f6368; line-height:1.4;"></div>' +
     '<div style="border:1px solid #DADCE0; border-radius:8px; padding:10px; margin:6px 0 8px;">' +
       '<p style="margin:0 0 6px; font-size:12px; font-weight:bold; color:#3C4043;">' + t('setup.behavior_title') + '</p>' +
       '<div style="display:grid; grid-template-columns:42% 58%; gap:8px; align-items:start; margin-bottom:6px;">' +
@@ -1116,10 +1116,13 @@ function showApiKeyDialog(forUpdate) {
     'var forUpdate=' + (forUpdate ? 'true' : 'false') + ';' +
     'var VC=' + vcJson + ';' +
     'var setupState=JSON.parse("' + stateJson + '");' +
+    'var MODEL_INFO={"gemini-flash-latest":{desc:"' + t('model_info.desc_flash_latest').replace(/"/g, '\\"') + '",freeRpm:5,freeRpd:20,paidRpm:1000,paidRpd:10000,free:true,inputPrice:1.50,outputPrice:9.00,estImgPerDollar:33},"gemini-3.1-flash-lite":{desc:"' + t('model_info.desc_31_flash_lite').replace(/"/g, '\\"') + '",freeRpm:10,freeRpd:500,paidRpm:4000,paidRpd:150000,free:true,inputPrice:0.25,outputPrice:1.50,estImgPerDollar:200},"gemini-3.1-pro-preview":{desc:"' + t('model_info.desc_31_pro').replace(/"/g, '\\"') + '",freeRpm:0,freeRpd:0,paidRpm:25,paidRpd:250,free:false,inputPrice:2.00,outputPrice:12.00,estImgPerDollar:25}};' +
+    'var MI_LABELS={freeRates:"' + t('model_info.free_rates').replace(/"/g, '\\"') + '",paidRates:"' + t('model_info.paid_rates').replace(/"/g, '\\"') + '",paidPricing:"' + t('model_info.paid_pricing').replace(/"/g, '\\"') + '",paidOnly:"' + t('model_info.paid_only').replace(/"/g, '\\"') + '",estImages:"' + t('model_info.est_images').replace(/"/g, '\\"') + '",pricingLink:"' + t('model_info.pricing_link').replace(/"/g, '\\"') + '",rateLimitsLink:"' + t('model_info.rate_limits_link').replace(/"/g, '\\"') + '",spendLink:"' + t('model_info.spend_link').replace(/"/g, '\\"') + '"};' +
+    'function updateModelInfo(){var modelId=document.getElementById("model").value;var info=MODEL_INFO[modelId];var el=document.getElementById("modelInfoCard");if(!info){el.style.display="none";return;}var h="<div style=\\"margin-bottom:2px;\\"><b>\\u2605</b> "+info.desc+"</div>";if(info.free){h+="<div>"+MI_LABELS.freeRates.replace("{rpm}",info.freeRpm).replace("{rpd}",info.freeRpd.toLocaleString())+"</div>";h+="<div>"+MI_LABELS.paidPricing.replace("{input}","$"+info.inputPrice.toFixed(2)).replace("{output}","$"+info.outputPrice.toFixed(2))+" · "+MI_LABELS.paidRates.replace("{rpm}",info.paidRpm.toLocaleString()).replace("{rpd}",info.paidRpd.toLocaleString())+"</div>";}else{h+="<div style=\\"color:#D93025;\\">"+MI_LABELS.paidOnly+"</div>";h+="<div>"+MI_LABELS.paidPricing.replace("{input}","$"+info.inputPrice.toFixed(2)).replace("{output}","$"+info.outputPrice.toFixed(2))+" · "+MI_LABELS.paidRates.replace("{rpm}",info.paidRpm.toLocaleString()).replace("{rpd}",info.paidRpd.toLocaleString())+"</div>";}h+="<div>"+MI_LABELS.estImages.replace("{count}",info.estImgPerDollar)+"</div>";h+="<div style=\\"margin-top:2px;\\"><a href=\\"https://ai.google.dev/gemini-api/docs/pricing\\" target=\\"_blank\\" style=\\"color:#1A73E8;text-decoration:none;\\">"+MI_LABELS.pricingLink+"</a> \\u00b7 <a href=\\"https://aistudio.google.com/rate-limit?timeRange=last-1-day\\" target=\\"_blank\\" style=\\"color:#1A73E8;text-decoration:none;\\">"+MI_LABELS.rateLimitsLink+"</a> \\u00b7 <a href=\\"https://aistudio.google.com/spend\\" target=\\"_blank\\" style=\\"color:#1A73E8;text-decoration:none;\\">"+MI_LABELS.spendLink+"</a></div>";el.innerHTML=h;el.style.display="block";}' +
     'function getCapability(modelId){ if(!modelId) return setupState.capability; var m=String(modelId).toLowerCase(); if(m.indexOf("gemini-3")===0||m==="gemini-flash-latest"){ return { configType:"level", supportsThinkingBudget:false, supportsThinkingOff:false, thinkingModes:["auto","minimal","standard","high"] }; } return { configType:"budget", supportsThinkingBudget:true, supportsThinkingOff:true, thinkingModes:["auto","off","minimal","standard","high"], minBudget:-1, maxBudget:32768 }; }' +
     'function populateFromState(){ document.getElementById("temperature").value=setupState.config.temperature; document.getElementById("maxOutputTokens").value=setupState.config.maxOutputTokens; onModelChange(); if(setupState.config.thinkingBudget!==null&&setupState.config.thinkingBudget!==undefined){ document.getElementById("thinkingBudget").value=setupState.config.thinkingBudget; } }' +
     'function labelForMode(v){ var tl=setupState.thinkingLabels||{}; return tl[v]||v; }' +
-    'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=labelForMode(v); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); }' +
+    'function onModelChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var modeEl=document.getElementById("thinkingMode"); var current=modeEl.value||setupState.config.thinkingMode||"auto"; modeEl.innerHTML=""; for(var i=0;i<cap.thinkingModes.length;i++){ var v=cap.thinkingModes[i]; var opt=document.createElement("option"); opt.value=v; opt.text=labelForMode(v); if(v===current){ opt.selected=true; } modeEl.appendChild(opt); } if(modeEl.selectedIndex<0&&modeEl.options.length){ modeEl.options[0].selected=true; } onThinkingModeChange(); updateModelInfo(); }' +
     'function onThinkingModeChange(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var mode=document.getElementById("thinkingMode").value; var budgetEl=document.getElementById("thinkingBudget"); var budgetLabel=document.getElementById("thinkingBudgetLabel"); var budgetRow=document.getElementById("thinkingBudgetRow"); var modelSupportsBudget=!!cap.supportsThinkingBudget; var enabled=modelSupportsBudget&&(mode==="minimal"||mode==="standard"||mode==="high"); budgetRow.style.display=modelSupportsBudget?"block":"none"; budgetEl.disabled=!enabled; budgetLabel.style.color=enabled?"#202124":"#9AA0A6"; if(!enabled){ budgetEl.value=""; } }' +
     'function validateConfig(){ var modelId=document.getElementById("model").value; var cap=getCapability(modelId); var temp=Number(document.getElementById("temperature").value); if(!isFinite(temp)){ return { ok:false, message:VC.temperatureNumber }; } if(temp<0||temp>2){ return { ok:false, message:VC.temperatureRange }; } var maxOut=Number(document.getElementById("maxOutputTokens").value); if(!Number.isInteger(maxOut)){ return { ok:false, message:VC.maxTokensInt }; } if(maxOut<1||maxOut>65536){ return { ok:false, message:VC.maxTokensRange }; } var mode=document.getElementById("thinkingMode").value; if(cap.thinkingModes.indexOf(mode)===-1){ return { ok:false, message:VC.thinkingUnsupported }; } var budgetRaw=document.getElementById("thinkingBudget").value; var budget=null; if(budgetRaw!==null&&budgetRaw!==undefined&&String(budgetRaw).trim()!==""){ if(!/^-?\\d+$/.test(String(budgetRaw).trim())){ return { ok:false, message:VC.budgetInt }; } budget=parseInt(String(budgetRaw).trim(),10); if(!cap.supportsThinkingBudget){ return { ok:false, message:VC.thinkingUnsupported }; } if(budget<cap.minBudget||budget>cap.maxBudget){ return { ok:false, message:VC.budgetRange }; } } return { ok:true, value:{ temperature:temp, maxOutputTokens:maxOut, thinkingMode:mode, thinkingBudget:budget } }; }' +
     'function save(){' +
@@ -1157,7 +1160,7 @@ function showApiKeyDialog(forUpdate) {
     '}' +
     'populateFromState();' +
     '</script></body></html>';
-  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(600), dialogTitle);
+  ui.showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(640), dialogTitle);
 }
 
 /** Opens Setup AI dialog from the Extension menu (key optional, save and close). */
@@ -2871,7 +2874,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
     latencySec: Number(((Date.now() - operationStartMs) / 1000).toFixed(3)),
     imageSource: imageSource
   });
-  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex, promptTokens: geminiResult.promptTokens || 0, promptTextTokens: geminiResult.promptTextTokens || 0, promptImageTokens: geminiResult.promptImageTokens || 0, outputTokens: geminiResult.outputTokens || 0, totalTokens: geminiResult.totalTokens || 0, thoughtTokens: geminiResult.thoughtTokens || 0, estimatedCostUsd: geminiResult.estimatedCostUsd || 0 };
+  return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex, model: geminiResult.model, promptTokens: geminiResult.promptTokens || 0, promptTextTokens: geminiResult.promptTextTokens || 0, promptImageTokens: geminiResult.promptImageTokens || 0, outputTokens: geminiResult.outputTokens || 0, totalTokens: geminiResult.totalTokens || 0, thoughtTokens: geminiResult.thoughtTokens || 0, estimatedCostUsd: geminiResult.estimatedCostUsd || 0 };
 }
 
 function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
@@ -3304,6 +3307,7 @@ function getSidebarHtml() {
     '          m._s=(r.finishReason==="MAX_TOKENS")?"warn":"done";done++;',
     '          shift+=(r.insertedCount||0);',
     '          var pt=r.promptTokens||0,ptt=r.promptTextTokens||0,pit=r.promptImageTokens||0,ot=r.outputTokens||0,tt=r.thoughtTokens||0,tl=r.totalTokens||0,cu=r.estimatedCostUsd||0;',
+    '          if(r.model)session.model=r.model;',
     '          session.input+=pt;session.inputText+=ptt;session.inputImage+=pit;session.output+=ot;session.thinking+=tt;session.total+=tl;session.cost+=cu;session.images++;',
     '          runBuf.input+=pt;runBuf.inputText+=ptt;runBuf.inputImage+=pit;runBuf.output+=ot;runBuf.thinking+=tt;runBuf.total+=tl;runBuf.cost+=cu;runBuf.images++;',
     '          updateStatsUi();',

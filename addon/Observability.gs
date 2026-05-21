@@ -105,7 +105,7 @@ function sanitizeErrorMessage(error) {
 }
 
 /** Pricing version used for estimated Gemini token-cost telemetry. */
-var GEMINI_PRICING_VERSION = 'gemini-dev-api-2026-04-21';
+var GEMINI_PRICING_VERSION = 'gemini-dev-api-2026-05-21';
 
 /**
  * Returns paid-tier USD rates per 1M tokens for supported models.
@@ -116,10 +116,10 @@ var GEMINI_PRICING_VERSION = 'gemini-dev-api-2026-04-21';
 function getModelTokenPricingUsdPerMillion(modelId) {
   switch (modelId) {
     case 'gemini-flash-latest':
-      return { inputUsdPerMillion: 0.5, outputUsdPerMillion: 3.0 };
+      return { inputUsdPerMillion: 1.5, outputUsdPerMillion: 9.0 };
     case 'gemini-3.1-pro-preview':
       return { inputUsdPerMillion: 2.0, outputUsdPerMillion: 12.0 };
-    case 'gemini-3.1-flash-lite-preview':
+    case 'gemini-3.1-flash-lite':
       return { inputUsdPerMillion: 0.25, outputUsdPerMillion: 1.5 };
     default:
       return null;
