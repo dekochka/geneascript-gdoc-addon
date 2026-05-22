@@ -170,12 +170,13 @@ Follow `.cursor/rules/release-change-management.mdc`:
    git push origin main --tags
    ```
 5. **GitHub Release** — Create release for tag: `gh release create <tag> --title "..." --notes-file <file>`
-6. **Apps Script** — Always after GitHub release:
+6. **Apps Script** — Always after GitHub release (update existing deployment, never create new):
    ```bash
    clasp push --force
    clasp version "Release vX.Y.Z"
-   clasp deploy -V <version_number> -d "Release vX.Y.Z"
+   clasp deploy -i <existing_deployment_id> -V <version_number> -d "Release vX.Y.Z"
    ```
+   Limits: 50 active deployments, 200 versions per script. Always reuse the active deployment ID (find via `clasp deployments`). Only create a new deployment ID with explicit user confirmation. To delete old deployments: list, confirm with user, then `clasp undeploy <id>`.
 7. **GitHub Project** — Close related issues (auto-moves to Done); verify board reflects release
 
 **Constraints:**
@@ -279,6 +280,19 @@ Why: external messages are public, often hard to edit cleanly, and reach real us
 - **Context size limits** — MAX_CONTEXT_PARAGRAPHS = 50, MAX_IMPORT_IMAGES = 50 (raised from 30 in v1.4.6 based on OBS latency data; SPEC-16 will split this into separate inline/link-only caps)
 - **Image MIME types** — JPEG, PNG, WebP only
 - **Timeout** — 60 seconds for Gemini API calls
+
+## Apps Script Platform Limits
+
+Key quotas from [Google Apps Script Quotas](https://developers.google.com/apps-script/guides/services/quotas) that constrain this add-on:
+
+- **Script runtime:** 6 min / execution (our retry budget caps at 240s to preserve headroom)
+- **UrlFetch calls:** 20,000/day (consumer) · 100,000/day (Workspace)
+- **UrlFetch response/payload:** 50 MB; configurable timeout (we use 60s)
+- **Properties:** 9 KB per value, 500 KB total per store (User/Doc/Script stores are independent)
+- **Properties read/write:** 50,000/day (consumer) · 500,000/day (Workspace)
+- **Document size:** 1.02 million characters max
+- **Deployments:** 50 active, 200 versions per script — always reuse existing deployment ID via `clasp deploy -i <ID> -V <N>`, never create new deployments without user confirmation; delete old deployments only after listing and confirming with user
+- **Simultaneous executions:** 30 per user
 
 ## Common Gotchas
 
