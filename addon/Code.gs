@@ -26,7 +26,7 @@ var SHOW_USAGE_STATS_PROPERTY = 'SHOW_USAGE_STATS';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
-var ADDON_VERSION = 'v1.6.2';
+var ADDON_VERSION = 'v1.6.3';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -1977,7 +1977,7 @@ function resolveImageBodyIndexByLabel(label) {
   return null;
 }
 
-function extractContextFromImage(bodyIndex, expectedLabel) {
+function extractContextFromImage(bodyIndex, expectedLabel, sourceUrl) {
   var runId = createRunId('ctx');
   var doc = DocumentApp.getActiveDocument();
   var docIdHash = hashId(doc && doc.getId ? doc.getId() : null);
@@ -1992,19 +1992,33 @@ function extractContextFromImage(bodyIndex, expectedLabel) {
     bodyIndex: bodyIndex
   });
 
-  var effectiveBodyIndex = bodyIndex;
-  var hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
-  if (!hit && expectedLabel) {
-    var resolved = resolveImageBodyIndexByLabel(expectedLabel);
-    if (typeof resolved === 'number' && !isNaN(resolved)) {
-      effectiveBodyIndex = resolved;
-      hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+  var blob, mimeType;
+  if (sourceUrl) {
+    var fileId = extractFileIdFromUrl(sourceUrl);
+    if (!fileId) return { ok: false, message: 'Cannot extract file ID from source URL' };
+    try {
+      var driveFile = getDriveFileById_(fileId);
+      blob = driveFile.getBlob();
+      mimeType = blob.getContentType() || 'image/png';
+      if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
+    } catch (driveErr) {
+      return { ok: false, message: t('msg.request_failed', { detail: driveErr.message || String(driveErr) }) };
     }
+  } else {
+    var effectiveBodyIndex = bodyIndex;
+    var hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+    if (!hit && expectedLabel) {
+      var resolved = resolveImageBodyIndexByLabel(expectedLabel);
+      if (typeof resolved === 'number' && !isNaN(resolved)) {
+        effectiveBodyIndex = resolved;
+        hit = findInlineImageAtBodyIndex(doc, effectiveBodyIndex);
+      }
+    }
+    if (!hit) return { ok: false, message: t('msg.no_image_at_index', { index: bodyIndex }) };
+    blob = hit.inlineImage.getBlob();
+    mimeType = blob.getContentType() || 'image/png';
+    if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
   }
-  if (!hit) return { ok: false, message: t('msg.no_image_at_index', { index: bodyIndex }) };
-  var blob = hit.inlineImage.getBlob();
-  var mimeType = blob.getContentType() || 'image/png';
-  if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
 
   try {
     var geminiResult = callGemini(apiKey, buildContextExtractionPrompt(), blob, mimeType, {
@@ -2877,7 +2891,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
   return { ok: true, finishReason: geminiResult.finishReason, insertedCount: insertedCount || 0, bodyIndex: effectiveBodyIndex, model: geminiResult.model, promptTokens: geminiResult.promptTokens || 0, promptTextTokens: geminiResult.promptTextTokens || 0, promptImageTokens: geminiResult.promptImageTokens || 0, outputTokens: geminiResult.outputTokens || 0, totalTokens: geminiResult.totalTokens || 0, thoughtTokens: geminiResult.thoughtTokens || 0, estimatedCostUsd: geminiResult.estimatedCostUsd || 0 };
 }
 
-function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
+function openExtractContextDialog(preselectedBodyIndex, preselectedLabel, sourceUrl) {
   refreshAddonMenuForCurrentLocale();
   var imagesResponse = getImageList();
   var images = (imagesResponse && imagesResponse.ok && imagesResponse.images) ? imagesResponse.images : [];
@@ -2909,6 +2923,7 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
       'var preselected=' + JSON.stringify(selected) + ';' +
       'var preselectedLabel=' + JSON.stringify(selectedLabel) + ';' +
       'var locked=' + JSON.stringify(lockedSelection) + ';' +
+      'var sourceUrl=' + JSON.stringify(sourceUrl || null) + ';' +
       'function sub(s,o){return String(s||"").replace(/\\{(\\w+)\\}/g,function(_,k){return o&&o[k]!=null?String(o[k]):"";});}' +
       'function el(id){return document.getElementById(id);}' +
       'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}' +
@@ -2918,7 +2933,7 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
       'function setForm(v){ el("archiveName").value=v.archiveName||""; el("archiveReference").value=v.archiveReference||""; el("documentDescription").value=v.documentDescription||""; el("dateRange").value=v.dateRange||""; el("villages").value=(v.villages||[]).join("\\n"); el("commonSurnames").value=(v.commonSurnames||[]).join("\\n"); el("notes").value=v.notes||""; }' +
       'function selectedLabelFromDropdown(){var s=el("imgSel"); if(!s||s.selectedIndex<0) return ""; return s.options[s.selectedIndex].text||"";}' +
       'var extractRunId=null; var applyStarted=false;' +
-      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ extractRunId=r.runId||null; setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl); }' +
+      'function runExtract(){ var idx=locked?Number(preselected):parseInt(el("imgSel").value,10); var lbl=locked?currentImageLabel(preselected):selectedLabelFromDropdown(); if(isNaN(idx)){setStatus("error",EX.selectCover); return;} var srcUrl=sourceUrl; if(!srcUrl&&!locked){var selImg=images.find(function(m){return Number(m.index)===idx;}); if(selImg&&selImg.kind==="link_only")srcUrl=selImg.sourceUrl||null;} setStatus("progress",EX.extracting); el("extractBtn").disabled=true; el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ el("extractBtn").disabled=false; if(r&&r.ok){ extractRunId=r.runId||null; setForm(r.extracted||{}); el("form").style.display="block"; setStatus("success",EX.complete); el("applyBtn").disabled=false; } else { setStatus("error",(r&&r.message)||EX.failed); } }).withFailureHandler(function(e){ el("extractBtn").disabled=false; setStatus("error",e.message||String(e)); }).extractContextFromImage(idx, lbl, srcUrl); }' +
       'el("extractBtn").onclick=runExtract;' +
       'el("applyBtn").onclick=function(){ applyStarted=true; var payload={ archiveName:el("archiveName").value, archiveReference:el("archiveReference").value, documentDescription:el("documentDescription").value, dateRange:el("dateRange").value, villages:el("villages").value.split(/\\r?\\n/), commonSurnames:el("commonSurnames").value.split(/\\r?\\n/), notes:el("notes").value }; setStatus("progress",EX.applying); el("applyBtn").disabled=true; google.script.run.withSuccessHandler(function(r){ if(r&&r.ok){ setStatus("success",EX.updated); setTimeout(function(){ google.script.host.close(); }, 350); } else { el("applyBtn").disabled=false; applyStarted=false; setStatus("error",(r&&r.message)||EX.applyFailed); } }).withFailureHandler(function(e){ el("applyBtn").disabled=false; applyStarted=false; setStatus("error",e.message||String(e)); }).applyExtractedContext(payload, extractRunId); };' +
       'window.addEventListener("beforeunload",function(){ if(extractRunId&&!applyStarted){ try{ google.script.run.logContextApplyCancelled(extractRunId); }catch(_e){} } });' +
@@ -2928,12 +2943,12 @@ function openExtractContextDialog(preselectedBodyIndex, preselectedLabel) {
   DocumentApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(520).setHeight(680), t('dialog.extract_context.title'));
 }
 
-function openExtractContextDialogFromSidebar(bodyIndex) {
+function openExtractContextDialogFromSidebar(bodyIndex, label, sourceUrl) {
   if (typeof bodyIndex !== 'number' || isNaN(bodyIndex)) {
     return { ok: false, message: t('msg.select_one_image_first') };
   }
-  var label = arguments.length > 1 ? arguments[1] : '';
-  openExtractContextDialog(bodyIndex, label);
+  label = label || '';
+  openExtractContextDialog(bodyIndex, label, sourceUrl || null);
   return { ok: true };
 }
 
@@ -3229,8 +3244,7 @@ function getSidebarHtml() {
     '  b.disabled=n===0||!hasKey||running;',
     '  b.textContent=n>1?("\\u25B6 "+sub(SI.transcribeN,{n:String(n)})):("\\u25B6 "+SI.transcribe);',
     '  var e=el("extractBtnSidebar");',
-    '  var selIsLinkOnly=n===1&&imgs[checked()[0]]&&imgs[checked()[0]].kind==="link_only";',
-    '  e.disabled=n!==1||!hasKey||running||selIsLinkOnly;',
+    '  e.disabled=n!==1||!hasKey||running;',
     '}',
 
     'function toggleAll(v){',
@@ -3406,7 +3420,7 @@ function getSidebarHtml() {
     '  setTimeout(function(){if(statsPollId){clearInterval(statsPollId);statsPollId=null;}},120000);',
     '}',
     'function doImport(){google.script.run.withFailureHandler(function(e){ el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block"; }).showDrivePickerDialog();}',
-    'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent=SI.extractNeedOne; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||SI.extractOpenFail; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label);}',
+    'function extractContextFromSelected(){var ci=checked(); if(ci.length!==1){el("errorBanner").textContent=SI.extractNeedOne; el("errorBanner").style.display="block"; return;} el("errorBanner").style.display="none"; var chosen=imgs[ci[0]]; var bodyIndex=chosen.index; var label=chosen.label||""; var sourceUrl=(chosen.kind==="link_only"&&chosen.sourceUrl)?chosen.sourceUrl:null; google.script.run.withSuccessHandler(function(r){ if(!(r&&r.ok)){el("errorBanner").textContent=(r&&r.message)||SI.extractOpenFail; el("errorBanner").style.display="block"; } }).withFailureHandler(function(e){el("errorBanner").textContent=e.message||String(e); el("errorBanner").style.display="block";}).openExtractContextDialogFromSidebar(bodyIndex, label, sourceUrl);}',
     'function el(id){return document.getElementById(id);}',
     'function esc(s){return s?String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"):""}',
 

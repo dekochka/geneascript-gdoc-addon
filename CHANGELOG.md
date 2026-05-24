@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.6.3] — 2026-05-22
+
+### 🐛 Fixed
+
+- **Cover → Context now works for link-only images.** The button was previously disabled when a link-only (🔗) image was selected. Now fetches the image blob from Drive using the same pattern as transcription. Closes [#54](https://github.com/dekochka/geneascript-gdoc-addon/issues/54).
+
 ## [1.6.2] — 2026-05-21
 
 ### ✨ Added
