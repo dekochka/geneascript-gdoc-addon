@@ -646,6 +646,7 @@ function getGenericPlainContextDefaults() {
 
 function showTemplateGalleryDialog() {
   refreshAddonMenuForCurrentLocale();
+  try { runV2MigrationsIfNeeded(); } catch (mErr) { Logger.log('showTemplateGalleryDialog: migration error ' + mErr.message); }
   var html = getTemplateGalleryHtml();
   var ui = DocumentApp.getUi();
   ui.showModalDialog(

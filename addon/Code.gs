@@ -1474,6 +1474,7 @@ function showAwaitingDialog(ui) {
  */
 function runTranscribeWorker() {
   Logger.log('runTranscribeWorker: start');
+  try { runV2MigrationsIfNeeded(); } catch (mErr) { Logger.log('runTranscribeWorker: migration error ' + mErr.message); }
   var runId = createRunId('tx');
   var operationStartMs = Date.now();
   var operation = 'transcribe_single';
@@ -1543,16 +1544,29 @@ function runTranscribeWorker() {
   var blob = inlineImage.getBlob();
   var mimeType = blob.getContentType() || 'image/png';
   if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
-  var context = getContextFromDocument(doc);
-  var prompt = buildPrompt(context);
+
+  // v2 pipeline (TemplateSchemaV2 + JSON output) when selected template is v2.
+  var v2Request = (typeof prepareV2Request === 'function') ? prepareV2Request(doc) : null;
+  var prompt;
+  if (v2Request) {
+    prompt = v2Request.promptText;
+  } else {
+    var context = getContextFromDocument(doc);
+    prompt = buildPrompt(context);
+  }
+
   var geminiResult;
   try {
-    geminiResult = callGemini(apiKey, prompt, blob, mimeType, {
+    var callTelemetry = {
       runId: runId,
       operation: operation,
       entrypoint: entrypoint,
       docIdHash: docIdHash
-    });
+    };
+    if (v2Request) {
+      callTelemetry.responseSchema = v2Request.responseSchema;
+    }
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType, callTelemetry);
   } catch (e) {
     Logger.log('runTranscribeWorker: callGemini threw ' + (e.message || String(e)));
     var rtwCode = e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode);
@@ -1592,7 +1606,12 @@ function runTranscribeWorker() {
          elementContainingImage.getType() !== DocumentApp.ElementType.LIST_ITEM) {
     elementContainingImage = elementContainingImage.getParent();
   }
-  var insertedCount = insertTranscriptionAfter(doc, elementContainingImage, transcription);
+  var insertedCount;
+  if (v2Request) {
+    insertedCount = renderV2Response(doc, elementContainingImage, transcription, v2Request.templateId);
+  } else {
+    insertedCount = insertTranscriptionAfter(doc, elementContainingImage, transcription);
+  }
   Logger.log('runTranscribeWorker: done');
   logObsEvent('transcribe_image_done', {
     operation: operation,
@@ -2126,6 +2145,11 @@ function logContextApplyCancelled(extractRunId) {
 /**
  * Calls the Gemini API with the given prompt and image.
  * Returns { text: string, finishReason: string }.
+ *
+ * The telemetry object may also carry per-call schema overrides:
+ *   - telemetry.responseSchema     — JSON Schema sent as generationConfig.responseSchema
+ *   - telemetry.responseMimeType   — defaults to 'application/json' when responseSchema is set
+ * These are used by v2 templates to enforce structured JSON output.
  */
 function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   telemetry = telemetry || {};
@@ -2133,9 +2157,13 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
   var modelId = getStoredModel();
   var requestConfig = getStoredRequestConfig(modelId);
   var generationConfig = buildGenerationConfigFromSettings(modelId, requestConfig);
+  if (telemetry.responseSchema) {
+    generationConfig.responseSchema = telemetry.responseSchema;
+    generationConfig.responseMimeType = telemetry.responseMimeType || 'application/json';
+  }
   var imageBytesArr = imageBlob.getBytes();
   var imageBytes = imageBytesArr.length;
-  Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + imageBytes);
+  Logger.log('callGemini: start, model=' + modelId + ', prompt length=' + (prompt ? prompt.length : 0) + ', image size=' + imageBytes + (telemetry.responseSchema ? ', responseSchema=on' : ''));
   logObsEvent('transcribe_image_api_start', {
     operation: telemetry.operation || 'transcribe_single',
     entrypoint: telemetry.entrypoint || 'unknown',
@@ -2148,7 +2176,8 @@ function callGemini(apiKey, prompt, imageBlob, mimeType, telemetry) {
     thinkingMode: requestConfig.thinkingMode,
     thinkingBudget: requestConfig.thinkingBudget,
     promptLength: prompt ? prompt.length : 0,
-    imageBytes: imageBytes
+    imageBytes: imageBytes,
+    responseFormat: telemetry.responseSchema ? 'json_schema' : 'text'
   });
   var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + modelId + ':generateContent?key=' + encodeURIComponent(apiKey);
   var base64Data = Utilities.base64Encode(imageBytesArr);
@@ -2698,6 +2727,7 @@ function setUsageStatsEnabled(enabled) {
  */
 function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
   Logger.log('transcribeImageByIndex: bodyIndex=' + bodyIndex + ' kind=' + (entryMeta && entryMeta.kind || 'inline'));
+  try { runV2MigrationsIfNeeded(); } catch (mErr) { Logger.log('transcribeImageByIndex: migration error ' + mErr.message); }
   var runId = createRunId('tx');
   var operationStartMs = Date.now();
   var operation = 'transcribe_single';
@@ -2790,17 +2820,28 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
     if (mimeType.indexOf('image/') !== 0) mimeType = 'image/png';
   }
 
-  var context = getContextFromDocument(doc);
-  var prompt = buildPrompt(context);
+  // v2 pipeline (TemplateSchemaV2 + JSON output) when selected template is v2.
+  var v2Request = (typeof prepareV2Request === 'function') ? prepareV2Request(doc) : null;
+  var prompt;
+  if (v2Request) {
+    prompt = v2Request.promptText;
+  } else {
+    var context = getContextFromDocument(doc);
+    prompt = buildPrompt(context);
+  }
 
   var geminiResult;
   try {
-    geminiResult = callGemini(apiKey, prompt, blob, mimeType, {
+    var callTelemetry = {
       runId: runId,
       operation: operation,
       entrypoint: entrypoint,
       docIdHash: docIdHash
-    });
+    };
+    if (v2Request) {
+      callTelemetry.responseSchema = v2Request.responseSchema;
+    }
+    geminiResult = callGemini(apiKey, prompt, blob, mimeType, callTelemetry);
   } catch (e) {
     Logger.log('transcribeImageByIndex: callGemini threw ' + (e.message || String(e)));
     var tbiCode = e.errorCode || classifyErrorCode(e.message || String(e), e.httpCode);
@@ -2843,7 +2884,11 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
 
   var insertedCount;
   try {
-    insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+    if (v2Request) {
+      insertedCount = renderV2Response(doc, hit.container, transcription, v2Request.templateId);
+    } else {
+      insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
+    }
   } catch (insertErr) {
     Logger.log('transcribeImageByIndex: insertTranscriptionAfter threw ' + (insertErr.message || String(insertErr)));
     var insertClassified = insertErr.errorCode || classifyErrorCode(insertErr.message || String(insertErr), insertErr.httpCode);
@@ -2955,6 +3000,7 @@ function openExtractContextDialogFromSidebar(bodyIndex, label, sourceUrl) {
 /** Opens the sidebar panel. */
 function showTranscribeSidebar() {
   refreshAddonMenuForCurrentLocale();
+  try { runV2MigrationsIfNeeded(); } catch (mErr) { Logger.log('showTranscribeSidebar: migration error ' + mErr.message); }
   var html = HtmlService.createHtmlOutput(getSidebarHtml())
     .setTitle(t('menu.title'));
   DocumentApp.getUi().showSidebar(html);

@@ -14,6 +14,14 @@ e2e/.auth/
 # Claude Code per-user overrides (permissions etc.) — shared settings.json IS committed
 .claude/settings.local.json
 
+# Local IDE state and brainstorming scratch dirs (per-machine, not for the public repo)
+.obsidian/
+.superpowers/
+geneascript.sublime-project
+geneascript.sublime-workspace
+*.cmproj/
+video/
+
 # Weekly ops routine — only the sanitized weekly-summary.json is ever
 # committed to project/operations/weeklyreports/data/. Raw NDJSON and
 # raw gcloud exports must never reach the public repo.
