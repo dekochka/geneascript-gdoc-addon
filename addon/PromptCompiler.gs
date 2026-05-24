@@ -30,9 +30,31 @@
  */
 function compilePrompt(templateId, contextValues, opts) {
   opts = opts || {};
-  var resolved = resolveTemplateV2(templateId);
+  // Custom v2 templates carry their full object (already resolved against parent)
+  // when passed by reference; otherwise look up by ID.
+  var resolved = (typeof templateId === 'object' && templateId !== null)
+    ? resolveTemplateV2(templateId)
+    : resolveTemplateV2(templateId);
   if (!resolved) {
     throw new Error('compilePrompt: unknown template "' + templateId + '"');
+  }
+
+  // legacyPromptOverride: migrated v1 custom templates carry the user's
+  // original prompt text (Role / Input / Output / Instructions). Honor it
+  // verbatim with {{CONTEXT}} substitution, and skip the layered compiler.
+  // No JSON schema is enforced — these templates produce free text and the
+  // renderer falls back to insertFormattedText (handled in V2Pipeline).
+  if (resolved.legacyPromptOverride) {
+    var contextText = formatContextValuesAsLegacyText_(contextValues || {});
+    var legacyPrompt = String(resolved.legacyPromptOverride)
+      .replace(/\{\{CONTEXT\}\}/g, contextText || '(No context provided.)');
+    return {
+      promptText: legacyPrompt,
+      responseSchema: null,
+      translationConfig: { enabled: false, mode: 'inline', languages: [], fields: [] },
+      resolvedTemplate: resolved,
+      legacy: true
+    };
   }
 
   var translationEnabled = (typeof opts.translationEnabled === 'boolean')
@@ -243,9 +265,10 @@ function humanizeExpertise_(token) {
 }
 
 /**
- * Strips JSON-Schema fields that aren't meaningful in a prompt rendering
- * (description we keep; the rest is structural and adds clutter without
- * teaching the model anything new).
+ * Strips JSON-Schema fields that aren't meaningful for the LLM (e.g. the
+ * "additionalProperties" flag, "$schema" pointer). Keeps "description" so
+ * the model learns what each field is for. Property keys are preserved as
+ * the model needs them to produce conformant JSON.
  */
 function simplifySchemaForPrompt_(schema) {
   if (!schema || typeof schema !== 'object') return schema;
@@ -254,10 +277,64 @@ function simplifySchemaForPrompt_(schema) {
     for (var i = 0; i < schema.length; i++) arr.push(simplifySchemaForPrompt_(schema[i]));
     return arr;
   }
+  var STRIP_KEYS = { additionalProperties: true, '$schema': true };
   var out = {};
   for (var k in schema) {
     if (!Object.prototype.hasOwnProperty.call(schema, k)) continue;
+    if (STRIP_KEYS[k]) continue;
     out[k] = simplifySchemaForPrompt_(schema[k]);
   }
   return out;
+}
+
+/**
+ * Formats a v2 context-values object back into the v1 free-text format
+ * (used when migrating v1 custom templates that have a legacyPromptOverride).
+ * Keys map to "**LABEL**: value" lines with array values joined by newlines.
+ */
+function formatContextValuesAsLegacyText_(contextValues) {
+  if (!contextValues || typeof contextValues !== 'object') return '';
+  var KEY_TO_LABEL = {
+    description: 'DOCUMENT_DESCRIPTION',
+    archiveName: 'ARCHIVE_NAME',
+    archiveReference: 'ARCHIVE_REFERENCE',
+    period: 'DATE_RANGE',
+    villages: 'VILLAGES',
+    commonSurnames: 'COMMON_SURNAMES'
+  };
+  var lines = [];
+  var orderedKeys = ['archiveName', 'archiveReference', 'description', 'period', 'villages', 'commonSurnames'];
+  for (var i = 0; i < orderedKeys.length; i++) {
+    var k = orderedKeys[i];
+    if (!Object.prototype.hasOwnProperty.call(contextValues, k)) continue;
+    var v = contextValues[k];
+    if (v === undefined || v === null) continue;
+    var rendered;
+    if (Array.isArray(v)) {
+      var items = [];
+      for (var ai = 0; ai < v.length; ai++) {
+        var item = String(v[ai] || '').trim();
+        if (item) items.push(item);
+      }
+      if (items.length === 0) continue;
+      rendered = items.length > 1 ? ('\n' + items.join('\n')) : items[0];
+    } else {
+      rendered = String(v).trim();
+      if (!rendered) continue;
+    }
+    var label = KEY_TO_LABEL[k] || k.toUpperCase();
+    lines.push('**' + label + '**: ' + rendered);
+  }
+  // Append any keys we don't have an explicit label for, as-is.
+  for (var ck in contextValues) {
+    if (!Object.prototype.hasOwnProperty.call(contextValues, ck)) continue;
+    if (KEY_TO_LABEL[ck]) continue;
+    if (orderedKeys.indexOf(ck) >= 0) continue;
+    var rawVal = contextValues[ck];
+    if (rawVal === undefined || rawVal === null) continue;
+    var renderedExtra = Array.isArray(rawVal) ? rawVal.join(', ') : String(rawVal).trim();
+    if (!renderedExtra) continue;
+    lines.push('**' + ck + '**: ' + renderedExtra);
+  }
+  return lines.join('\n');
 }

@@ -26,7 +26,7 @@ var SHOW_USAGE_STATS_PROPERTY = 'SHOW_USAGE_STATS';
 var IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 var PICKER_API_KEY_PROPERTY = 'GOOGLE_PICKER_API_KEY';
 var PICKER_APP_ID_PROPERTY = 'GOOGLE_PICKER_APP_ID';
-var ADDON_VERSION = 'v1.6.3';
+var ADDON_VERSION = 'v1.7.0-dev';
 // Observability helpers are defined in addon/Observability.gs (logObsEvent, createRunId, hashId, classifyErrorCode, sanitizeErrorMessage).
 
 /**
@@ -48,7 +48,7 @@ function buildAddonMenu_(openEvent) {
     .addItem(t('menu.transcribe_image', null, openEvent), 'transcribeSelectedImage')
     .addItem(t('menu.import_drive', null, openEvent), 'showDrivePickerDialog')
     .addItem(t('menu.extract_context', null, openEvent), 'openExtractContextDialog')
-    .addItem(t('menu.select_template', null, openEvent), 'showTemplateGalleryDialog')
+    .addItem(t('menu.select_template', null, openEvent), 'showSetupWizardDialog')
     .addSeparator()
     .addItem(t('menu.setup_ai', null, openEvent), 'showSetupApiKeyAndModelDialog')
     .addItem(t('menu.help', null, openEvent), 'showHelp')
@@ -188,6 +188,18 @@ function naturalSortFiles(filesArray) {
  * and a page break.
  */
 function ensureContextBlock(doc) {
+  // v2 templates store context in DOC_CONTEXT property — never seed a body
+  // Context heading. The Setup Wizard manages context fields per-template.
+  try {
+    var selectedId = (typeof getSelectedTemplateId === 'function') ? getSelectedTemplateId() : null;
+    if (selectedId && typeof isV2Template === 'function' && isV2Template(selectedId)) {
+      Logger.log('ensureContextBlock: v2 template selected, skipping body Context block');
+      return;
+    }
+  } catch (e) {
+    Logger.log('ensureContextBlock: v2 check failed, falling back to v1 behavior. ' + e.message);
+  }
+
   var body = doc.getBody();
   var numChildren = body.getNumChildren();
   for (var i = 0; i < numChildren; i++) {
@@ -1563,7 +1575,7 @@ function runTranscribeWorker() {
       entrypoint: entrypoint,
       docIdHash: docIdHash
     };
-    if (v2Request) {
+    if (v2Request && v2Request.responseSchema) {
       callTelemetry.responseSchema = v2Request.responseSchema;
     }
     geminiResult = callGemini(apiKey, prompt, blob, mimeType, callTelemetry);
@@ -1608,7 +1620,7 @@ function runTranscribeWorker() {
   }
   var insertedCount;
   if (v2Request) {
-    insertedCount = renderV2Response(doc, elementContainingImage, transcription, v2Request.templateId);
+    insertedCount = renderV2Response(doc, elementContainingImage, transcription, v2Request.templateId, { legacy: !!v2Request.legacy });
   } else {
     insertedCount = insertTranscriptionAfter(doc, elementContainingImage, transcription);
   }
@@ -2099,7 +2111,37 @@ function applyExtractedContext(extracted, extractRunId) {
   });
   try {
     var normalized = normalizeExtractedContext(extracted || {});
-    var updatedFields = upsertContextFields(doc, normalized);
+    var updatedFields;
+    var selectedId = (typeof getSelectedTemplateId === 'function') ? getSelectedTemplateId() : null;
+    if (selectedId && typeof isV2Template === 'function' && isV2Template(selectedId)) {
+      // v2: merge extracted values into DOC_CONTEXT property (no body editing).
+      var current = (typeof getDocContext === 'function') ? getDocContext() : {};
+      var merged = current || {};
+      // Map cover-extracted keys → v2 context field keys.
+      var keyMap = {
+        archiveName: 'archiveName',
+        archiveReference: 'archiveReference',
+        documentDescription: 'description',
+        dateRange: 'period',
+        villages: 'villages',
+        commonSurnames: 'commonSurnames',
+        notes: 'notes'
+      };
+      updatedFields = [];
+      for (var srcKey in keyMap) {
+        if (!Object.prototype.hasOwnProperty.call(keyMap, srcKey)) continue;
+        var v = normalized[srcKey];
+        if (v === undefined || v === null) continue;
+        if (Array.isArray(v) && v.length === 0) continue;
+        if (!Array.isArray(v) && String(v).trim() === '') continue;
+        merged[keyMap[srcKey]] = v;
+        updatedFields.push(keyMap[srcKey]);
+      }
+      saveDocContext(merged);
+    } else {
+      // v1 path: write into the body Context heading.
+      updatedFields = upsertContextFields(doc, normalized);
+    }
     logObsEvent('context_apply_done', {
       operation: 'context_apply',
       status: 'success',
@@ -2838,7 +2880,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
       entrypoint: entrypoint,
       docIdHash: docIdHash
     };
-    if (v2Request) {
+    if (v2Request && v2Request.responseSchema) {
       callTelemetry.responseSchema = v2Request.responseSchema;
     }
     geminiResult = callGemini(apiKey, prompt, blob, mimeType, callTelemetry);
@@ -2885,7 +2927,7 @@ function transcribeImageByIndex(bodyIndex, expectedLabel, entryMeta) {
   var insertedCount;
   try {
     if (v2Request) {
-      insertedCount = renderV2Response(doc, hit.container, transcription, v2Request.templateId);
+      insertedCount = renderV2Response(doc, hit.container, transcription, v2Request.templateId, { legacy: !!v2Request.legacy });
     } else {
       insertedCount = insertTranscriptionAfter(doc, hit.container, transcription);
     }
@@ -3185,7 +3227,7 @@ function getSidebarHtml() {
     'var lastImageCount=0;',
     'var tplPollId=null;',
     'function openTemplateGallery(){',
-    '  google.script.run.showTemplateGalleryDialog();',
+    '  google.script.run.showSetupWizardDialog();',
     '  if(tplPollId)clearInterval(tplPollId);',
     '  tplPollId=setInterval(function(){loadTemplateLabel();},2000);',
     '  setTimeout(function(){if(tplPollId){clearInterval(tplPollId);tplPollId=null;}},120000);',

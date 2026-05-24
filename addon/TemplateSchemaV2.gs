@@ -1175,12 +1175,16 @@ function injectTranslationIntoSchema_(schema, languages) {
 
   if (schema.properties) {
     if (schema.properties.records && schema.properties.records.type === 'array' && schema.properties.records.items) {
+      // Tabular templates (metric_book / census_revision): per-record translation.
       schema.properties.records.items.properties = schema.properties.records.items.properties || {};
       schema.properties.records.items.properties.translation = translationSchema;
-    } else if (schema.properties.transcription) {
-      schema.properties.translation = translationSchema;
     } else {
+      // Flat templates (base / personal_correspondence / official_document):
+      // single top-level translation block.
       schema.properties.translation = translationSchema;
+      // Ensure the model is asked to produce it.
+      if (!Array.isArray(schema.required)) schema.required = [];
+      if (schema.required.indexOf('translation') < 0) schema.required.push('translation');
     }
   }
   return schema;

@@ -6,7 +6,9 @@
  */
 
 var TEMPLATE_ID_PROPERTY = 'SELECTED_TEMPLATE_ID';
-var DEFAULT_TEMPLATE_ID = 'galicia_gc';
+// v2 default: variants live in TemplateSchemaV2.gs. Galician birth registers
+// remain the most common starting point for new documents.
+var DEFAULT_TEMPLATE_ID = 'galicia_gc_birth';
 
 // ---------------------------------------------------------------------------
 // Template registry
@@ -61,8 +63,10 @@ function getSelectedTemplateId() {
     var props = PropertiesService.getDocumentProperties();
     var id = props.getProperty(TEMPLATE_ID_PROPERTY);
     if (!id) return DEFAULT_TEMPLATE_ID;
-    // OOB template
+    // OOB v1 template
     if (TEMPLATES[id]) return id;
+    // v2 template (TemplateSchemaV2)
+    if (typeof getRawTemplateV2 === 'function' && getRawTemplateV2(id)) return id;
     // Custom template — verify it exists
     if (id.indexOf(CUSTOM_ID_PREFIX) === 0) {
       if (resolveCustomTemplate(id)) return id;
@@ -75,7 +79,21 @@ function getSelectedTemplateId() {
 }
 
 function setSelectedTemplateId(id) {
-  if (!TEMPLATES[id] && id.indexOf(CUSTOM_ID_PREFIX) !== 0) {
+  // Auto-map legacy v1 IDs to their v2 successor so a stale dialog or
+  // hand-crafted call can't corrupt SELECTED_TEMPLATE_ID after migration.
+  if (typeof LEGACY_TO_V2_TEMPLATE_ID_MAP !== 'undefined' &&
+      LEGACY_TO_V2_TEMPLATE_ID_MAP &&
+      LEGACY_TO_V2_TEMPLATE_ID_MAP[id]) {
+    var mapped = LEGACY_TO_V2_TEMPLATE_ID_MAP[id];
+    if (mapped !== id) {
+      Logger.log('setSelectedTemplateId: legacy id ' + id + ' auto-mapped to ' + mapped);
+      id = mapped;
+    }
+  }
+  var isV1 = !!TEMPLATES[id];
+  var isV2Tpl = (typeof getRawTemplateV2 === 'function') && !!getRawTemplateV2(id);
+  var isCustom = id && id.indexOf(CUSTOM_ID_PREFIX) === 0;
+  if (!isV1 && !isV2Tpl && !isCustom) {
     throw new Error('Unknown template ID: ' + id);
   }
   PropertiesService.getDocumentProperties().setProperty(TEMPLATE_ID_PROPERTY, id);
@@ -146,6 +164,11 @@ function getSelectedTemplateLabelForClient() {
   var selectedId = getSelectedTemplateId();
   if (TEMPLATES[selectedId]) {
     return t('template.' + selectedId + '.label');
+  }
+  // v2 template (TemplateSchemaV2.gs) — read meta.label directly.
+  if (typeof getRawTemplateV2 === 'function') {
+    var v2 = getRawTemplateV2(selectedId);
+    if (v2 && v2.meta && v2.meta.label) return v2.meta.label;
   }
   if (selectedId && selectedId.indexOf(CUSTOM_ID_PREFIX) === 0) {
     var custom = resolveCustomTemplate(selectedId);

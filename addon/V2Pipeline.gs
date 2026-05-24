@@ -255,13 +255,24 @@ function prepareV2Request(doc) {
     compileOpts.translationEnabled = translationOverride;
   }
 
-  var compiled = compilePrompt(templateId, contextValues, compileOpts);
+  // For custom v2 templates, pass the resolved object directly so compilePrompt
+  // walks the inheritance chain through the user's custom config (which is not
+  // part of the registry).
+  var templateInput = templateId;
+  if (templateId.indexOf(CUSTOM_ID_PREFIX) === 0) {
+    var custom = (typeof resolveCustomTemplate === 'function') ? resolveCustomTemplate(templateId) : null;
+    if (custom && custom.schemaVersion === SCHEMA_VERSION_V2) {
+      templateInput = custom;
+    }
+  }
+  var compiled = compilePrompt(templateInput, contextValues, compileOpts);
   return {
     promptText: compiled.promptText,
     responseSchema: compiled.responseSchema,
     translationConfig: compiled.translationConfig,
     templateId: templateId,
-    resolvedTemplate: compiled.resolvedTemplate
+    resolvedTemplate: compiled.resolvedTemplate,
+    legacy: !!compiled.legacy
   };
 }
 
@@ -270,13 +281,19 @@ function prepareV2Request(doc) {
 // ---------------------------------------------------------------------------
 
 /**
- * Renders a Gemini JSON response into the document, immediately after the
- * element that contains the transcribed image. Returns the number of inserted
- * paragraphs (matches insertTranscriptionAfter's return for telemetry).
+ * Renders a Gemini response into the document, immediately after the element
+ * that contains the transcribed image. Returns the number of inserted body
+ * children (matches insertTranscriptionAfter's return for telemetry).
  *
- * Falls back to inserting raw text when the response can't be parsed as JSON.
+ * Behavior depends on `opts.legacy`:
+ *   - opts.legacy === true → response is plain text from a legacyPromptOverride
+ *     custom template; route through insertFormattedText (v1 markdown renderer).
+ *   - otherwise → parse JSON and render via DocsRenderer; fall back to
+ *     insertFormattedText if JSON parsing fails (defensive — Gemini sometimes
+ *     wraps responses in markdown fences even in JSON mode).
  */
-function renderV2Response(doc, elementContainingImage, responseText, templateId) {
+function renderV2Response(doc, elementContainingImage, responseText, templateId, opts) {
+  opts = opts || {};
   var body = doc.getBody();
   var currentElement = elementContainingImage;
   var parentElement = currentElement.getParent();
@@ -292,6 +309,10 @@ function renderV2Response(doc, elementContainingImage, responseText, templateId)
     insertIndex = body.getNumChildren() - 1;
   }
   insertIndex = insertIndex + 1;
+
+  if (opts.legacy && typeof insertFormattedText === 'function') {
+    return insertFormattedText(body, insertIndex, responseText);
+  }
 
   var parsed;
   try {

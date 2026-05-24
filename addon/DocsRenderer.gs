@@ -385,13 +385,14 @@ function insertColoredBoldHeading_(ctx, text, color) {
 }
 
 function insertLabeledLine_(ctx, label, value) {
+  if (!label) return; // skip silently — never insert a value-only line
   var prefix = label + ': ';
   var fullText = prefix + (value === undefined || value === null ? '' : String(value));
   var p = ctx.body.insertParagraph(ctx.index, fullText);
   var t = p.editAsText();
-  // Bold the label (including the colon).
-  var boldEnd = label.length; // index of the colon
-  if (boldEnd >= 0) {
+  // Bold the label (including the colon). setBold end-index is inclusive.
+  var boldEnd = label.length; // index of the colon character
+  if (boldEnd >= 0 && fullText.length > boldEnd) {
     t.setBold(0, boldEnd, true);
   }
   ctx.index++;
